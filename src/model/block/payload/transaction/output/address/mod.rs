@@ -27,6 +27,13 @@ pub enum Address {
     Nft(NftAddress),
 }
 
+impl Address {
+    /// Encodes this address to a bech32 string with the given Human Readable Part as prefix.
+    pub fn to_bech32(&self, bech32_hrp: &str) -> String {
+        iota::Address::from(*self).to_bech32(bech32_hrp)
+    }
+}
+
 impl From<iota::Address> for Address {
     fn from(value: iota::Address) -> Self {
         match value {

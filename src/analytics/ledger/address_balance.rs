@@ -7,7 +7,7 @@ use super::*;
 use crate::model::utxo::{Address, TokenAmount};
 
 #[derive(Debug)]
-pub(crate) struct AddressBalanceMeasurement {
+pub(crate) struct AddressesWithBalanceMeasurement {
     pub(crate) address_with_balance_count: usize,
     pub(crate) token_distribution: Vec<DistributionStat>,
 }
@@ -19,6 +19,13 @@ pub(crate) struct DistributionStat {
     pub(crate) address_count: u64,
     /// The total amount of tokens in this range.
     pub(crate) total_amount: TokenAmount,
+}
+
+/// Statistics for an address's balance.
+#[derive(Clone, Debug)]
+pub(crate) struct AddressBalanceMeasurement {
+    pub(crate) address: String,
+    pub(crate) balance: TokenAmount,
 }
 
 /// Computes the number of addresses the currently hold a balance.
@@ -41,7 +48,7 @@ impl AddressBalancesAnalytics {
 }
 
 impl Analytics for AddressBalancesAnalytics {
-    type Measurement = AddressBalanceMeasurement;
+    type Measurement = (AddressesWithBalanceMeasurement, Vec<AddressBalanceMeasurement>);
 
     fn handle_transaction(&mut self, consumed: &[LedgerSpent], created: &[LedgerOutput], _ctx: &dyn AnalyticsContext) {
         for output in consumed {
@@ -74,9 +81,24 @@ impl Analytics for AddressBalancesAnalytics {
             token_distribution[index].address_count += 1;
             token_distribution[index].total_amount += *amount;
         }
-        AddressBalanceMeasurement {
-            address_with_balance_count: self.balances.len(),
-            token_distribution,
-        }
+
+        let mut sorted_addresses = self.balances.iter().collect::<Vec<_>>();
+        sorted_addresses.sort_unstable_by_key(|(_, v)| v.0);
+        let bech32_hrp = &ctx.protocol_params().bech32_hrp;
+        (
+            AddressesWithBalanceMeasurement {
+                address_with_balance_count: self.balances.len(),
+                token_distribution,
+            },
+            sorted_addresses
+                .iter()
+                .rev()
+                .take(100)
+                .map(|(a, v)| AddressBalanceMeasurement {
+                    address: a.to_bech32(bech32_hrp),
+                    balance: **v,
+                })
+                .collect(),
+        )
     }
 }

@@ -7,7 +7,7 @@ use futures::TryStreamExt;
 use thiserror::Error;
 
 use self::{
-    influx::PrepareQuery,
+    influx::{PerMilestoneQuery, PrepareQuery},
     ledger::{
         AddressActivityAnalytics, AddressActivityMeasurement, AddressBalancesAnalytics, BaseTokenActivityMeasurement,
         LedgerOutputMeasurement, LedgerSizeAnalytics, OutputActivityMeasurement, TransactionSizeMeasurement,
@@ -75,12 +75,12 @@ pub trait Analytics {
 trait DynAnalytics: Send {
     fn handle_transaction(&mut self, consumed: &[LedgerSpent], created: &[LedgerOutput], ctx: &dyn AnalyticsContext);
     fn handle_block(&mut self, block_data: &BlockData, ctx: &dyn AnalyticsContext);
-    fn take_measurement(&mut self, ctx: &dyn AnalyticsContext) -> Box<dyn PrepareQuery>;
+    fn take_measurement(&mut self, ctx: &dyn AnalyticsContext) -> Box<dyn PerMilestoneQuery>;
 }
 
 impl<T: Analytics + Send> DynAnalytics for T
 where
-    PerMilestone<T::Measurement>: 'static + PrepareQuery,
+    T::Measurement: 'static + PerMilestoneQuery,
 {
     fn handle_transaction(&mut self, consumed: &[LedgerSpent], created: &[LedgerOutput], ctx: &dyn AnalyticsContext) {
         Analytics::handle_transaction(self, consumed, created, ctx)
@@ -90,11 +90,8 @@ where
         Analytics::handle_block(self, block_data, ctx)
     }
 
-    fn take_measurement(&mut self, ctx: &dyn AnalyticsContext) -> Box<dyn PrepareQuery> {
-        Box::new(PerMilestone {
-            at: *ctx.at(),
-            inner: Analytics::take_measurement(self, ctx),
-        }) as _
+    fn take_measurement(&mut self, ctx: &dyn AnalyticsContext) -> Box<dyn PerMilestoneQuery> {
+        Box::new(Analytics::take_measurement(self, ctx)) as _
     }
 }
 
@@ -172,26 +169,19 @@ impl Analytic {
     }
 }
 
-impl<T: AsMut<[Analytic]>> Analytics for T {
-    type Measurement = Vec<Box<dyn PrepareQuery>>;
+impl Analytics for Analytic {
+    type Measurement = Box<dyn PerMilestoneQuery>;
 
     fn handle_block(&mut self, block_data: &BlockData, ctx: &dyn AnalyticsContext) {
-        for analytic in self.as_mut().iter_mut() {
-            analytic.0.handle_block(block_data, ctx);
-        }
+        self.0.handle_block(block_data, ctx);
     }
 
     fn handle_transaction(&mut self, consumed: &[LedgerSpent], created: &[LedgerOutput], ctx: &dyn AnalyticsContext) {
-        for analytic in self.as_mut().iter_mut() {
-            analytic.0.handle_transaction(consumed, created, ctx);
-        }
+        self.0.handle_transaction(consumed, created, ctx);
     }
 
     fn take_measurement(&mut self, ctx: &dyn AnalyticsContext) -> Self::Measurement {
-        self.as_mut()
-            .iter_mut()
-            .map(|analytic| analytic.0.take_measurement(ctx))
-            .collect()
+        self.0.take_measurement(ctx)
     }
 }
 
@@ -230,7 +220,7 @@ impl<'a, I: InputSource> Milestone<'a, I> {
         influxdb: &InfluxDb,
     ) -> eyre::Result<()>
     where
-        PerMilestone<A::Measurement>: 'static + PrepareQuery,
+        A::Measurement: 'static + PerMilestoneQuery,
     {
         let mut cone_stream = self.cone_stream().await?;
 
@@ -239,7 +229,10 @@ impl<'a, I: InputSource> Milestone<'a, I> {
         }
 
         influxdb
-            .insert_measurement((analytics as &mut dyn DynAnalytics).take_measurement(self))
+            .insert_measurement(PerMilestone {
+                at: self.at,
+                inner: (analytics as &mut dyn DynAnalytics).take_measurement(self),
+            })
             .await?;
 
         Ok(())
@@ -380,7 +373,8 @@ mod test {
     use super::{
         ledger::{
             AddressActivityAnalytics, AddressActivityMeasurement, AddressBalanceMeasurement,
-            BaseTokenActivityMeasurement, LedgerSizeMeasurement, OutputActivityMeasurement, TransactionSizeMeasurement,
+            AddressesWithBalanceMeasurement, BaseTokenActivityMeasurement, LedgerSizeMeasurement,
+            OutputActivityMeasurement, TransactionSizeMeasurement,
         },
         tangle::{BlockActivityMeasurement, MilestoneSizeMeasurement},
         Analytics, AnalyticsContext,
@@ -463,7 +457,7 @@ mod test {
     #[derive(Debug)]
     struct TestMeasurements {
         active_addresses: AddressActivityMeasurement,
-        address_balance: AddressBalanceMeasurement,
+        address_balance: (AddressesWithBalanceMeasurement, Vec<AddressBalanceMeasurement>),
         base_tokens: BaseTokenActivityMeasurement,
         ledger_outputs: LedgerOutputMeasurement,
         ledger_size: LedgerSizeMeasurement,
@@ -543,7 +537,7 @@ mod test {
             }
             assert_expected!(analytics.active_addresses.count);
 
-            assert_expected!(analytics.address_balance.address_with_balance_count);
+            assert_expected!(analytics.address_balance.0.address_with_balance_count);
 
             assert_expected!(analytics.base_tokens.booked_amount.0);
             assert_expected!(analytics.base_tokens.transferred_amount.0);

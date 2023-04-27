@@ -7,14 +7,17 @@ use influxdb::{InfluxDbWriteable, WriteQuery};
 
 use super::{
     ledger::{
-        AddressActivityMeasurement, AddressBalanceMeasurement, BaseTokenActivityMeasurement, LedgerOutputMeasurement,
-        LedgerSizeMeasurement, OutputActivityMeasurement, TransactionSizeMeasurement, UnclaimedTokenMeasurement,
-        UnlockConditionMeasurement,
+        AddressActivityMeasurement, AddressBalanceMeasurement, AddressesWithBalanceMeasurement,
+        BaseTokenActivityMeasurement, LedgerOutputMeasurement, LedgerSizeMeasurement, OutputActivityMeasurement,
+        TransactionSizeMeasurement, UnclaimedTokenMeasurement, UnlockConditionMeasurement,
     },
     tangle::{BlockActivityMeasurement, MilestoneSizeMeasurement},
     AnalyticsInterval, PerInterval, PerMilestone,
 };
-use crate::{db::influxdb::InfluxDb, model::ProtocolParameters};
+use crate::{
+    db::influxdb::InfluxDb,
+    model::{payload::milestone::MilestoneIndexTimestamp, ProtocolParameters},
+};
 
 /// A trait that defines an InfluxDb measurement.
 trait Measurement {
@@ -46,7 +49,57 @@ impl<M: Measurement> AddFields<M> for WriteQuery {
     }
 }
 
-pub trait PrepareQuery: Send + Sync {
+pub trait PerMilestoneQuery: Send + Sync {
+    fn per_milestone_query(&self, at: MilestoneIndexTimestamp) -> Vec<WriteQuery>;
+}
+
+impl PerMilestoneQuery for Box<dyn PerMilestoneQuery> {
+    fn per_milestone_query(&self, at: MilestoneIndexTimestamp) -> Vec<WriteQuery> {
+        (&**self).per_milestone_query(at)
+    }
+}
+
+impl<M: Measurement + Send + Sync> PerMilestoneQuery for M {
+    fn per_milestone_query(&self, at: MilestoneIndexTimestamp) -> Vec<WriteQuery> {
+        vec![
+            influxdb::Timestamp::from(at.milestone_timestamp)
+                .into_query(M::NAME)
+                .add_field("milestone_index", at.milestone_index)
+                .add_fields(self),
+        ]
+    }
+}
+
+impl<T: PerMilestoneQuery + Send + Sync> PerMilestoneQuery for Vec<T> {
+    fn per_milestone_query(&self, at: MilestoneIndexTimestamp) -> Vec<WriteQuery> {
+        self.iter().flat_map(|inner| inner.per_milestone_query(at)).collect()
+    }
+}
+
+impl<T: PerMilestoneQuery + Send + Sync> PerMilestoneQuery for Option<T> {
+    fn per_milestone_query(&self, at: MilestoneIndexTimestamp) -> Vec<WriteQuery> {
+        self.iter().flat_map(|inner| inner.per_milestone_query(at)).collect()
+    }
+}
+
+macro_rules! impl_per_milestone_query_tuple {
+    ($($idx:tt $t:tt),+) => {
+        impl<$($t: PerMilestoneQuery + Send + Sync),*> PerMilestoneQuery for ($($t),*,)
+        {
+            fn per_milestone_query(&self, at: MilestoneIndexTimestamp) -> Vec<WriteQuery> {
+                let mut queries = Vec::new();
+                $(
+                    queries.extend(self.$idx.per_milestone_query(at));
+                )*
+                queries
+            }
+        }
+    };
+}
+// Right now we only need this one
+impl_per_milestone_query_tuple!(0 T0, 1 T1);
+
+pub(crate) trait PrepareQuery: Send + Sync {
     fn prepare_query(&self) -> Vec<WriteQuery>;
 }
 
@@ -56,35 +109,9 @@ impl<T: PrepareQuery + ?Sized> PrepareQuery for Box<T> {
     }
 }
 
-impl<M: Send + Sync> PrepareQuery for PerMilestone<M>
-where
-    M: Measurement,
-{
+impl<T: PerMilestoneQuery + Send + Sync> PrepareQuery for PerMilestone<T> {
     fn prepare_query(&self) -> Vec<WriteQuery> {
-        vec![
-            influxdb::Timestamp::from(self.at.milestone_timestamp)
-                .into_query(M::NAME)
-                .add_field("milestone_index", self.at.milestone_index)
-                .add_fields(&self.inner),
-        ]
-    }
-}
-
-impl<T: PrepareQuery> PrepareQuery for PerMilestone<Vec<T>> {
-    fn prepare_query(&self) -> Vec<WriteQuery> {
-        self.inner.iter().flat_map(|inner| inner.prepare_query()).collect()
-    }
-}
-
-impl<M: Send + Sync> PrepareQuery for PerMilestone<Option<M>>
-where
-    M: Measurement,
-{
-    fn prepare_query(&self) -> Vec<WriteQuery> {
-        self.inner
-            .iter()
-            .flat_map(|inner| PerMilestone { at: self.at, inner }.prepare_query())
-            .collect()
+        self.inner.per_milestone_query(self.at)
     }
 }
 
@@ -101,8 +128,8 @@ where
     }
 }
 
-impl Measurement for AddressBalanceMeasurement {
-    const NAME: &'static str = "stardust_addresses";
+impl Measurement for AddressesWithBalanceMeasurement {
+    const NAME: &'static str = "stardust_addresses_with_balance";
 
     fn add_fields(&self, query: WriteQuery) -> WriteQuery {
         let mut query = query.add_field("address_with_balance_count", self.address_with_balance_count as u64);
@@ -112,6 +139,16 @@ impl Measurement for AddressBalanceMeasurement {
                 .add_field(format!("total_amount_{index}"), stat.total_amount.0);
         }
         query
+    }
+}
+
+impl Measurement for AddressBalanceMeasurement {
+    const NAME: &'static str = "stardust_address_balance";
+
+    fn add_fields(&self, query: WriteQuery) -> WriteQuery {
+        query
+            .add_tag("address", self.address.clone())
+            .add_field("balance", self.balance.0)
     }
 }
 

@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 
 pub(super) use self::{
     active_addresses::{AddressActivityAnalytics, AddressActivityMeasurement},
-    address_balance::{AddressBalanceMeasurement, AddressBalancesAnalytics},
+    address_balance::{AddressBalanceMeasurement, AddressBalancesAnalytics, AddressesWithBalanceMeasurement},
     base_token::BaseTokenActivityMeasurement,
     ledger_outputs::LedgerOutputMeasurement,
     ledger_size::{LedgerSizeAnalytics, LedgerSizeMeasurement},
