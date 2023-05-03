@@ -17,6 +17,9 @@ pub struct InfluxDbArgs {
     /// The InfluxDb username.
     #[arg(long, value_name = "USERNAME", env = "INFLUXDB_USERNAME", default_value = influxdb::DEFAULT_USERNAME)]
     pub influxdb_username: String,
+    /// The maximum number of attempts pushing measurements to InfluxDb.
+    #[arg(long, value_name = "NUM", default_value_t = 3)]
+    pub influxdb_max_retries: usize,
     /// The InfluxDb password.
     #[arg(long, value_name = "PASSWORD", env = "INFLUXDB_PASSWORD", default_value = influxdb::DEFAULT_PASSWORD)]
     pub influxdb_password: String,
@@ -34,6 +37,7 @@ impl From<&InfluxDbArgs> for InfluxDbConfig {
             url: value.influxdb_url.clone(),
             username: value.influxdb_username.clone(),
             password: value.influxdb_password.clone(),
+            max_retries: value.influxdb_max_retries,
             #[cfg(feature = "analytics")]
             analytics_enabled: !value.analytics_args.disable_analytics,
             #[cfg(feature = "analytics")]

@@ -278,7 +278,7 @@ impl InxWorker {
     async fn handle_ledger_update<'a>(
         &mut self,
         milestone: Milestone<'a, Inx>,
-        #[cfg(feature = "analytics")] analytics_info: Option<&mut influx::analytics::AnalyticsInfo>,
+        #[cfg(feature = "analytics")] mut analytics_info: Option<&mut influx::analytics::AnalyticsInfo>,
     ) -> Result<()> {
         #[cfg(feature = "metrics")]
         let start_time = std::time::Instant::now();
@@ -317,14 +317,31 @@ impl InxWorker {
             .await?;
 
         #[cfg(feature = "influx")]
-        self.update_influx(
-            &milestone,
-            #[cfg(feature = "analytics")]
-            analytics_info,
-            #[cfg(feature = "metrics")]
-            start_time,
-        )
-        .await?;
+        if let Some(influx_db) = &self.influx_db {
+            let max_retries = influx_db.config().max_retries;
+            for i in 1..=max_retries {
+                if let Err(err) = self
+                    .update_influx(
+                        &milestone,
+                        #[cfg(feature = "analytics")]
+                        &mut analytics_info,
+                        #[cfg(feature = "metrics")]
+                        start_time,
+                    )
+                    .await
+                {
+                    if i < max_retries {
+                        // We wait a bit to give InfluxDb some time to accept new data.
+                        tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+                        tracing::warn!("Failed to update influx: {} more attempts", max_retries - i);
+                    } else {
+                        return Err(err);
+                    }
+                } else {
+                    break;
+                }
+            }
+        }
 
         // This acts as a checkpoint for the syncing and has to be done last, after everything else completed.
         self.db

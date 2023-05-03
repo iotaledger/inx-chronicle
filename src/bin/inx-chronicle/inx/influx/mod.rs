@@ -12,7 +12,7 @@ impl InxWorker {
     pub async fn update_influx<'a>(
         &self,
         milestone: &Milestone<'a, Inx>,
-        #[cfg(feature = "analytics")] analytics_info: Option<&mut analytics::AnalyticsInfo>,
+        #[cfg(feature = "analytics")] analytics_info: &mut Option<&mut analytics::AnalyticsInfo>,
         #[cfg(feature = "metrics")] milestone_start_time: std::time::Instant,
     ) -> eyre::Result<()> {
         #[cfg(all(feature = "analytics", feature = "metrics"))]

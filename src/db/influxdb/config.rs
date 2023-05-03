@@ -11,6 +11,8 @@ pub const DEFAULT_URL: &str = "http://localhost:8086";
 pub const DEFAULT_USERNAME: &str = "root";
 /// The default InfluxDb password.
 pub const DEFAULT_PASSWORD: &str = "password";
+/// The default number of attempts to push data to InfluxDb.
+pub const DEFAULT_MAX_RETRIES: usize = 3;
 /// The default whether to enable influx analytics writes.
 #[cfg(feature = "analytics")]
 pub const DEFAULT_ANALYTICS_ENABLED: bool = true;
@@ -34,6 +36,8 @@ pub struct InfluxDbConfig {
     pub username: String,
     /// The InfluxDb password.
     pub password: String,
+    /// The maximum number of attempts pushing measurements to InfluxDb.
+    pub max_retries: usize,
     /// Whether to enable influx analytics writes.
     #[cfg(feature = "analytics")]
     pub analytics_enabled: bool,
@@ -57,6 +61,7 @@ impl Default for InfluxDbConfig {
             url: DEFAULT_URL.to_string(),
             username: DEFAULT_USERNAME.to_string(),
             password: DEFAULT_PASSWORD.to_string(),
+            max_retries: DEFAULT_MAX_RETRIES,
             #[cfg(feature = "analytics")]
             analytics_enabled: DEFAULT_ANALYTICS_ENABLED,
             #[cfg(feature = "analytics")]
