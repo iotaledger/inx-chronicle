@@ -113,6 +113,8 @@ async fn main() -> eyre::Result<()> {
         });
     }
 
+    let mut exit_code = Ok(());
+
     // We wait for either the interrupt signal to arrive or for a component of our system to signal a shutdown.
     tokio::select! {
         res = process::interrupt_or_terminate() => {
@@ -125,6 +127,7 @@ async fn main() -> eyre::Result<()> {
         res = tasks.join_next() => {
             if let Some(Ok(Err(err))) = res {
                 tracing::error!("A worker failed with error: {err}");
+                exit_code = Err(err);
             }
         },
     }
@@ -147,7 +150,7 @@ async fn main() -> eyre::Result<()> {
         },
     }
 
-    Ok(())
+    exit_code
 }
 
 fn set_up_logging() -> eyre::Result<()> {
