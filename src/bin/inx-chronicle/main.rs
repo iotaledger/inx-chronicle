@@ -120,6 +120,7 @@ async fn main() -> eyre::Result<()> {
         res = process::interrupt_or_terminate() => {
             if let Err(err) = res {
                 tracing::error!("subscribing to OS interrupt signals failed with error: {err}; shutting down");
+                exit_code = Err(err);
             } else {
                 tracing::info!("received ctrl-c or terminate; shutting down");
             }
@@ -139,6 +140,7 @@ async fn main() -> eyre::Result<()> {
         res = process::interrupt_or_terminate() => {
             if let Err(err) = res {
                 tracing::error!("subscribing to OS interrupt signals failed with error: {err}; aborting");
+                exit_code = Err(err);
             } else {
                 tracing::info!("received second ctrl-c or terminate; aborting");
             }
