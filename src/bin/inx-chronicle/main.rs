@@ -127,7 +127,7 @@ async fn main() -> eyre::Result<()> {
         },
         res = tasks.join_next() => {
             if let Some(Ok(Err(err))) = res {
-                tracing::error!("A worker failed with error: {err}");
+                tracing::error!("a worker failed with error: {err}");
                 exit_code = Err(err);
             }
         },
@@ -145,10 +145,10 @@ async fn main() -> eyre::Result<()> {
                 tracing::info!("received second ctrl-c or terminate; aborting");
             }
             tasks.shutdown().await;
-            tracing::info!("Abort successful");
+            tracing::info!("all tasks successfully aborted");
         },
         _ = async { while tasks.join_next().await.is_some() {} } => {
-            tracing::info!("Shutdown successful");
+            tracing::info!("all tasks successfully resolved");
         },
     }
 
