@@ -145,10 +145,10 @@ async fn main() -> eyre::Result<()> {
                 tracing::info!("received second ctrl-c or terminate; aborting");
             }
             tasks.shutdown().await;
-            tracing::info!("all tasks successfully aborted");
+            tracing::info!("runtime successfully aborted");
         },
         _ = async { while tasks.join_next().await.is_some() {} } => {
-            tracing::info!("all tasks successfully resolved");
+            tracing::info!("runtime successfully stopped");
         },
     }
 
