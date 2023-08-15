@@ -82,9 +82,7 @@ impl TryFrom<ApiConfig> for ApiConfigData {
                 config.jwt_password.as_bytes(),
                 config.jwt_salt.as_bytes(),
                 &Into::into(&JwtArgonConfig::default()),
-            )
-            // TODO: Replace this once we switch to a better error lib
-            .expect("invalid JWT config"),
+            )?,
             jwt_password_salt: config.jwt_salt,
             jwt_secret_key: match &config.jwt_identity_file {
                 Some(path) => SecretKey::from_file(path)?,
@@ -200,7 +198,6 @@ impl<'a> From<&'a JwtArgonConfig> for argon2::Config<'a> {
             lanes: val.parallelism,
             mem_cost: val.mem_cost,
             secret: &[],
-            thread_mode: Default::default(),
             time_cost: val.iterations,
             variant: val.variant,
             version: val.version,

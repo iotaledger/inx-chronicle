@@ -201,6 +201,8 @@ pub enum ConfigError {
     InvalidHex(#[from] hex::FromHexError),
     #[error("invalid regex in config: {0}")]
     InvalidRegex(#[from] regex::Error),
+    #[error("invalid JWT config: {0}")]
+    Jwt(#[from] argon2::Error),
     #[error("invalid secret key: {0}")]
     SecretKey(#[from] super::secret_key::SecretKeyError),
 }

@@ -32,7 +32,7 @@ eyre = { version = "0.6", default-features = false, features = [ "track-caller",
 futures = { version = "0.3", default-features = false }
 humantime = { version = "2.1.0", default-features = false }
 humantime-serde = { version = "1.1", default-features = false }
-iota-crypto = { version = "0.17", default-features = false, features = [ "blake2b" ] }
+iota-crypto = { version = "0.23", default-features = false, features = [ "blake2b" ] }
 iota-types = { version = "1.0.0-rc.7", default-features = false, features = [ "api", "block", "std" ] }
 mongodb = { version = "2.4", default-features = false, features = [ "tokio-runtime" ] }
 packable = { version = "0.7", default-features = false }
@@ -60,16 +60,16 @@ influxdb = { version = "0.5", default-features = false, features = [ "use-serde"
 auth-helper = { version = "0.3", default-features = false, optional = true }
 axum = { version = "0.5", default-features = false, features = [ "http1", "json", "query", "original-uri", "headers" ], optional = true }
 ed25519 = { version = "2.0", default-features = false, features = [ "alloc", "pkcs8", "pem" ], optional = true }
-ed25519-dalek = { version = "1.0", default-features = false, features = [ "u64_backend" ], optional = true }
+ed25519-dalek = { version = "2.0", default-features = false, features = [ "std", "fast", "zeroize" ], optional = true }
 hex = { version = "0.4", default-features = false, optional = true }
 hyper = { version = "0.14", default-features = false, features = [ "server", "tcp", "stream" ], optional = true }
 rand = { version = "0.8", default-features = false, features = [ "std" ], optional = true }
 regex = { version = "1.7", default-features = false, features = [ "std" ], optional = true }
-rust-argon2 = { version = "1.0.0", default-features = false, optional = true }
+rust-argon2 = { version = "2.0.0", default-features = false, optional = true }
 serde_urlencoded = { version = "0.7", default-features = false, optional = true }
 tower = { version = "0.4", default-features = false, optional = true }
 tower-http = { version = "0.4", default-features = false, features = [ "cors", "catch-panic", "trace" ], optional = true }
-zeroize = { version = "1.5", default-features = false, features = [ "std" ], optional = true }
+zeroize = { version = "1.5", default-features = false, features = [ "std", "zeroize_derive" ], optional = true }
 
 # INX
 inx = { version = "1.0.0-beta.8", default-features = false, optional = true }
