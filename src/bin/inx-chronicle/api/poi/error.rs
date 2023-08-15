@@ -1,7 +1,7 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-use iota_types::block::payload::milestone::MilestoneValidationError;
+use iota_sdk::types::block::payload::milestone::MilestoneValidationError;
 use thiserror::Error;
 
 #[derive(Error, Debug)]

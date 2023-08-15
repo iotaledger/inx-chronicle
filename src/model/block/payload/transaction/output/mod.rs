@@ -18,7 +18,7 @@ pub mod unlock_condition;
 use std::{borrow::Borrow, str::FromStr};
 
 use crypto::hashes::{blake2b::Blake2b256, Digest};
-use iota_types::block::output as iota;
+use iota_sdk::types::block::output as iota;
 use mongodb::bson::{doc, Bson};
 use packable::PackableExt;
 use serde::{Deserialize, Serialize};
@@ -101,7 +101,7 @@ impl From<iota::OutputId> for OutputId {
 }
 
 impl TryFrom<OutputId> for iota::OutputId {
-    type Error = iota_types::block::Error;
+    type Error = iota_sdk::types::block::Error;
 
     fn try_from(value: OutputId) -> Result<Self, Self::Error> {
         iota::OutputId::new(value.transaction_id.into(), value.index)
@@ -109,7 +109,7 @@ impl TryFrom<OutputId> for iota::OutputId {
 }
 
 impl FromStr for OutputId {
-    type Err = iota_types::block::Error;
+    type Err = iota_sdk::types::block::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         Ok(iota::OutputId::from_str(s)?.into())
@@ -205,8 +205,8 @@ impl Output {
     }
 
     /// Converts the [`Output`] into its raw byte representation.
-    pub fn raw(self, ctx: ProtocolParameters) -> Result<Vec<u8>, iota_types::block::Error> {
-        let bee_output = iota_types::block::output::Output::try_from_with_context(&ctx.try_into()?, self)?;
+    pub fn raw(self, ctx: ProtocolParameters) -> Result<Vec<u8>, iota_sdk::types::block::Error> {
+        let bee_output = iota_sdk::types::block::output::Output::try_from_with_context(&ctx.try_into()?, self)?;
         Ok(bee_output.pack_to_vec())
     }
 
@@ -235,31 +235,33 @@ impl<T: Borrow<iota::Output>> From<T> for Output {
 }
 
 impl TryFromWithContext<Output> for iota::Output {
-    type Error = iota_types::block::Error;
+    type Error = iota_sdk::types::block::Error;
 
     fn try_from_with_context(
-        ctx: &iota_types::block::protocol::ProtocolParameters,
+        ctx: &iota_sdk::types::block::protocol::ProtocolParameters,
         value: Output,
     ) -> Result<Self, Self::Error> {
         Ok(match value {
             Output::Treasury(o) => iota::Output::Treasury(o.try_into_with_context(ctx)?),
             Output::Basic(o) => iota::Output::Basic(o.try_into_with_context(ctx)?),
-            Output::Alias(o) => iota::Output::Alias(o.try_into_with_context(ctx)?),
-            Output::Foundry(o) => iota::Output::Foundry(o.try_into_with_context(ctx)?),
+            Output::Alias(o) => iota::Output::Alias(o.try_into()?),
+            Output::Foundry(o) => iota::Output::Foundry(o.try_into()?),
             Output::Nft(o) => iota::Output::Nft(o.try_into_with_context(ctx)?),
         })
     }
 }
 
-impl From<Output> for iota::dto::OutputDto {
-    fn from(value: Output) -> Self {
-        match value {
+impl TryFrom<Output> for iota::dto::OutputDto {
+    type Error = iota_sdk::types::block::Error;
+
+    fn try_from(value: Output) -> Result<Self, Self::Error> {
+        Ok(match value {
             Output::Treasury(o) => Self::Treasury(o.into()),
-            Output::Basic(o) => Self::Basic(o.into()),
-            Output::Alias(o) => Self::Alias(o.into()),
-            Output::Foundry(o) => Self::Foundry(o.into()),
-            Output::Nft(o) => Self::Nft(o.into()),
-        }
+            Output::Basic(o) => Self::Basic(o.try_into()?),
+            Output::Alias(o) => Self::Alias(o.try_into()?),
+            Output::Foundry(o) => Self::Foundry(o.try_into()?),
+            Output::Nft(o) => Self::Nft(o.try_into()?),
+        })
     }
 }
 
@@ -305,13 +307,13 @@ impl From<Tag> for Bson {
 
 #[cfg(feature = "rand")]
 mod rand {
-    use iota_types::block::rand::{number::rand_number_range, output::rand_output_id};
+    use iota_sdk::types::block::rand::{number::rand_number_range, output::rand_output_id};
 
     use super::*;
 
     impl TokenAmount {
         /// Generates a random [`TokenAmount`].
-        pub fn rand(ctx: &iota_types::block::protocol::ProtocolParameters) -> Self {
+        pub fn rand(ctx: &iota_sdk::types::block::protocol::ProtocolParameters) -> Self {
             rand_number_range(iota::Output::AMOUNT_MIN..ctx.token_supply()).into()
         }
     }
@@ -325,7 +327,7 @@ mod rand {
 
     impl Output {
         /// Generates a random [`Output`].
-        pub fn rand(ctx: &iota_types::block::protocol::ProtocolParameters) -> Self {
+        pub fn rand(ctx: &iota_sdk::types::block::protocol::ProtocolParameters) -> Self {
             match rand_number_range(0..4) {
                 0 => Self::rand_basic(ctx),
                 1 => Self::rand_alias(ctx),
@@ -337,27 +339,27 @@ mod rand {
         }
 
         /// Generates a random basic [`Output`].
-        pub fn rand_basic(ctx: &iota_types::block::protocol::ProtocolParameters) -> Self {
+        pub fn rand_basic(ctx: &iota_sdk::types::block::protocol::ProtocolParameters) -> Self {
             Self::Basic(BasicOutput::rand(ctx))
         }
 
         /// Generates a random alias [`Output`].
-        pub fn rand_alias(ctx: &iota_types::block::protocol::ProtocolParameters) -> Self {
+        pub fn rand_alias(ctx: &iota_sdk::types::block::protocol::ProtocolParameters) -> Self {
             Self::Alias(AliasOutput::rand(ctx))
         }
 
         /// Generates a random nft [`Output`].
-        pub fn rand_nft(ctx: &iota_types::block::protocol::ProtocolParameters) -> Self {
+        pub fn rand_nft(ctx: &iota_sdk::types::block::protocol::ProtocolParameters) -> Self {
             Self::Nft(NftOutput::rand(ctx))
         }
 
         /// Generates a random foundry [`Output`].
-        pub fn rand_foundry(ctx: &iota_types::block::protocol::ProtocolParameters) -> Self {
+        pub fn rand_foundry(ctx: &iota_sdk::types::block::protocol::ProtocolParameters) -> Self {
             Self::Foundry(FoundryOutput::rand(ctx))
         }
 
         /// Generates a random treasury [`Output`].
-        pub fn rand_treasury(ctx: &iota_types::block::protocol::ProtocolParameters) -> Self {
+        pub fn rand_treasury(ctx: &iota_sdk::types::block::protocol::ProtocolParameters) -> Self {
             Self::Treasury(TreasuryOutput::rand(ctx))
         }
     }
@@ -378,7 +380,7 @@ mod test {
 
     #[test]
     fn test_basic_output_bson() {
-        let ctx = iota_types::block::protocol::protocol_parameters();
+        let ctx = iota_sdk::types::block::protocol::protocol_parameters();
         let output = Output::rand_basic(&ctx);
         iota::Output::try_from_with_context(&ctx, output.clone()).unwrap();
         let bson = to_bson(&output).unwrap();
@@ -388,7 +390,7 @@ mod test {
 
     #[test]
     fn test_alias_output_bson() {
-        let ctx = iota_types::block::protocol::protocol_parameters();
+        let ctx = iota_sdk::types::block::protocol::protocol_parameters();
         let output = Output::rand_alias(&ctx);
         iota::Output::try_from_with_context(&ctx, output.clone()).unwrap();
         let bson = to_bson(&output).unwrap();
@@ -398,7 +400,7 @@ mod test {
 
     #[test]
     fn test_nft_output_bson() {
-        let ctx = iota_types::block::protocol::protocol_parameters();
+        let ctx = iota_sdk::types::block::protocol::protocol_parameters();
         let output = Output::rand_nft(&ctx);
         iota::Output::try_from_with_context(&ctx, output.clone()).unwrap();
         let bson = to_bson(&output).unwrap();
@@ -408,7 +410,7 @@ mod test {
 
     #[test]
     fn test_foundry_output_bson() {
-        let ctx = iota_types::block::protocol::protocol_parameters();
+        let ctx = iota_sdk::types::block::protocol::protocol_parameters();
         let output = Output::rand_foundry(&ctx);
         iota::Output::try_from_with_context(&ctx, output.clone()).unwrap();
         let bson = to_bson(&output).unwrap();
@@ -421,7 +423,7 @@ mod test {
 
     #[test]
     fn test_treasury_output_bson() {
-        let ctx = iota_types::block::protocol::protocol_parameters();
+        let ctx = iota_sdk::types::block::protocol::protocol_parameters();
         let output = Output::rand_treasury(&ctx);
         iota::Output::try_from_with_context(&ctx, output.clone()).unwrap();
         let bson = to_bson(&output).unwrap();

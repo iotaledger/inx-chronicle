@@ -34,7 +34,7 @@ mod test {
 
     #[test]
     fn test_storage_deposit_unlock_bson() {
-        let ctx = iota_types::block::protocol::protocol_parameters();
+        let ctx = iota_sdk::types::block::protocol::protocol_parameters();
         let unlock = StorageDepositReturnUnlockCondition::rand(&ctx);
         let bson = to_bson(&unlock).unwrap();
         from_bson::<StorageDepositReturnUnlockCondition>(bson).unwrap();

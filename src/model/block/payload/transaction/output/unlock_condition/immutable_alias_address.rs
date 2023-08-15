@@ -5,7 +5,7 @@
 
 use std::borrow::Borrow;
 
-use iota_types::block::output::unlock_condition as iota;
+use iota_sdk::types::block::output::unlock_condition as iota;
 use serde::{Deserialize, Serialize};
 
 use crate::model::utxo::Address;
@@ -26,10 +26,10 @@ impl<T: Borrow<iota::ImmutableAliasAddressUnlockCondition>> From<T> for Immutabl
 }
 
 impl TryFrom<ImmutableAliasAddressUnlockCondition> for iota::ImmutableAliasAddressUnlockCondition {
-    type Error = iota_types::block::Error;
+    type Error = iota_sdk::types::block::Error;
 
     fn try_from(value: ImmutableAliasAddressUnlockCondition) -> Result<Self, Self::Error> {
-        use iota_types::block::address::Address as IotaAddress;
+        use iota_sdk::types::block::address::Address as IotaAddress;
         let address = IotaAddress::from(value.address);
         match address {
             IotaAddress::Alias(alias) => Ok(Self::new(alias)),

@@ -65,7 +65,7 @@ impl_internal_error!(
     axum::extract::rejection::ExtensionRejection,
     auth_helper::jwt::Error,
     argon2::Error,
-    iota_types::block::Error
+    iota_sdk::types::block::Error
 );
 
 impl IntoResponse for ApiError {
@@ -167,7 +167,7 @@ pub enum RequestError {
     BadTimeRange,
 
     #[error("invalid IOTA Stardust data: {0}")]
-    IotaStardust(#[from] iota_types::block::Error),
+    IotaStardust(#[from] iota_sdk::types::block::Error),
     #[error("invalid bool value provided: {0}")]
     Bool(#[from] ParseBoolError),
     #[error("invalid U256 value provided: {0}")]

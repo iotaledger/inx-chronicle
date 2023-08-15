@@ -3,7 +3,7 @@
 
 //! Module containing the [`Unlock`] types.
 
-use iota_types::block::unlock as iota;
+use iota_sdk::types::block::unlock as iota;
 use serde::{Deserialize, Serialize};
 
 use crate::model::signature::Signature;
@@ -48,11 +48,13 @@ impl From<&iota::Unlock> for Unlock {
 }
 
 impl TryFrom<Unlock> for iota::Unlock {
-    type Error = iota_types::block::Error;
+    type Error = iota_sdk::types::block::Error;
 
     fn try_from(value: Unlock) -> Result<Self, Self::Error> {
         Ok(match value {
-            Unlock::Signature { signature } => iota::Unlock::Signature(iota::SignatureUnlock::new(signature.into())),
+            Unlock::Signature { signature } => {
+                iota::Unlock::Signature(iota::SignatureUnlock::new(signature.try_into()?))
+            }
             Unlock::Reference { index } => iota::Unlock::Reference(iota::ReferenceUnlock::new(index)?),
             Unlock::Alias { index } => iota::Unlock::Alias(iota::AliasUnlock::new(index)?),
             Unlock::Nft { index } => iota::Unlock::Nft(iota::NftUnlock::new(index)?),
@@ -85,7 +87,7 @@ impl From<Unlock> for iota::dto::UnlockDto {
 
 #[cfg(feature = "rand")]
 mod rand {
-    use iota_types::block::{rand::number::rand_number_range, unlock::UNLOCK_INDEX_RANGE};
+    use iota_sdk::types::block::{rand::number::rand_number_range, unlock::UNLOCK_INDEX_RANGE};
 
     use super::*;
 

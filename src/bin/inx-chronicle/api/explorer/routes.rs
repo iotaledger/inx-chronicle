@@ -19,6 +19,7 @@ use chronicle::{
     },
 };
 use futures::{StreamExt, TryStreamExt};
+use iota_sdk::types::block::address::ToBech32Ext;
 
 use super::{
     extractors::{
@@ -267,10 +268,10 @@ async fn blocks_by_milestone_index(
         .map_ok(|rec| BlockPayloadTypeDto {
             block_id: rec.block_id.to_hex(),
             payload_kind: rec.payload_kind.map(|kind| match kind.as_str() {
-                TransactionPayload::KIND => iota_types::block::payload::TransactionPayload::KIND,
-                MilestonePayload::KIND => iota_types::block::payload::MilestonePayload::KIND,
-                TreasuryTransactionPayload::KIND => iota_types::block::payload::TreasuryTransactionPayload::KIND,
-                TaggedDataPayload::KIND => iota_types::block::payload::TaggedDataPayload::KIND,
+                TransactionPayload::KIND => iota_sdk::types::block::payload::TransactionPayload::KIND,
+                MilestonePayload::KIND => iota_sdk::types::block::payload::MilestonePayload::KIND,
+                TreasuryTransactionPayload::KIND => iota_sdk::types::block::payload::TreasuryTransactionPayload::KIND,
+                TaggedDataPayload::KIND => iota_sdk::types::block::payload::TaggedDataPayload::KIND,
                 _ => panic!("Unknown payload type."),
             }),
         })
@@ -334,14 +335,17 @@ async fn richest_addresses_ledger_analytics(
         .await?
         .ok_or(CorruptStateError::ProtocolParams)?
         .parameters
-        .bech32_hrp;
+        .bech32_hrp
+        .parse()?;
 
     Ok(RichestAddressesResponse {
         top: res
             .top
             .into_iter()
             .map(|stat| AddressStatDto {
-                address: iota_types::block::address::Address::from(stat.address).to_bech32(hrp.clone()),
+                address: iota_sdk::types::block::address::Address::from(stat.address)
+                    .to_bech32(hrp)
+                    .to_string(),
                 balance: stat.balance,
             })
             .collect(),

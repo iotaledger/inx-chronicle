@@ -4,7 +4,7 @@
 use std::{fmt, num::ParseIntError, ops, str::FromStr};
 
 use derive_more::{Add, Deref, DerefMut, Sub};
-use iota_types::block::payload::milestone as iota;
+use iota_sdk::types::block::payload::milestone as iota;
 use mongodb::bson::{doc, Bson};
 use serde::{Deserialize, Serialize};
 

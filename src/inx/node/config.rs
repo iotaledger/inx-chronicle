@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use inx::proto;
-use iota_types::block as iota;
+use iota_sdk::types::block as iota;
 
 use crate::{
     inx::InxError,

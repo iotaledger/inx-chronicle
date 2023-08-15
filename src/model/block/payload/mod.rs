@@ -5,7 +5,7 @@
 
 use std::borrow::Borrow;
 
-use iota_types::block::payload as iota;
+use iota_sdk::types::block::payload as iota;
 use serde::{Deserialize, Serialize};
 
 pub mod milestone;
@@ -47,10 +47,10 @@ impl<T: Borrow<iota::Payload>> From<T> for Payload {
 }
 
 impl TryFromWithContext<Payload> for iota::Payload {
-    type Error = iota_types::block::Error;
+    type Error = iota_sdk::types::block::Error;
 
     fn try_from_with_context(
-        ctx: &iota_types::block::protocol::ProtocolParameters,
+        ctx: &iota_sdk::types::block::protocol::ProtocolParameters,
         value: Payload,
     ) -> Result<Self, Self::Error> {
         Ok(match value {
@@ -64,26 +64,28 @@ impl TryFromWithContext<Payload> for iota::Payload {
     }
 }
 
-impl From<Payload> for iota::dto::PayloadDto {
-    fn from(value: Payload) -> Self {
-        match value {
-            Payload::Transaction(p) => Self::Transaction(Box::new((*p).into())),
+impl TryFrom<Payload> for iota::dto::PayloadDto {
+    type Error = iota_sdk::types::block::Error;
+
+    fn try_from(value: Payload) -> Result<Self, Self::Error> {
+        Ok(match value {
+            Payload::Transaction(p) => Self::Transaction(Box::new((*p).try_into()?)),
             Payload::Milestone(p) => Self::Milestone(Box::new((*p).into())),
             Payload::TreasuryTransaction(p) => Self::TreasuryTransaction(Box::new((*p).into())),
             Payload::TaggedData(p) => Self::TaggedData(Box::new((*p).into())),
-        }
+        })
     }
 }
 
 #[cfg(feature = "rand")]
 mod rand {
-    use iota_types::block::rand::number::rand_number_range;
+    use iota_sdk::types::block::rand::number::rand_number_range;
 
     use super::*;
 
     impl Payload {
         /// Generates a random [`Payload`].
-        pub fn rand(ctx: &iota_types::block::protocol::ProtocolParameters) -> Self {
+        pub fn rand(ctx: &iota_sdk::types::block::protocol::ProtocolParameters) -> Self {
             match rand_number_range(0..4) {
                 0 => Self::rand_transaction(ctx),
                 1 => Self::rand_milestone(ctx),
@@ -94,7 +96,7 @@ mod rand {
         }
 
         /// Generates a random, optional [`Payload`].
-        pub fn rand_opt(ctx: &iota_types::block::protocol::ProtocolParameters) -> Option<Self> {
+        pub fn rand_opt(ctx: &iota_sdk::types::block::protocol::ProtocolParameters) -> Option<Self> {
             match rand_number_range(0..5) {
                 0 => Self::rand_transaction(ctx).into(),
                 1 => Self::rand_milestone(ctx).into(),
@@ -106,12 +108,12 @@ mod rand {
         }
 
         /// Generates a random transaction [`Payload`].
-        pub fn rand_transaction(ctx: &iota_types::block::protocol::ProtocolParameters) -> Self {
+        pub fn rand_transaction(ctx: &iota_sdk::types::block::protocol::ProtocolParameters) -> Self {
             Self::Transaction(Box::new(TransactionPayload::rand(ctx)))
         }
 
         /// Generates a random milestone [`Payload`].
-        pub fn rand_milestone(ctx: &iota_types::block::protocol::ProtocolParameters) -> Self {
+        pub fn rand_milestone(ctx: &iota_sdk::types::block::protocol::ProtocolParameters) -> Self {
             Self::Milestone(Box::new(MilestonePayload::rand(ctx)))
         }
 
@@ -121,7 +123,7 @@ mod rand {
         }
 
         /// Generates a random treasury transaction [`Payload`].
-        pub fn rand_treasury_transaction(ctx: &iota_types::block::protocol::ProtocolParameters) -> Self {
+        pub fn rand_treasury_transaction(ctx: &iota_sdk::types::block::protocol::ProtocolParameters) -> Self {
             Self::TreasuryTransaction(Box::new(TreasuryTransactionPayload::rand(ctx)))
         }
     }
@@ -135,7 +137,7 @@ mod test {
 
     #[test]
     fn test_transaction_payload_bson() {
-        let ctx = iota_types::block::protocol::protocol_parameters();
+        let ctx = iota_sdk::types::block::protocol::protocol_parameters();
         let payload = Payload::rand_transaction(&ctx);
         let mut bson = to_bson(&payload).unwrap();
         // Need to re-add outputs as they are not serialized
@@ -156,7 +158,7 @@ mod test {
 
     #[test]
     fn test_milestone_payload_bson() {
-        let ctx = iota_types::block::protocol::protocol_parameters();
+        let ctx = iota_sdk::types::block::protocol::protocol_parameters();
         let payload = Payload::rand_milestone(&ctx);
         iota::Payload::try_from_with_context(&ctx, payload.clone()).unwrap();
         let bson = to_bson(&payload).unwrap();
@@ -169,7 +171,7 @@ mod test {
 
     #[test]
     fn test_treasury_transaction_payload_bson() {
-        let ctx = iota_types::block::protocol::protocol_parameters();
+        let ctx = iota_sdk::types::block::protocol::protocol_parameters();
         let payload = Payload::rand_treasury_transaction(&ctx);
         iota::Payload::try_from_with_context(&ctx, payload.clone()).unwrap();
         let bson = to_bson(&payload).unwrap();
@@ -182,7 +184,7 @@ mod test {
 
     #[test]
     fn test_tagged_data_payload_bson() {
-        let ctx = iota_types::block::protocol::protocol_parameters();
+        let ctx = iota_sdk::types::block::protocol::protocol_parameters();
         let payload = Payload::rand_tagged_data();
         iota::Payload::try_from_with_context(&ctx, payload.clone()).unwrap();
         let bson = to_bson(&payload).unwrap();

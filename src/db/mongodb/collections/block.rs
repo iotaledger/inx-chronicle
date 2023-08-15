@@ -158,7 +158,7 @@ impl BlockCollection {
         Ok(self
             .get_block_raw(block_id)
             .await?
-            .map(|raw| iota_types::block::Block::unpack_unverified(raw).unwrap().into()))
+            .map(|raw| iota_sdk::types::block::Block::unpack_unverified(raw).unwrap().into()))
     }
 
     /// Get the raw bytes of a [`Block`] by its [`BlockId`].
@@ -271,7 +271,7 @@ impl BlockCollection {
             .map_ok(|r| {
                 (
                     r.block_id,
-                    iota_types::block::Block::unpack_unverified(r.raw.clone())
+                    iota_sdk::types::block::Block::unpack_unverified(r.raw.clone())
                         .unwrap()
                         .into(),
                     r.raw,
@@ -327,7 +327,7 @@ impl BlockCollection {
         transaction_id: &TransactionId,
     ) -> Result<Option<IncludedBlockResult>, Error> {
         Ok(self.get_block_raw_for_transaction(transaction_id).await?.map(|raw| {
-            let block = iota_types::block::Block::unpack_unverified(raw).unwrap();
+            let block = iota_sdk::types::block::Block::unpack_unverified(raw).unwrap();
             IncludedBlockResult {
                 block_id: block.id().into(),
                 block: block.into(),
@@ -394,7 +394,7 @@ impl BlockCollection {
             None,
         )
         .await?
-        .map_ok(|RawResult { raw }| iota_types::block::Block::unpack_unverified(raw).unwrap().into())
+        .map_ok(|RawResult { raw }| iota_sdk::types::block::Block::unpack_unverified(raw).unwrap().into())
         .try_next()
         .await
     }

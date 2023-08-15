@@ -3,7 +3,7 @@
 
 #![allow(missing_docs)]
 
-use iota_types::block as iota;
+use iota_sdk::types::block as iota;
 use serde::{Deserialize, Serialize};
 
 use crate::model::stringify;
@@ -28,11 +28,10 @@ impl From<&iota::output::RentStructure> for RentStructure {
 
 impl From<RentStructure> for iota::output::RentStructure {
     fn from(value: RentStructure) -> Self {
-        Self::build()
-            .byte_cost(value.v_byte_cost)
-            .byte_factor_data(value.v_byte_factor_data)
-            .byte_factor_key(value.v_byte_factor_key)
-            .finish()
+        Self::default()
+            .with_byte_cost(value.v_byte_cost)
+            .with_byte_factor_data(value.v_byte_factor_data)
+            .with_byte_factor_key(value.v_byte_factor_key)
     }
 }
 
@@ -54,7 +53,7 @@ impl From<iota::protocol::ProtocolParameters> for ProtocolParameters {
         Self {
             version: value.protocol_version(),
             network_name: value.network_name().into(),
-            bech32_hrp: value.bech32_hrp().into(),
+            bech32_hrp: value.bech32_hrp().to_string(),
             min_pow_score: value.min_pow_score(),
             below_max_depth: value.below_max_depth(),
             rent_structure: value.rent_structure().into(),
@@ -64,7 +63,7 @@ impl From<iota::protocol::ProtocolParameters> for ProtocolParameters {
 }
 
 impl TryFrom<ProtocolParameters> for iota::protocol::ProtocolParameters {
-    type Error = iota_types::block::Error;
+    type Error = iota_sdk::types::block::Error;
 
     fn try_from(value: ProtocolParameters) -> Result<Self, Self::Error> {
         Self::new(

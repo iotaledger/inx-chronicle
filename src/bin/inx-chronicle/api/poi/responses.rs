@@ -1,7 +1,7 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-use iota_types::block::{payload::dto::MilestonePayloadDto, BlockDto};
+use iota_sdk::types::block::{payload::dto::MilestonePayloadDto, BlockDto};
 use serde::{Deserialize, Serialize};
 
 use super::merkle_proof::MerkleAuditPathDto;

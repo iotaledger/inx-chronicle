@@ -5,7 +5,7 @@
 
 use std::borrow::Borrow;
 
-use iota_types::block::payload as iota;
+use iota_sdk::types::block::payload as iota;
 use serde::{Deserialize, Serialize};
 
 use super::milestone::MilestoneId;
@@ -36,15 +36,15 @@ impl<T: Borrow<iota::TreasuryTransactionPayload>> From<T> for TreasuryTransactio
 }
 
 impl TryFromWithContext<TreasuryTransactionPayload> for iota::TreasuryTransactionPayload {
-    type Error = iota_types::block::Error;
+    type Error = iota_sdk::types::block::Error;
 
     fn try_from_with_context(
-        ctx: &iota_types::block::protocol::ProtocolParameters,
+        ctx: &iota_sdk::types::block::protocol::ProtocolParameters,
         value: TreasuryTransactionPayload,
     ) -> Result<Self, Self::Error> {
         Self::new(
-            iota_types::block::input::TreasuryInput::new(value.input_milestone_id.into()),
-            iota_types::block::output::TreasuryOutput::new(value.output_amount, ctx.token_supply())?,
+            iota_sdk::types::block::input::TreasuryInput::new(value.input_milestone_id.into()),
+            iota_sdk::types::block::output::TreasuryOutput::new(value.output_amount, ctx.token_supply())?,
         )
     }
 }
@@ -53,13 +53,15 @@ impl From<TreasuryTransactionPayload> for iota::dto::TreasuryTransactionPayloadD
     fn from(value: TreasuryTransactionPayload) -> Self {
         Self {
             kind: iota::TreasuryTransactionPayload::KIND,
-            input: iota_types::block::input::dto::InputDto::Treasury(iota_types::block::input::dto::TreasuryInputDto {
-                kind: iota_types::block::input::TreasuryInput::KIND,
-                milestone_id: value.input_milestone_id.to_hex(),
-            }),
-            output: iota_types::block::output::dto::OutputDto::Treasury(
-                iota_types::block::output::dto::TreasuryOutputDto {
-                    kind: iota_types::block::output::TreasuryOutput::KIND,
+            input: iota_sdk::types::block::input::dto::InputDto::Treasury(
+                iota_sdk::types::block::input::dto::TreasuryInputDto {
+                    kind: iota_sdk::types::block::input::TreasuryInput::KIND,
+                    milestone_id: value.input_milestone_id.to_hex(),
+                },
+            ),
+            output: iota_sdk::types::block::output::dto::OutputDto::Treasury(
+                iota_sdk::types::block::output::dto::TreasuryOutputDto {
+                    kind: iota_sdk::types::block::output::TreasuryOutput::KIND,
                     amount: value.output_amount.to_string(),
                 },
             ),
@@ -69,13 +71,13 @@ impl From<TreasuryTransactionPayload> for iota::dto::TreasuryTransactionPayloadD
 
 #[cfg(feature = "rand")]
 mod rand {
-    use iota_types::block::rand::payload::rand_treasury_transaction_payload;
+    use iota_sdk::types::block::rand::payload::rand_treasury_transaction_payload;
 
     use super::*;
 
     impl TreasuryTransactionPayload {
         /// Generates a random [`TreasuryTransactionPayload`].
-        pub fn rand(ctx: &iota_types::block::protocol::ProtocolParameters) -> Self {
+        pub fn rand(ctx: &iota_sdk::types::block::protocol::ProtocolParameters) -> Self {
             rand_treasury_transaction_payload(ctx.token_supply()).into()
         }
     }
@@ -89,7 +91,7 @@ mod test {
 
     #[test]
     fn test_treasury_transaction_payload_bson() {
-        let ctx = iota_types::block::protocol::protocol_parameters();
+        let ctx = iota_sdk::types::block::protocol::protocol_parameters();
         let payload = TreasuryTransactionPayload::rand(&ctx);
         iota::TreasuryTransactionPayload::try_from_with_context(&ctx, payload).unwrap();
         let bson = to_bson(&payload).unwrap();

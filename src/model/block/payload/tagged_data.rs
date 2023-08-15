@@ -5,7 +5,7 @@
 
 use std::borrow::Borrow;
 
-use iota_types::block::payload::tagged_data as iota;
+use iota_sdk::types::block::payload::tagged_data as iota;
 use serde::{Deserialize, Serialize};
 
 /// Represents the tagged data payload for data blocks.
@@ -32,10 +32,10 @@ impl<T: Borrow<iota::TaggedDataPayload>> From<T> for TaggedDataPayload {
 }
 
 impl TryFrom<TaggedDataPayload> for iota::TaggedDataPayload {
-    type Error = iota_types::block::Error;
+    type Error = iota_sdk::types::block::Error;
 
     fn try_from(value: TaggedDataPayload) -> Result<Self, Self::Error> {
-        iota::TaggedDataPayload::new(value.tag.into(), value.data.into())
+        iota::TaggedDataPayload::new(value.tag, value.data)
     }
 }
 
@@ -43,15 +43,15 @@ impl From<TaggedDataPayload> for iota::dto::TaggedDataPayloadDto {
     fn from(value: TaggedDataPayload) -> Self {
         Self {
             kind: iota::TaggedDataPayload::KIND,
-            tag: prefix_hex::encode(value.tag),
-            data: prefix_hex::encode(value.data),
+            tag: value.tag,
+            data: value.data,
         }
     }
 }
 
 #[cfg(feature = "rand")]
 mod rand {
-    use iota_types::block::rand::payload::rand_tagged_data_payload;
+    use iota_sdk::types::block::rand::payload::rand_tagged_data_payload;
 
     use super::*;
 

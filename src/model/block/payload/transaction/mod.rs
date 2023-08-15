@@ -5,7 +5,7 @@
 
 use std::{borrow::Borrow, str::FromStr};
 
-use iota_types::block::{output::InputsCommitment, payload::transaction as iota};
+use iota_sdk::types::block::{output::InputsCommitment, payload::transaction as iota};
 use mongodb::bson::{spec::BinarySubtype, Binary, Bson};
 use serde::{Deserialize, Serialize};
 
@@ -44,7 +44,7 @@ impl From<TransactionId> for iota::TransactionId {
 }
 
 impl FromStr for TransactionId {
-    type Err = iota_types::block::Error;
+    type Err = iota_sdk::types::block::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         Ok(iota::TransactionId::from_str(s)?.into())
@@ -89,15 +89,15 @@ impl<T: Borrow<iota::TransactionPayload>> From<T> for TransactionPayload {
 }
 
 impl TryFromWithContext<TransactionPayload> for iota::TransactionPayload {
-    type Error = iota_types::block::Error;
+    type Error = iota_sdk::types::block::Error;
 
     fn try_from_with_context(
-        ctx: &iota_types::block::protocol::ProtocolParameters,
+        ctx: &iota_sdk::types::block::protocol::ProtocolParameters,
         value: TransactionPayload,
     ) -> Result<Self, Self::Error> {
         iota::TransactionPayload::new(
             value.essence.try_into_with_context(ctx)?,
-            iota_types::block::unlock::Unlocks::new(
+            iota_sdk::types::block::unlock::Unlocks::new(
                 value
                     .unlocks
                     .into_vec()
@@ -109,13 +109,15 @@ impl TryFromWithContext<TransactionPayload> for iota::TransactionPayload {
     }
 }
 
-impl From<TransactionPayload> for iota::dto::TransactionPayloadDto {
-    fn from(value: TransactionPayload) -> Self {
-        Self {
+impl TryFrom<TransactionPayload> for iota::dto::TransactionPayloadDto {
+    type Error = iota_sdk::types::block::Error;
+
+    fn try_from(value: TransactionPayload) -> Result<Self, Self::Error> {
+        Ok(Self {
             kind: iota::TransactionPayload::KIND,
-            essence: value.essence.into(),
+            essence: value.essence.try_into()?,
             unlocks: value.unlocks.into_vec().into_iter().map(Into::into).collect(),
-        }
+        })
     }
 }
 
@@ -163,10 +165,10 @@ impl<T: Borrow<iota::TransactionEssence>> From<T> for TransactionEssence {
 }
 
 impl TryFromWithContext<TransactionEssence> for iota::TransactionEssence {
-    type Error = iota_types::block::Error;
+    type Error = iota_sdk::types::block::Error;
 
     fn try_from_with_context(
-        ctx: &iota_types::block::protocol::ProtocolParameters,
+        ctx: &iota_sdk::types::block::protocol::ProtocolParameters,
         value: TransactionEssence,
     ) -> Result<Self, Self::Error> {
         Ok(match value {
@@ -179,7 +181,7 @@ impl TryFromWithContext<TransactionEssence> for iota::TransactionEssence {
             } => {
                 let mut builder = iota::RegularTransactionEssence::builder(
                     ctx.network_id(),
-                    iota_types::block::output::InputsCommitment::from(inputs_commitment),
+                    iota_sdk::types::block::output::InputsCommitment::from(inputs_commitment),
                 )
                 .with_inputs(
                     inputs
@@ -196,17 +198,20 @@ impl TryFromWithContext<TransactionEssence> for iota::TransactionEssence {
                         .collect::<Result<Vec<_>, _>>()?,
                 );
                 if let Some(payload) = payload {
-                    builder = builder.with_payload(payload.try_into_with_context(ctx)?);
+                    let payload: iota_sdk::types::block::payload::Payload = payload.try_into_with_context(ctx)?;
+                    builder = builder.with_payload(payload);
                 }
-                iota::TransactionEssence::Regular(builder.finish(ctx)?)
+                iota::TransactionEssence::Regular(builder.finish()?)
             }
         })
     }
 }
 
-impl From<TransactionEssence> for iota::dto::TransactionEssenceDto {
-    fn from(value: TransactionEssence) -> Self {
-        match value {
+impl TryFrom<TransactionEssence> for iota::dto::TransactionEssenceDto {
+    type Error = iota_sdk::types::block::Error;
+
+    fn try_from(value: TransactionEssence) -> Result<Self, Self::Error> {
+        Ok(match value {
             TransactionEssence::Regular {
                 network_id,
                 inputs,
@@ -218,16 +223,20 @@ impl From<TransactionEssence> for iota::dto::TransactionEssenceDto {
                 network_id: network_id.to_string(),
                 inputs: inputs.into_vec().into_iter().map(Into::into).collect(),
                 inputs_commitment: prefix_hex::encode(inputs_commitment),
-                outputs: outputs.into_vec().into_iter().map(Into::into).collect(),
-                payload: payload.map(Into::into),
+                outputs: outputs
+                    .into_vec()
+                    .into_iter()
+                    .map(TryInto::try_into)
+                    .collect::<Result<Vec<_>, _>>()?,
+                payload: payload.map(TryInto::try_into).transpose()?,
             }),
-        }
+        })
     }
 }
 
 #[cfg(feature = "rand")]
 mod rand {
-    use iota_types::block::rand::{
+    use iota_sdk::types::block::rand::{
         bytes::rand_bytes_array,
         number::{rand_number, rand_number_range},
         output::rand_inputs_commitment,
@@ -244,7 +253,7 @@ mod rand {
 
     impl TransactionEssence {
         /// Generates a random [`TransactionEssence`].
-        pub fn rand(ctx: &iota_types::block::protocol::ProtocolParameters) -> Self {
+        pub fn rand(ctx: &iota_sdk::types::block::protocol::ProtocolParameters) -> Self {
             Self::Regular {
                 network_id: rand_number(),
                 inputs: std::iter::repeat_with(Input::rand)
@@ -265,7 +274,7 @@ mod rand {
 
     impl TransactionPayload {
         /// Generates a random [`TransactionPayload`].
-        pub fn rand(ctx: &iota_types::block::protocol::ProtocolParameters) -> Self {
+        pub fn rand(ctx: &iota_sdk::types::block::protocol::ProtocolParameters) -> Self {
             Self {
                 transaction_id: TransactionId::rand(),
                 essence: TransactionEssence::rand(ctx),
@@ -293,7 +302,7 @@ mod test {
 
     #[test]
     fn test_transaction_payload_bson() {
-        let ctx = iota_types::block::protocol::protocol_parameters();
+        let ctx = iota_sdk::types::block::protocol::protocol_parameters();
         let payload = TransactionPayload::rand(&ctx);
         let mut bson = to_bson(&payload).unwrap();
         // Need to re-add outputs as they are not serialized

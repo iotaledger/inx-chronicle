@@ -5,7 +5,7 @@
 
 use std::{borrow::Borrow, str::FromStr};
 
-use iota_types::block::output as iota;
+use iota_sdk::types::block::output as iota;
 use mongodb::bson::{spec::BinarySubtype, Binary, Bson};
 use serde::{Deserialize, Serialize};
 
@@ -15,7 +15,7 @@ use super::{
     unlock_condition::{GovernorAddressUnlockCondition, StateControllerAddressUnlockCondition},
     OutputId, TokenAmount,
 };
-use crate::model::{bytify, TryFromWithContext};
+use crate::model::bytify;
 
 /// Uniquely identifies an Alias.
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Hash)]
@@ -26,7 +26,7 @@ impl AliasId {
     const LENGTH: usize = iota::AliasId::LENGTH;
 
     /// The [`AliasId`] is derived from the [`OutputId`](super::OutputId) that created the alias.
-    pub fn from_output_id_str(s: &str) -> Result<Self, iota_types::block::Error> {
+    pub fn from_output_id_str(s: &str) -> Result<Self, iota_sdk::types::block::Error> {
         Ok(iota::AliasId::from(&iota::OutputId::from_str(s)?).into())
     }
 
@@ -48,12 +48,6 @@ impl From<AliasId> for iota::AliasId {
     }
 }
 
-impl From<AliasId> for iota::dto::AliasIdDto {
-    fn from(value: AliasId) -> Self {
-        Into::into(&iota::AliasId::from(value))
-    }
-}
-
 impl From<OutputId> for AliasId {
     fn from(value: OutputId) -> Self {
         Self(value.hash())
@@ -61,7 +55,7 @@ impl From<OutputId> for AliasId {
 }
 
 impl FromStr for AliasId {
-    type Err = iota_types::block::Error;
+    type Err = iota_sdk::types::block::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         Ok(iota::AliasId::from_str(s)?.into())
@@ -135,28 +129,22 @@ impl<T: Borrow<iota::AliasOutput>> From<T> for AliasOutput {
     }
 }
 
-impl TryFromWithContext<AliasOutput> for iota::AliasOutput {
-    type Error = iota_types::block::Error;
+impl TryFrom<AliasOutput> for iota::AliasOutput {
+    type Error = iota_sdk::types::block::Error;
 
-    fn try_from_with_context(
-        ctx: &iota_types::block::protocol::ProtocolParameters,
-        value: AliasOutput,
-    ) -> Result<Self, Self::Error> {
+    fn try_from(value: AliasOutput) -> Result<Self, Self::Error> {
         // The order of the conditions is important here because unlock conditions have to be sorted by type.
         let unlock_conditions = [
-            Some(
+            iota::unlock_condition::UnlockCondition::from(
                 iota::unlock_condition::StateControllerAddressUnlockCondition::from(
                     value.state_controller_address_unlock_condition,
-                )
+                ),
+            ),
+            iota::unlock_condition::GovernorAddressUnlockCondition::from(value.governor_address_unlock_condition)
                 .into(),
-            ),
-            Some(
-                iota::unlock_condition::GovernorAddressUnlockCondition::from(value.governor_address_unlock_condition)
-                    .into(),
-            ),
         ];
 
-        Self::build_with_amount(value.amount.0, value.alias_id.into())?
+        Self::build_with_amount(value.amount.0, value.alias_id.into())
             .with_native_tokens(
                 value
                     .native_tokens
@@ -166,16 +154,16 @@ impl TryFromWithContext<AliasOutput> for iota::AliasOutput {
                     .collect::<Result<Vec<_>, _>>()?,
             )
             .with_state_index(value.state_index)
-            .with_state_metadata(value.state_metadata.into())
+            .with_state_metadata(value.state_metadata)
             .with_foundry_counter(value.foundry_counter)
-            .with_unlock_conditions(unlock_conditions.into_iter().flatten())
+            .with_unlock_conditions(unlock_conditions)
             .with_features(
                 value
                     .features
                     .into_vec()
                     .into_iter()
                     .map(TryInto::try_into)
-                    .collect::<Result<Vec<_>, _>>()?,
+                    .collect::<Result<Vec<iota::feature::Feature>, _>>()?,
             )
             .with_immutable_features(
                 value
@@ -183,14 +171,16 @@ impl TryFromWithContext<AliasOutput> for iota::AliasOutput {
                     .into_vec()
                     .into_iter()
                     .map(TryInto::try_into)
-                    .collect::<Result<Vec<_>, _>>()?,
+                    .collect::<Result<Vec<iota::feature::Feature>, _>>()?,
             )
-            .finish(ctx.token_supply())
+            .finish()
     }
 }
 
-impl From<AliasOutput> for iota::dto::AliasOutputDto {
-    fn from(value: AliasOutput) -> Self {
+impl TryFrom<AliasOutput> for iota::dto::AliasOutputDto {
+    type Error = iota_sdk::types::block::Error;
+
+    fn try_from(value: AliasOutput) -> Result<Self, Self::Error> {
         let unlock_conditions = vec![
             iota::unlock_condition::dto::UnlockConditionDto::StateControllerAddress(
                 value.state_controller_address_unlock_condition.into(),
@@ -199,13 +189,18 @@ impl From<AliasOutput> for iota::dto::AliasOutputDto {
                 value.governor_address_unlock_condition.into(),
             ),
         ];
-        Self {
+        Ok(Self {
             kind: iota::AliasOutput::KIND,
             amount: value.amount.0.to_string(),
-            native_tokens: value.native_tokens.into_vec().into_iter().map(Into::into).collect(),
+            native_tokens: value
+                .native_tokens
+                .into_vec()
+                .into_iter()
+                .map(TryInto::try_into)
+                .collect::<Result<Vec<_>, _>>()?,
             alias_id: value.alias_id.into(),
             state_index: value.state_index,
-            state_metadata: prefix_hex::encode(value.state_metadata),
+            state_metadata: value.state_metadata,
             foundry_counter: value.foundry_counter,
             unlock_conditions,
             features: value.features.into_vec().into_iter().map(Into::into).collect(),
@@ -215,13 +210,13 @@ impl From<AliasOutput> for iota::dto::AliasOutputDto {
                 .into_iter()
                 .map(Into::into)
                 .collect(),
-        }
+        })
     }
 }
 
 #[cfg(feature = "rand")]
 mod rand {
-    use iota_types::block::rand::output::{rand_alias_id, rand_alias_output};
+    use iota_sdk::types::block::rand::output::{rand_alias_id, rand_alias_output};
 
     use super::*;
 
@@ -234,7 +229,7 @@ mod rand {
 
     impl AliasOutput {
         /// Generates a random [`AliasOutput`].
-        pub fn rand(ctx: &iota_types::block::protocol::ProtocolParameters) -> Self {
+        pub fn rand(ctx: &iota_sdk::types::block::protocol::ProtocolParameters) -> Self {
             rand_alias_output(ctx.token_supply()).into()
         }
     }
@@ -256,9 +251,9 @@ mod test {
 
     #[test]
     fn test_alias_output_bson() {
-        let ctx = iota_types::block::protocol::protocol_parameters();
+        let ctx = iota_sdk::types::block::protocol::protocol_parameters();
         let output = AliasOutput::rand(&ctx);
-        iota::AliasOutput::try_from_with_context(&ctx, output.clone()).unwrap();
+        iota::AliasOutput::try_from(output.clone()).unwrap();
         let bson = to_bson(&output).unwrap();
         assert_eq!(output, from_bson::<AliasOutput>(bson).unwrap());
     }

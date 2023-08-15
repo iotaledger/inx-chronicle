@@ -5,7 +5,7 @@
 
 use std::borrow::Borrow;
 
-use iota_types::block::output::unlock_condition as iota;
+use iota_sdk::types::block::output::unlock_condition as iota;
 use serde::{Deserialize, Serialize};
 
 use super::TokenAmount;
@@ -30,13 +30,13 @@ impl<T: Borrow<iota::StorageDepositReturnUnlockCondition>> From<T> for StorageDe
 }
 
 impl TryFromWithContext<StorageDepositReturnUnlockCondition> for iota::StorageDepositReturnUnlockCondition {
-    type Error = iota_types::block::Error;
+    type Error = iota_sdk::types::block::Error;
 
     fn try_from_with_context(
-        ctx: &iota_types::block::protocol::ProtocolParameters,
+        ctx: &iota_sdk::types::block::protocol::ProtocolParameters,
         value: StorageDepositReturnUnlockCondition,
     ) -> Result<Self, Self::Error> {
-        iota::StorageDepositReturnUnlockCondition::new(value.return_address.into(), value.amount.0, ctx.token_supply())
+        iota::StorageDepositReturnUnlockCondition::new(value.return_address, value.amount.0, ctx.token_supply())
     }
 }
 
@@ -56,7 +56,7 @@ mod rand {
 
     impl StorageDepositReturnUnlockCondition {
         /// Generates a random [`StorageDepositReturnUnlockCondition`].
-        pub fn rand(ctx: &iota_types::block::protocol::ProtocolParameters) -> Self {
+        pub fn rand(ctx: &iota_sdk::types::block::protocol::ProtocolParameters) -> Self {
             Self {
                 return_address: Address::rand_ed25519(),
                 amount: TokenAmount::rand(ctx),

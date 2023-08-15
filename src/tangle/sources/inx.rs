@@ -43,7 +43,7 @@ impl InputSource for Inx {
                     let mut inx = inx.clone();
                     async move {
                         let node_config = inx.read_node_configuration().await?.into();
-                        let payload = if let iota_types::block::payload::Payload::Milestone(payload) =
+                        let payload = if let iota_sdk::types::block::payload::Payload::Milestone(payload) =
                             msg.milestone.milestone.inner_unverified()?
                         {
                             payload.into()

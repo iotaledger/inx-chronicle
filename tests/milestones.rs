@@ -17,7 +17,7 @@ mod test_rand {
         let db = setup_database("test-milestones").await.unwrap();
         let milestone_collection = setup_collection::<MilestoneCollection>(&db).await.unwrap();
 
-        let milestone = MilestonePayload::rand(&iota_types::block::protocol::protocol_parameters());
+        let milestone = MilestonePayload::rand(&iota_sdk::types::block::protocol::protocol_parameters());
         let milestone_id = MilestoneId::rand();
 
         milestone_collection

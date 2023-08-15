@@ -3,7 +3,7 @@
 
 use std::str::FromStr;
 
-use iota_types::block::payload::milestone as iota;
+use iota_sdk::types::block::payload::milestone as iota;
 use mongodb::bson::{spec::BinarySubtype, Binary, Bson};
 use serde::{Deserialize, Serialize};
 
@@ -37,7 +37,7 @@ impl From<MilestoneId> for iota::MilestoneId {
 }
 
 impl FromStr for MilestoneId {
-    type Err = iota_types::block::Error;
+    type Err = iota_sdk::types::block::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         Ok(iota::MilestoneId::from_str(s)?.into())
@@ -56,7 +56,7 @@ impl From<MilestoneId> for Bson {
 
 #[cfg(feature = "rand")]
 mod rand {
-    use iota_types::block::rand::milestone::rand_milestone_id;
+    use iota_sdk::types::block::rand::milestone::rand_milestone_id;
 
     use super::*;
 

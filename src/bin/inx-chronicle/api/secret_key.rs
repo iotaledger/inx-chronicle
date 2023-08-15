@@ -1,7 +1,8 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-use ed25519::pkcs8::{DecodePrivateKey, KeypairBytes};
+use crypto::signatures::ed25519::SecretKey as CryptoKey;
+use ed25519_zebra::ed25519::{pkcs8::DecodePrivateKey, KeypairBytes};
 use thiserror::Error;
 use zeroize::Zeroize;
 
@@ -9,20 +10,18 @@ use zeroize::Zeroize;
 pub enum SecretKeyError {
     #[error("failed to read file: {0}")]
     FileRead(#[from] std::io::Error),
-    #[error("failed to decode key: {0}")]
-    Decode(ed25519_dalek::SignatureError),
     #[error("failed to read key bytes")]
     Read,
 }
 
 /// An Ed25519 secret key.
-#[derive(Clone, Zeroize)]
-pub struct SecretKey(ed25519_dalek::SecretKey);
+#[derive(Clone)]
+pub struct SecretKey(CryptoKey);
 
 /// View the bytes of the secret key.
 impl AsRef<[u8]> for SecretKey {
     fn as_ref(&self) -> &[u8] {
-        &self.0
+        self.0.as_slice()
     }
 }
 
@@ -42,14 +41,16 @@ impl SecretKey {
     }
 
     /// Create an Ed25519 secret key from a 32 byte array.
-    pub fn from_bytes(sk_bytes: ed25519_dalek::SecretKey) -> Self {
-        Self(sk_bytes)
+    pub fn from_bytes(mut sk_bytes: [u8; CryptoKey::LENGTH]) -> Self {
+        let key = CryptoKey::from_bytes(&sk_bytes);
+        sk_bytes.zeroize();
+        Self(key)
     }
 
     /// Create an Ed25519 secret key from a PEM file.
     pub fn from_file(path: &str) -> Result<Self, SecretKeyError> {
         let bytes = KeypairBytes::from_pkcs8_pem(&std::fs::read_to_string(std::path::Path::new(path))?)
             .map_err(|_| SecretKeyError::Read)?;
-        Ok(Self(bytes.secret_key))
+        Ok(Self::from_bytes(bytes.secret_key))
     }
 }

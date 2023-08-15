@@ -3,7 +3,7 @@
 
 //! Module containing the [`Input`] type.
 
-use iota_types::block::input as iota;
+use iota_sdk::types::block::input as iota;
 use serde::{Deserialize, Serialize};
 
 use super::output::OutputId;
@@ -34,7 +34,7 @@ impl From<&iota::Input> for Input {
 }
 
 impl TryFrom<Input> for iota::Input {
-    type Error = iota_types::block::Error;
+    type Error = iota_sdk::types::block::Error;
 
     fn try_from(value: Input) -> Result<Self, Self::Error> {
         Ok(match value {
@@ -63,7 +63,7 @@ impl From<Input> for iota::dto::InputDto {
 #[cfg(feature = "rand")]
 mod rand {
 
-    use iota_types::block::rand::{
+    use iota_sdk::types::block::rand::{
         input::{rand_treasury_input, rand_utxo_input},
         number::rand_number_range,
     };

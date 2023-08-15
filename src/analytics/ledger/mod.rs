@@ -80,14 +80,14 @@ mod test {
 
     fn rand_output_with_amount(amount: TokenAmount) -> Output {
         // We use `BasicOutput`s in the genesis.
-        let mut output = BasicOutput::rand(&iota_types::block::protocol::protocol_parameters());
+        let mut output = BasicOutput::rand(&iota_sdk::types::block::protocol::protocol_parameters());
         output.amount = amount;
         Output::Basic(output)
     }
 
     #[test]
     fn test_claiming() {
-        let protocol_params = iota_types::block::protocol::protocol_parameters();
+        let protocol_params = iota_sdk::types::block::protocol::protocol_parameters();
 
         // All the unclaimed tokens
         let ledger_state = (1u32..=5)
@@ -170,7 +170,7 @@ mod test {
 
     #[test]
     fn test_alias_output_activity() {
-        let protocol_params = iota_types::block::protocol::protocol_parameters();
+        let protocol_params = iota_sdk::types::block::protocol::protocol_parameters();
 
         // The id of the spending transaction.
         let transaction_id = TransactionId::rand();
@@ -275,7 +275,7 @@ mod test {
 
     #[test]
     fn test_nft_output_activity() {
-        let protocol_params = iota_types::block::protocol::protocol_parameters();
+        let protocol_params = iota_sdk::types::block::protocol::protocol_parameters();
 
         // The id of the spending transaction.
         let transaction_id = TransactionId::rand();
@@ -434,28 +434,23 @@ mod test {
         assert_eq!(output_activity_measurement.nft.destroyed_count, 0);
     }
 
-    fn rand_output_with_address_and_amount(
-        address: Address,
-        amount: u64,
-        ctx: &iota_types::block::protocol::ProtocolParameters,
-    ) -> Output {
-        use iota_types::block::{
+    fn rand_output_with_address_and_amount(address: Address, amount: u64) -> Output {
+        use iota_sdk::types::block::{
             address::Address,
             output::{unlock_condition::AddressUnlockCondition, BasicOutput},
             rand::output::feature::rand_allowed_features,
         };
         let output = BasicOutput::build_with_amount(amount)
-            .unwrap()
             .with_features(rand_allowed_features(BasicOutput::ALLOWED_FEATURES))
-            .add_unlock_condition(AddressUnlockCondition::from(Address::from(address)).into())
-            .finish(ctx.token_supply())
+            .add_unlock_condition(AddressUnlockCondition::from(Address::from(address)))
+            .finish()
             .unwrap();
         Output::Basic(output.into())
     }
 
     #[test]
     fn test_base_tokens() {
-        let protocol_params = iota_types::block::protocol::protocol_parameters();
+        let protocol_params = iota_sdk::types::block::protocol::protocol_parameters();
 
         let address_1 = Address::rand_ed25519();
         let address_2 = Address::rand_ed25519();
@@ -483,7 +478,7 @@ mod test {
                     num_key_bytes: 0,
                     num_data_bytes: 100,
                 },
-                output: rand_output_with_address_and_amount(address, amount, &protocol_params),
+                output: rand_output_with_address_and_amount(address, amount),
                 block_id: BlockId::rand(),
                 booked: milestone,
             })
@@ -495,7 +490,7 @@ mod test {
                 num_key_bytes: 0,
                 num_data_bytes: 100,
             },
-            output: rand_output_with_address_and_amount(address, amount, &protocol_params),
+            output: rand_output_with_address_and_amount(address, amount),
             block_id: BlockId::rand(),
             booked: milestone,
         };

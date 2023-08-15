@@ -9,7 +9,7 @@ mod milestone_timestamp;
 
 use std::borrow::Borrow;
 
-use iota_types::block::payload::milestone as iota;
+use iota_sdk::types::block::payload::milestone as iota;
 use serde::{Deserialize, Serialize};
 
 pub use self::{milestone_id::MilestoneId, milestone_index::MilestoneIndex, milestone_timestamp::MilestoneTimestamp};
@@ -57,10 +57,10 @@ impl<T: Borrow<iota::MilestonePayload>> From<T> for MilestonePayload {
 }
 
 impl TryFromWithContext<MilestonePayload> for iota::MilestonePayload {
-    type Error = iota_types::block::Error;
+    type Error = iota_sdk::types::block::Error;
 
     fn try_from_with_context(
-        ctx: &iota_types::block::protocol::ProtocolParameters,
+        ctx: &iota_sdk::types::block::protocol::ProtocolParameters,
         value: MilestonePayload,
     ) -> Result<Self, Self::Error> {
         iota::MilestonePayload::new(
@@ -69,8 +69,8 @@ impl TryFromWithContext<MilestonePayload> for iota::MilestonePayload {
                 .signatures
                 .into_vec()
                 .into_iter()
-                .map(Into::into)
-                .collect::<Vec<_>>(),
+                .map(TryInto::try_into)
+                .collect::<Result<Vec<_>, _>>()?,
         )
     }
 }
@@ -93,7 +93,7 @@ impl From<MilestonePayload> for iota::dto::MilestonePayloadDto {
             inclusion_merkle_root: prefix_hex::encode(value.essence.inclusion_merkle_root),
             applied_merkle_root: prefix_hex::encode(value.essence.applied_merkle_root),
             options: value.essence.options.into_vec().into_iter().map(Into::into).collect(),
-            metadata: prefix_hex::encode(value.essence.metadata),
+            metadata: value.essence.metadata.into_boxed_slice(),
             signatures: value.signatures.into_vec().into_iter().map(Into::into).collect(),
         }
     }
@@ -147,10 +147,10 @@ impl<T: Borrow<iota::MilestoneEssence>> From<T> for MilestoneEssence {
 }
 
 impl TryFromWithContext<MilestoneEssence> for iota::MilestoneEssence {
-    type Error = iota_types::block::Error;
+    type Error = iota_sdk::types::block::Error;
 
     fn try_from_with_context(
-        ctx: &iota_types::block::protocol::ProtocolParameters,
+        ctx: &iota_sdk::types::block::protocol::ProtocolParameters,
         value: MilestoneEssence,
     ) -> Result<Self, Self::Error> {
         iota::MilestoneEssence::new(
@@ -158,19 +158,19 @@ impl TryFromWithContext<MilestoneEssence> for iota::MilestoneEssence {
             value.timestamp.0,
             value.protocol_version,
             value.previous_milestone_id.into(),
-            iota_types::block::parent::Parents::new(
-                value.parents.into_vec().into_iter().map(Into::into).collect::<Vec<_>>(),
+            iota_sdk::types::block::parent::Parents::from_vec(
+                value.parents.into_vec().into_iter().map(Into::into).collect(),
             )?,
-            iota_types::block::payload::milestone::MerkleRoot::from(value.inclusion_merkle_root),
-            iota_types::block::payload::milestone::MerkleRoot::from(value.applied_merkle_root),
+            iota_sdk::types::block::payload::milestone::MerkleRoot::from(value.inclusion_merkle_root),
+            iota_sdk::types::block::payload::milestone::MerkleRoot::from(value.applied_merkle_root),
             value.metadata,
-            iota_types::block::payload::MilestoneOptions::new(
+            iota_sdk::types::block::payload::MilestoneOptions::from_vec(
                 value
                     .options
                     .into_vec()
                     .into_iter()
                     .map(|x| x.try_into_with_context(ctx))
-                    .collect::<Result<Vec<_>, _>>()?,
+                    .collect::<Result<_, _>>()?,
             )?,
         )
     }
@@ -221,10 +221,10 @@ impl<T: Borrow<iota::MilestoneOption>> From<T> for MilestoneOption {
 }
 
 impl TryFromWithContext<MilestoneOption> for iota::MilestoneOption {
-    type Error = iota_types::block::Error;
+    type Error = iota_sdk::types::block::Error;
 
     fn try_from_with_context(
-        ctx: &iota_types::block::protocol::ProtocolParameters,
+        ctx: &iota_sdk::types::block::protocol::ProtocolParameters,
         value: MilestoneOption,
     ) -> Result<Self, Self::Error> {
         Ok(match value {
@@ -269,7 +269,7 @@ impl From<MilestoneOption> for iota::option::dto::MilestoneOptionDto {
                 kind: iota::option::ReceiptMilestoneOption::KIND,
                 migrated_at: migrated_at.0,
                 funds: funds.into_vec().into_iter().map(Into::into).collect(),
-                transaction: iota_types::block::payload::dto::PayloadDto::TreasuryTransaction(Box::new(
+                transaction: iota_sdk::types::block::payload::dto::PayloadDto::TreasuryTransaction(Box::new(
                     transaction.into(),
                 )),
                 last,
@@ -282,7 +282,7 @@ impl From<MilestoneOption> for iota::option::dto::MilestoneOptionDto {
                 kind: iota::option::ParametersMilestoneOption::KIND,
                 target_milestone_index: target_milestone_index.0,
                 protocol_version,
-                binary_parameters: prefix_hex::encode(binary_parameters),
+                binary_parameters,
             }),
         }
     }
@@ -318,10 +318,10 @@ impl<T: Borrow<iota::option::MigratedFundsEntry>> From<T> for MigratedFundsEntry
 }
 
 impl TryFromWithContext<MigratedFundsEntry> for iota::option::MigratedFundsEntry {
-    type Error = iota_types::block::Error;
+    type Error = iota_sdk::types::block::Error;
 
     fn try_from_with_context(
-        ctx: &iota_types::block::protocol::ProtocolParameters,
+        ctx: &iota_sdk::types::block::protocol::ProtocolParameters,
         value: MigratedFundsEntry,
     ) -> Result<Self, Self::Error> {
         Self::new(
@@ -345,7 +345,7 @@ impl From<MigratedFundsEntry> for iota::option::dto::MigratedFundsEntryDto {
 
 #[cfg(feature = "rand")]
 mod rand {
-    use iota_types::block::rand::{
+    use iota_sdk::types::block::rand::{
         bytes::rand_bytes, milestone::rand_merkle_root, milestone_option::rand_receipt_milestone_option,
         number::rand_number, payload::rand_milestone_payload, receipt::rand_migrated_funds_entry,
     };
@@ -354,14 +354,14 @@ mod rand {
 
     impl MilestonePayload {
         /// Generates a random [`MilestonePayload`].
-        pub fn rand(ctx: &iota_types::block::protocol::ProtocolParameters) -> Self {
+        pub fn rand(ctx: &iota_sdk::types::block::protocol::ProtocolParameters) -> Self {
             rand_milestone_payload(ctx.protocol_version()).into()
         }
     }
 
     impl MilestoneEssence {
         /// Generates a random [`MilestoneEssence`].
-        pub fn rand(ctx: &iota_types::block::protocol::ProtocolParameters) -> Self {
+        pub fn rand(ctx: &iota_sdk::types::block::protocol::ProtocolParameters) -> Self {
             Self {
                 index: rand_number::<u32>().into(),
                 timestamp: rand_number::<u32>().into(),
@@ -378,7 +378,7 @@ mod rand {
 
     impl MilestoneOption {
         /// Generates a random receipt [`MilestoneOption`].
-        pub fn rand_receipt(ctx: &iota_types::block::protocol::ProtocolParameters) -> Self {
+        pub fn rand_receipt(ctx: &iota_sdk::types::block::protocol::ProtocolParameters) -> Self {
             iota::MilestoneOption::from(rand_receipt_milestone_option(ctx.token_supply())).into()
         }
 
@@ -394,7 +394,7 @@ mod rand {
 
     impl MigratedFundsEntry {
         /// Generates a random [`MigratedFundsEntry`].
-        pub fn rand(ctx: &iota_types::block::protocol::ProtocolParameters) -> Self {
+        pub fn rand(ctx: &iota_sdk::types::block::protocol::ProtocolParameters) -> Self {
             rand_migrated_funds_entry(ctx.token_supply()).into()
         }
     }
@@ -416,7 +416,7 @@ mod test {
 
     #[test]
     fn test_milestone_payload_bson() {
-        let ctx = iota_types::block::protocol::protocol_parameters();
+        let ctx = iota_sdk::types::block::protocol::protocol_parameters();
         let payload = MilestonePayload::rand(&ctx);
         iota::MilestonePayload::try_from_with_context(&ctx, payload.clone()).unwrap();
         let bson = to_bson(&payload).unwrap();

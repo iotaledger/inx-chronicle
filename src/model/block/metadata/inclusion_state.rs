@@ -1,7 +1,7 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-use iota_types::api::core::dto as iota;
+use iota_sdk::types::api::core::response as iota;
 use mongodb::bson::Bson;
 use serde::{Deserialize, Serialize};
 
@@ -24,17 +24,17 @@ impl From<LedgerInclusionState> for Bson {
     }
 }
 
-impl From<iota::LedgerInclusionStateDto> for LedgerInclusionState {
-    fn from(value: iota::LedgerInclusionStateDto) -> Self {
+impl From<iota::LedgerInclusionState> for LedgerInclusionState {
+    fn from(value: iota::LedgerInclusionState) -> Self {
         match value {
-            iota::LedgerInclusionStateDto::Conflicting => Self::Conflicting,
-            iota::LedgerInclusionStateDto::Included => Self::Included,
-            iota::LedgerInclusionStateDto::NoTransaction => Self::NoTransaction,
+            iota::LedgerInclusionState::Conflicting => Self::Conflicting,
+            iota::LedgerInclusionState::Included => Self::Included,
+            iota::LedgerInclusionState::NoTransaction => Self::NoTransaction,
         }
     }
 }
 
-impl From<LedgerInclusionState> for iota::LedgerInclusionStateDto {
+impl From<LedgerInclusionState> for iota::LedgerInclusionState {
     fn from(value: LedgerInclusionState) -> Self {
         match value {
             LedgerInclusionState::Conflicting => Self::Conflicting,

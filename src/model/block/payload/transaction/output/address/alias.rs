@@ -3,7 +3,7 @@
 
 use std::str::FromStr;
 
-use iota_types::block::address as iota;
+use iota_sdk::types::block::address as iota;
 use mongodb::bson::Bson;
 use serde::{Deserialize, Serialize};
 
@@ -33,7 +33,7 @@ impl From<AliasAddress> for iota::dto::AliasAddressDto {
 }
 
 impl FromStr for AliasAddress {
-    type Err = iota_types::block::Error;
+    type Err = iota_sdk::types::block::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         Ok(iota::AliasAddress::from_str(s)?.into())
@@ -49,7 +49,7 @@ impl From<AliasAddress> for Bson {
 
 #[cfg(feature = "rand")]
 mod rand {
-    use iota_types::block::rand::address::rand_alias_address;
+    use iota_sdk::types::block::rand::address::rand_alias_address;
 
     use super::*;
 

@@ -48,7 +48,9 @@ mod test_rand {
                      raw,
                      metadata,
                  }| {
-                    let block = iota_types::block::Block::unpack_unverified(raw.clone()).unwrap().into();
+                    let block = iota_sdk::types::block::Block::unpack_unverified(raw.clone())
+                        .unwrap()
+                        .into();
                     (block_id, block, raw, metadata)
                 },
             )
@@ -118,7 +120,7 @@ mod test_rand {
             (
                 block_id,
                 block,
-                iota_types::block::rand::bytes::rand_bytes(100),
+                iota_sdk::types::block::rand::bytes::rand_bytes(100),
                 BlockMetadata {
                     parents,
                     is_solid: true,
@@ -188,7 +190,9 @@ mod test_rand {
                      raw,
                      metadata,
                  }| {
-                    let block = iota_types::block::Block::unpack_unverified(raw.clone()).unwrap().into();
+                    let block = iota_sdk::types::block::Block::unpack_unverified(raw.clone())
+                        .unwrap()
+                        .into();
                     (block_id, block, raw, metadata)
                 },
             )
@@ -210,7 +214,9 @@ mod test_rand {
                      raw,
                      metadata,
                  }| {
-                    let block: Block = iota_types::block::Block::unpack_unverified(raw.clone()).unwrap().into();
+                    let block: Block = iota_sdk::types::block::Block::unpack_unverified(raw.clone())
+                        .unwrap()
+                        .into();
                     (block_id, block, raw, metadata)
                 },
             )
@@ -260,7 +266,7 @@ mod test_rand {
                 (
                     block_id,
                     block,
-                    iota_types::block::rand::bytes::rand_bytes(100),
+                    iota_sdk::types::block::rand::bytes::rand_bytes(100),
                     BlockMetadata {
                         parents,
                         is_solid: true,

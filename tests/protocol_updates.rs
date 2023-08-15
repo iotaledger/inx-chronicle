@@ -9,7 +9,7 @@ mod test_rand {
         db::{mongodb::collections::ProtocolUpdateCollection, MongoDbCollectionExt},
         model::{tangle::MilestoneIndex, ProtocolParameters},
     };
-    use iota_types::block::rand::number::rand_number_range;
+    use iota_sdk::types::block::rand::number::rand_number_range;
 
     use super::common::{setup_collection, setup_database, teardown};
 
@@ -27,7 +27,7 @@ mod test_rand {
             .inspect(|(i, _)| update_indexes.push(MilestoneIndex(*i as u32)))
             .enumerate()
             .map(|(i, (ledger_index, _))| {
-                let mut parameters = ProtocolParameters::from(iota_types::block::protocol::protocol_parameters());
+                let mut parameters = ProtocolParameters::from(iota_sdk::types::block::protocol::protocol_parameters());
                 parameters.version = i as u8;
                 (ledger_index as u32, parameters)
             })
@@ -56,7 +56,7 @@ mod test_rand {
             );
         }
 
-        let mut parameters = ProtocolParameters::from(iota_types::block::protocol::protocol_parameters());
+        let mut parameters = ProtocolParameters::from(iota_sdk::types::block::protocol::protocol_parameters());
         parameters.version = 10;
         parameters.token_supply = u64::MAX;
 

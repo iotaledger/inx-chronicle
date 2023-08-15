@@ -5,7 +5,7 @@
 
 use std::borrow::Borrow;
 
-use iota_types::block::output as iota;
+use iota_sdk::types::block::output as iota;
 use serde::{Deserialize, Serialize};
 
 use super::TokenAmount;
@@ -32,10 +32,10 @@ impl<T: Borrow<iota::TreasuryOutput>> From<T> for TreasuryOutput {
 }
 
 impl TryFromWithContext<TreasuryOutput> for iota::TreasuryOutput {
-    type Error = iota_types::block::Error;
+    type Error = iota_sdk::types::block::Error;
 
     fn try_from_with_context(
-        ctx: &iota_types::block::protocol::ProtocolParameters,
+        ctx: &iota_sdk::types::block::protocol::ProtocolParameters,
         value: TreasuryOutput,
     ) -> Result<Self, Self::Error> {
         Self::new(value.amount.0, ctx.token_supply())
@@ -53,13 +53,13 @@ impl From<TreasuryOutput> for iota::dto::TreasuryOutputDto {
 
 #[cfg(feature = "rand")]
 mod rand {
-    use iota_types::block::rand::output::rand_treasury_output;
+    use iota_sdk::types::block::rand::output::rand_treasury_output;
 
     use super::*;
 
     impl TreasuryOutput {
         /// Generates a random [`TreasuryOutput`].
-        pub fn rand(ctx: &iota_types::block::protocol::ProtocolParameters) -> Self {
+        pub fn rand(ctx: &iota_sdk::types::block::protocol::ProtocolParameters) -> Self {
             rand_treasury_output(ctx.token_supply()).into()
         }
     }
@@ -73,7 +73,7 @@ mod test {
 
     #[test]
     fn test_treasury_output_bson() {
-        let ctx = iota_types::block::protocol::protocol_parameters();
+        let ctx = iota_sdk::types::block::protocol::protocol_parameters();
         let output = TreasuryOutput::rand(&ctx);
         iota::TreasuryOutput::try_from_with_context(&ctx, output).unwrap();
         let bson = to_bson(&output).unwrap();

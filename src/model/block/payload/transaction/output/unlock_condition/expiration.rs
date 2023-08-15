@@ -5,7 +5,7 @@
 
 use std::borrow::Borrow;
 
-use iota_types::block::output::unlock_condition as iota;
+use iota_sdk::types::block::output::unlock_condition as iota;
 use serde::{Deserialize, Serialize};
 
 use crate::model::{tangle::MilestoneTimestamp, utxo::Address};
@@ -28,10 +28,10 @@ impl<T: Borrow<iota::ExpirationUnlockCondition>> From<T> for ExpirationUnlockCon
 }
 
 impl TryFrom<ExpirationUnlockCondition> for iota::ExpirationUnlockCondition {
-    type Error = iota_types::block::Error;
+    type Error = iota_sdk::types::block::Error;
 
     fn try_from(value: ExpirationUnlockCondition) -> Result<Self, Self::Error> {
-        iota::ExpirationUnlockCondition::new(value.return_address.into(), value.timestamp.0)
+        iota::ExpirationUnlockCondition::new(value.return_address, value.timestamp.0)
     }
 }
 
@@ -47,7 +47,7 @@ impl From<ExpirationUnlockCondition> for iota::dto::ExpirationUnlockConditionDto
 
 #[cfg(feature = "rand")]
 mod rand {
-    use iota_types::block::rand::number::rand_number;
+    use iota_sdk::types::block::rand::number::rand_number;
 
     use super::*;
 

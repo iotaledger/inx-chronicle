@@ -23,7 +23,7 @@ impl<T: Packable> RawMessage<T> {
     }
 
     /// Unpack the raw data into a type `T` using
-    /// [`ProtocolParameters`](iota_types::block::protocol::ProtocolParameters) to verify the bytes.
+    /// [`ProtocolParameters`](iota_sdk::types::block::protocol::ProtocolParameters) to verify the bytes.
     pub fn inner(self, visitor: &T::UnpackVisitor) -> Result<T, InxError> {
         let unpacked =
             T::unpack_verified(self.data, visitor).map_err(|e| InxError::InvalidRawBytes(format!("{e:?}")))?;
@@ -47,58 +47,58 @@ impl<T: Packable> From<Vec<u8>> for RawMessage<T> {
     }
 }
 
-impl From<proto::RawOutput> for RawMessage<iota_types::block::output::Output> {
+impl From<proto::RawOutput> for RawMessage<iota_sdk::types::block::output::Output> {
     fn from(value: proto::RawOutput) -> Self {
         value.data.into()
     }
 }
 
-impl From<RawMessage<iota_types::block::output::Output>> for proto::RawOutput {
-    fn from(value: RawMessage<iota_types::block::output::Output>) -> Self {
+impl From<RawMessage<iota_sdk::types::block::output::Output>> for proto::RawOutput {
+    fn from(value: RawMessage<iota_sdk::types::block::output::Output>) -> Self {
         Self { data: value.data }
     }
 }
 
-impl From<proto::RawBlock> for RawMessage<iota_types::block::Block> {
+impl From<proto::RawBlock> for RawMessage<iota_sdk::types::block::Block> {
     fn from(value: proto::RawBlock) -> Self {
         value.data.into()
     }
 }
 
-impl From<RawMessage<iota_types::block::Block>> for proto::RawBlock {
-    fn from(value: RawMessage<iota_types::block::Block>) -> Self {
+impl From<RawMessage<iota_sdk::types::block::Block>> for proto::RawBlock {
+    fn from(value: RawMessage<iota_sdk::types::block::Block>) -> Self {
         Self { data: value.data }
     }
 }
 
-impl From<proto::RawMilestone> for RawMessage<iota_types::block::payload::Payload> {
+impl From<proto::RawMilestone> for RawMessage<iota_sdk::types::block::payload::Payload> {
     fn from(value: proto::RawMilestone) -> Self {
         value.data.into()
     }
 }
 
-impl From<RawMessage<iota_types::block::payload::Payload>> for proto::RawMilestone {
-    fn from(value: RawMessage<iota_types::block::payload::Payload>) -> Self {
+impl From<RawMessage<iota_sdk::types::block::payload::Payload>> for proto::RawMilestone {
+    fn from(value: RawMessage<iota_sdk::types::block::payload::Payload>) -> Self {
         Self { data: value.data }
     }
 }
 
 #[cfg(test)]
 mod test {
-    use iota_types::block::{payload::Payload, rand::output::rand_output};
+    use iota_sdk::types::block::{payload::Payload, rand::output::rand_output};
 
     use super::*;
 
     #[test]
     fn raw_output() {
-        let protocol_parameters = iota_types::block::protocol::protocol_parameters();
+        let protocol_parameters = iota_sdk::types::block::protocol::protocol_parameters();
 
         let output = rand_output(protocol_parameters.token_supply());
 
         let proto = proto::RawOutput {
             data: output.pack_to_vec(),
         };
-        let raw: RawMessage<iota_types::block::output::Output> = proto.into();
+        let raw: RawMessage<iota_sdk::types::block::output::Output> = proto.into();
         assert_eq!(output, raw.clone().inner_unverified().unwrap());
         assert_eq!(output, raw.inner(&protocol_parameters).unwrap());
     }

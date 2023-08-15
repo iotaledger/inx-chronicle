@@ -7,7 +7,7 @@ use primitive_types::U256;
 use super::queries::{AppendQuery, CreatedQuery, GovernorQuery, IssuerQuery, NativeTokensQuery, SenderQuery};
 use crate::{
     db::mongodb::collections::outputs::indexer::queries::AddressQuery,
-    model::{tangle::MilestoneTimestamp, utxo::Address},
+    model::payload::{milestone::MilestoneTimestamp, transaction::output::Address},
 };
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
