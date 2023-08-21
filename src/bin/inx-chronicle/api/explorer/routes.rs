@@ -39,6 +39,10 @@ use crate::api::{
     ApiResult,
 };
 
+use std::time::{Instant, Duration};
+use tokio::sync::{RwLock};
+use once_cell::sync::Lazy;
+
 pub fn routes() -> Router {
     Router::new()
         .route("/balance/:address", get(balance))
@@ -318,11 +322,34 @@ async fn blocks_by_milestone_id(
     .await
 }
 
+struct RichestCacheData {
+    last_updated: Instant,
+    data: RichestAddressesResponse,
+}
+
+struct TokenCacheData {
+    last_updated: Instant,
+    data: TokenDistributionResponse,
+}
+
+static RICHEST_ADDRESSES_CACHE: Lazy<RwLock<Option<RichestCacheData>>> = Lazy::new(|| RwLock::new(None));
+static TOKEN_DISTRIBUTION_CACHE: Lazy<RwLock<Option<TokenCacheData>>> = Lazy::new(|| RwLock::new(None));
+
 async fn richest_addresses_ledger_analytics(
     database: Extension<MongoDb>,
     RichestAddressesQuery { top, ledger_index }: RichestAddressesQuery,
 ) -> ApiResult<RichestAddressesResponse> {
     let ledger_index = resolve_ledger_index(&database, ledger_index).await?;
+    let cache = RICHEST_ADDRESSES_CACHE.read().await;
+
+    if let Some(cached_data) = &*cache {
+        if cached_data.last_updated.elapsed() < Duration::from_secs(60 * 60) {
+            return Ok(cached_data.data.clone());
+        }
+    }
+
+    drop(cache); // release the read lock
+
     let res = database
         .collection::<OutputCollection>()
         .get_richest_addresses(ledger_index, top)
@@ -336,7 +363,7 @@ async fn richest_addresses_ledger_analytics(
         .parameters
         .bech32_hrp;
 
-    Ok(RichestAddressesResponse {
+    let response = RichestAddressesResponse {
         top: res
             .top
             .into_iter()
@@ -346,7 +373,12 @@ async fn richest_addresses_ledger_analytics(
             })
             .collect(),
         ledger_index,
-    })
+    };
+
+    // Store the response in the cache
+    *RICHEST_ADDRESSES_CACHE.write().await = Some(RichestCacheData { last_updated: Instant::now(), data: response.clone() });
+
+    Ok(response)
 }
 
 async fn token_distribution_ledger_analytics(
@@ -354,15 +386,30 @@ async fn token_distribution_ledger_analytics(
     LedgerIndex { ledger_index }: LedgerIndex,
 ) -> ApiResult<TokenDistributionResponse> {
     let ledger_index = resolve_ledger_index(&database, ledger_index).await?;
+    let cache = TOKEN_DISTRIBUTION_CACHE.read().await;
+
+    if let Some(cached_data) = &*cache {
+        if cached_data.last_updated.elapsed() < Duration::from_secs(60 * 60) {
+            return Ok(cached_data.data.clone());
+        }
+    }
+
+    drop(cache); // release the read lock
+
     let res = database
         .collection::<OutputCollection>()
         .get_token_distribution(ledger_index)
         .await?;
 
-    Ok(TokenDistributionResponse {
+    let response = TokenDistributionResponse {
         distribution: res.distribution.into_iter().map(Into::into).collect(),
         ledger_index,
-    })
+    };
+
+    // Store the response in the cache
+    *TOKEN_DISTRIBUTION_CACHE.write().await = Some(TokenCacheData { last_updated: Instant::now(), data: response.clone() });
+
+    Ok(response)
 }
 
 /// This is just a helper fn to either unwrap an optional ledger index param or fetch the latest

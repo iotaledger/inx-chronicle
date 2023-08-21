@@ -390,6 +390,7 @@ dependencies = [
  "iota-crypto 0.17.0",
  "iota-types",
  "mongodb",
+ "once_cell",
  "packable",
  "pin-project",
  "prefix-hex 0.7.0",
