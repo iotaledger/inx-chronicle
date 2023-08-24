@@ -31,7 +31,7 @@ const BY_NEWEST: i32 = -1;
 /// A milestone's metadata.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct MilestoneDocument {
-    /// The [`MilestoneId`](MilestoneId) of the milestone.
+    /// The [`MilestoneId`] of the milestone.
     #[serde(rename = "_id")]
     milestone_id: MilestoneId,
     /// The milestone index and timestamp.

@@ -52,7 +52,7 @@ pub struct BlockMetadataMessage {
 /// The [`BlockWithMetadataMessage`] type.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct BlockWithMetadataMessage {
-    /// The [`BlockMetadataMessage`](BlockMetadataMessage) of the block.
+    /// The [`BlockMetadataMessage`] of the block.
     pub metadata: BlockMetadataMessage,
     /// The complete [`Block`](iota::Block) as raw bytes.
     pub block: RawMessage<iota::Block>,

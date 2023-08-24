@@ -25,7 +25,7 @@ pub struct AliasId(#[serde(with = "bytify")] pub [u8; Self::LENGTH]);
 impl AliasId {
     const LENGTH: usize = iota::AliasId::LENGTH;
 
-    /// The [`AliasId`] is derived from the [`OutputId`](super::OutputId) that created the alias.
+    /// The [`AliasId`] is derived from the [`OutputId`] that created the alias.
     pub fn from_output_id_str(s: &str) -> Result<Self, iota_sdk::types::block::Error> {
         Ok(iota::AliasId::from(&iota::OutputId::from_str(s)?).into())
     }
