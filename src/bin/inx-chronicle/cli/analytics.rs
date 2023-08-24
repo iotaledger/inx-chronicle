@@ -273,9 +273,9 @@ pub async fn fill_analytics<I: 'static + InputSource + Clone>(
                     }
 
                     // Unwrap: safe because we guarantee it is initialized above
-                    milestone
-                        .update_analytics(&mut state.as_mut().unwrap().analytics, &influx_db)
-                        .await?;
+                    for analytic in &mut state.as_mut().unwrap().analytics {
+                        milestone.update_analytics(analytic, &influx_db).await?;
+                    }
 
                     let elapsed = start_time.elapsed();
                     #[cfg(feature = "metrics")]

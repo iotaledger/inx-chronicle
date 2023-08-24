@@ -18,7 +18,7 @@ mod test_rand {
             ledger::{LedgerOutput, LedgerSpent, RentStructureBytes},
             metadata::SpentMetadata,
             tangle::MilestoneIndexTimestamp,
-            utxo::{AddressUnlockCondition, BasicOutput, Output, OutputId},
+            utxo::{unlock_condition::AddressUnlockCondition, BasicOutput, Output, OutputId},
             BlockId,
         },
     };

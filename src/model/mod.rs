@@ -19,7 +19,7 @@ pub mod utxo {
     //! A logical grouping of UTXO types for convenience.
     pub use super::block::payload::transaction::{
         input::*,
-        output::{address::*, unlock_condition::*, *},
+        output::{address::*, unlock_condition, *},
         unlock::*,
     };
 }
