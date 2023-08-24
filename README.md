@@ -31,4 +31,5 @@ INFLUXDB_USERNAME=root
 INFLUXDB_PASSWORD=password
 JWT_PASSWORD=password
 JWT_SALT=saltines
+HORNET_CONFIG_PATH=config_testnet.json
 ```
