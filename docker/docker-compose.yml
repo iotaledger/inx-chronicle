@@ -84,7 +84,7 @@ services:
       # - "-c"
       # - "config_testnet.json"
       # - "config_alphanet.json"
-      - "-c ${HORNET_CONFIG_PATH}"
+      - "--config=${HORNET_CONFIG_PATH}"
       - "--inx.enabled=true"
       - "--inx.bindAddress=hornet:9029"
       - "--prometheus.enabled=true"
