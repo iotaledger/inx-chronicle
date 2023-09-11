@@ -36,7 +36,7 @@ iota-crypto = { version = "0.17", default-features = false, features = [ "blake2
 iota-types = { version = "1.0.0-rc.7", default-features = false, features = [ "api", "block", "std" ] }
 mongodb = { version = "2.4", default-features = false, features = [ "tokio-runtime" ] }
 packable = { version = "0.7", default-features = false }
-pin-project = { version = "1.0", default-features = false }
+pin-project = { version = "1.1", default-features = false }
 prefix-hex = { version = "0.7.0", default-features = false, features = [ "primitive-types", "std" ] }
 primitive-types = { version = "0.12", default-features = false }
 serde = { version = "1.0", features = [ "derive" ], default-features = false }
