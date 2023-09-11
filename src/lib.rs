@@ -3,7 +3,7 @@
 
 // Ideally, this would be handled completely by CI, but there is a bug in `petgraph` that prevents us from doing that.
 #![warn(missing_docs)]
-#![deny(unreachable_pub, private_in_public)]
+#![deny(unreachable_pub, private_interfaces, private_bounds)]
 
 //! The basic types and MongoDb queries for Chronicle.
 
