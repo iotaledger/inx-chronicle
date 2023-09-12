@@ -499,6 +499,7 @@ dependencies = [
  "decimal",
  "derive_more",
  "dotenvy",
+ "ed25519",
  "ed25519-zebra",
  "eyre",
  "futures",
@@ -990,6 +991,7 @@ dependencies = [
  "pkcs8",
  "serde",
  "signature",
+ "zeroize",
 ]
 
 [[package]]
