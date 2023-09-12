@@ -6,7 +6,7 @@
 use std::str::FromStr;
 
 use iota::protocol::ProtocolParameters;
-use iota_types::block as iota;
+use iota_sdk::types::block as iota;
 use mongodb::bson::{spec::BinarySubtype, Binary, Bson};
 use serde::{Deserialize, Serialize};
 
@@ -44,7 +44,7 @@ impl From<BlockId> for iota::BlockId {
 }
 
 impl FromStr for BlockId {
-    type Err = iota_types::block::Error;
+    type Err = iota_sdk::types::block::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         Ok(iota::BlockId::from_str(s)?.into())
@@ -94,22 +94,23 @@ impl From<iota::Block> for Block {
 }
 
 impl TryFromWithContext<Block> for iota::Block {
-    type Error = iota_types::block::Error;
+    type Error = iota_sdk::types::block::Error;
 
     fn try_from_with_context(ctx: &ProtocolParameters, value: Block) -> Result<Self, Self::Error> {
-        let mut builder = iota::BlockBuilder::new(iota::parent::Parents::new(
-            value.parents.into_vec().into_iter().map(Into::into).collect::<Vec<_>>(),
+        let mut builder = iota::BlockBuilder::new(iota::parent::Parents::from_vec(
+            value.parents.into_vec().into_iter().map(Into::into).collect(),
         )?)
         .with_nonce(value.nonce);
         if let Some(payload) = value.payload {
-            builder = builder.with_payload(payload.try_into_with_context(ctx)?)
+            let payload: iota_sdk::types::block::payload::Payload = payload.try_into_with_context(ctx)?;
+            builder = builder.with_payload(payload);
         }
         builder.finish()
     }
 }
 
 impl TryFromWithContext<Block> for iota::BlockDto {
-    type Error = iota_types::block::Error;
+    type Error = iota_sdk::types::block::Error;
 
     fn try_from_with_context(ctx: &ProtocolParameters, value: Block) -> Result<Self, Self::Error> {
         let stardust = iota::Block::try_from_with_context(ctx, value)?;
@@ -117,14 +118,16 @@ impl TryFromWithContext<Block> for iota::BlockDto {
     }
 }
 
-impl From<Block> for iota::BlockDto {
-    fn from(value: Block) -> Self {
-        Self {
+impl TryFrom<Block> for iota::BlockDto {
+    type Error = iota_sdk::types::block::Error;
+
+    fn try_from(value: Block) -> Result<Self, Self::Error> {
+        Ok(Self {
             protocol_version: value.protocol_version,
             parents: value.parents.to_vec().iter().map(BlockId::to_hex).collect(),
-            payload: value.payload.map(Into::into),
+            payload: value.payload.map(TryInto::try_into).transpose()?,
             nonce: value.nonce.to_string(),
-        }
+        })
     }
 }
 
@@ -156,7 +159,7 @@ mod rand {
 
     impl Block {
         /// Generates a random [`Block`].
-        pub fn rand(ctx: &iota_types::block::protocol::ProtocolParameters) -> Self {
+        pub fn rand(ctx: &iota_sdk::types::block::protocol::ProtocolParameters) -> Self {
             Self {
                 protocol_version: rand_number(),
                 parents: BlockId::rand_parents(),
@@ -166,7 +169,7 @@ mod rand {
         }
 
         /// Generates a random [`Block`] with a [`TransactionPayload`](crate::model::payload::TransactionPayload).
-        pub fn rand_transaction(ctx: &iota_types::block::protocol::ProtocolParameters) -> Self {
+        pub fn rand_transaction(ctx: &iota_sdk::types::block::protocol::ProtocolParameters) -> Self {
             Self {
                 protocol_version: rand_number(),
                 parents: BlockId::rand_parents(),
@@ -176,7 +179,7 @@ mod rand {
         }
 
         /// Generates a random [`Block`] with a [`MilestonePayload`](crate::model::payload::MilestonePayload).
-        pub fn rand_milestone(ctx: &iota_types::block::protocol::ProtocolParameters) -> Self {
+        pub fn rand_milestone(ctx: &iota_sdk::types::block::protocol::ProtocolParameters) -> Self {
             Self {
                 protocol_version: rand_number(),
                 parents: BlockId::rand_parents(),
@@ -197,7 +200,7 @@ mod rand {
 
         /// Generates a random [`Block`] with a
         /// [`TreasuryTransactionPayload`](crate::model::payload::TreasuryTransactionPayload).
-        pub fn rand_treasury_transaction(ctx: &iota_types::block::protocol::ProtocolParameters) -> Self {
+        pub fn rand_treasury_transaction(ctx: &iota_sdk::types::block::protocol::ProtocolParameters) -> Self {
             Self {
                 protocol_version: rand_number(),
                 parents: BlockId::rand_parents(),
@@ -244,7 +247,7 @@ mod test {
 
     #[test]
     fn test_transaction_block_bson() {
-        let ctx = iota_types::block::protocol::protocol_parameters();
+        let ctx = iota_sdk::types::block::protocol::protocol_parameters();
         let block = Block::rand_transaction(&ctx);
         let mut bson = to_bson(&block).unwrap();
         // Need to re-add outputs as they are not serialized
@@ -267,9 +270,9 @@ mod test {
 
     #[test]
     fn test_milestone_block_bson() {
-        let ctx = iota_types::block::protocol::protocol_parameters();
+        let ctx = iota_sdk::types::block::protocol::protocol_parameters();
         let block = Block::rand_milestone(&ctx);
-        let ctx = iota_types::block::protocol::protocol_parameters();
+        let ctx = iota_sdk::types::block::protocol::protocol_parameters();
         iota::Block::try_from_with_context(&ctx, block.clone()).unwrap();
         let bson = to_bson(&block).unwrap();
         assert_eq!(block, from_bson::<Block>(bson).unwrap());
@@ -278,7 +281,7 @@ mod test {
     #[test]
     fn test_tagged_data_block_bson() {
         let block = Block::rand_tagged_data();
-        let ctx = iota_types::block::protocol::protocol_parameters();
+        let ctx = iota_sdk::types::block::protocol::protocol_parameters();
         iota::Block::try_from_with_context(&ctx, block.clone()).unwrap();
         let bson = to_bson(&block).unwrap();
         assert_eq!(block, from_bson::<Block>(bson).unwrap());
@@ -286,7 +289,7 @@ mod test {
 
     #[test]
     fn test_treasury_transaction_block_bson() {
-        let ctx = iota_types::block::protocol::protocol_parameters();
+        let ctx = iota_sdk::types::block::protocol::protocol_parameters();
         let block = Block::rand_treasury_transaction(&ctx);
         let bson = to_bson(&block).unwrap();
         assert_eq!(block, from_bson::<Block>(bson).unwrap());
@@ -295,7 +298,7 @@ mod test {
     #[test]
     fn test_no_payload_block_bson() {
         let block = Block::rand_no_payload();
-        let ctx = iota_types::block::protocol::protocol_parameters();
+        let ctx = iota_sdk::types::block::protocol::protocol_parameters();
         iota::Block::try_from_with_context(&ctx, block.clone()).unwrap();
         let bson = to_bson(&block).unwrap();
         assert_eq!(block, from_bson::<Block>(bson).unwrap());

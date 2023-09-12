@@ -675,7 +675,7 @@ mod test {
             fn from(value: BsonBlockData) -> Self {
                 Self {
                     block_id: value.block_id,
-                    block: iota_types::block::Block::unpack_unverified(value.raw.clone())
+                    block: iota_sdk::types::block::Block::unpack_unverified(value.raw.clone())
                         .unwrap()
                         .into(),
                     raw: value.raw,

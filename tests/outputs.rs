@@ -24,7 +24,7 @@ mod test_rand {
         let db = setup_database("test-outputs").await.unwrap();
         let output_collection = setup_collection::<OutputCollection>(&db).await.unwrap();
 
-        let protocol_params = iota_types::block::protocol::protocol_parameters();
+        let protocol_params = iota_sdk::types::block::protocol::protocol_parameters();
 
         let outputs = std::iter::repeat_with(|| Output::rand(&protocol_params))
             .take(100)

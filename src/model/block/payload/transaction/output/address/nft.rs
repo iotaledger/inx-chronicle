@@ -3,7 +3,7 @@
 
 use std::str::FromStr;
 
-use iota_types::block::address as iota;
+use iota_sdk::types::block::address as iota;
 use mongodb::bson::Bson;
 use serde::{Deserialize, Serialize};
 
@@ -33,7 +33,7 @@ impl From<NftAddress> for iota::dto::NftAddressDto {
 }
 
 impl FromStr for NftAddress {
-    type Err = iota_types::block::Error;
+    type Err = iota_sdk::types::block::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         Ok(iota::NftAddress::from_str(s)?.into())
@@ -49,7 +49,7 @@ impl From<NftAddress> for Bson {
 
 #[cfg(feature = "rand")]
 mod rand {
-    use iota_types::block::rand::address::rand_nft_address;
+    use iota_sdk::types::block::rand::address::rand_nft_address;
 
     use super::*;
 

@@ -5,7 +5,7 @@
 
 use std::{borrow::Borrow, str::FromStr};
 
-use iota_types::block::output as iota;
+use iota_sdk::types::block::output as iota;
 use mongodb::bson::{spec::BinarySubtype, Binary, Bson};
 use serde::{Deserialize, Serialize};
 
@@ -26,7 +26,7 @@ impl NftId {
     const LENGTH: usize = iota::NftId::LENGTH;
 
     /// The [`NftId`] is derived from the [`super::OutputId`] that created the alias.
-    pub fn from_output_id_str(s: &str) -> Result<Self, iota_types::block::Error> {
+    pub fn from_output_id_str(s: &str) -> Result<Self, iota_sdk::types::block::Error> {
         Ok(iota::NftId::from(&iota::OutputId::from_str(s)?).into())
     }
 
@@ -54,14 +54,8 @@ impl From<NftId> for iota::NftId {
     }
 }
 
-impl From<NftId> for iota::dto::NftIdDto {
-    fn from(value: NftId) -> Self {
-        Into::into(&iota::NftId::from(value))
-    }
-}
-
 impl FromStr for NftId {
-    type Err = iota_types::block::Error;
+    type Err = iota_sdk::types::block::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         Ok(iota::NftId::from_str(s)?.into())
@@ -128,15 +122,17 @@ impl<T: Borrow<iota::NftOutput>> From<T> for NftOutput {
 }
 
 impl TryFromWithContext<NftOutput> for iota::NftOutput {
-    type Error = iota_types::block::Error;
+    type Error = iota_sdk::types::block::Error;
 
     fn try_from_with_context(
-        ctx: &iota_types::block::protocol::ProtocolParameters,
+        ctx: &iota_sdk::types::block::protocol::ProtocolParameters,
         value: NftOutput,
     ) -> Result<Self, Self::Error> {
         // The order of the conditions is imporant here because unlock conditions have to be sorted by type.
         let unlock_conditions = [
-            Some(iota::unlock_condition::AddressUnlockCondition::from(value.address_unlock_condition).into()),
+            Some(iota::unlock_condition::UnlockCondition::from(
+                iota::unlock_condition::AddressUnlockCondition::from(value.address_unlock_condition),
+            )),
             value
                 .storage_deposit_return_unlock_condition
                 .map(|x| iota::unlock_condition::StorageDepositReturnUnlockCondition::try_from_with_context(ctx, x))
@@ -154,7 +150,7 @@ impl TryFromWithContext<NftOutput> for iota::NftOutput {
                 .map(Into::into),
         ];
 
-        Self::build_with_amount(value.amount.0, value.nft_id.into())?
+        Self::build_with_amount(value.amount.0, value.nft_id.into())
             .with_native_tokens(
                 value
                     .native_tokens
@@ -169,7 +165,7 @@ impl TryFromWithContext<NftOutput> for iota::NftOutput {
                     .features
                     .into_vec()
                     .into_iter()
-                    .map(TryInto::try_into)
+                    .map(iota::feature::Feature::try_from)
                     .collect::<Result<Vec<_>, _>>()?,
             )
             .with_immutable_features(
@@ -177,15 +173,17 @@ impl TryFromWithContext<NftOutput> for iota::NftOutput {
                     .immutable_features
                     .into_vec()
                     .into_iter()
-                    .map(TryInto::try_into)
+                    .map(iota::feature::Feature::try_from)
                     .collect::<Result<Vec<_>, _>>()?,
             )
-            .finish(ctx.token_supply())
+            .finish()
     }
 }
 
-impl From<NftOutput> for iota::dto::NftOutputDto {
-    fn from(value: NftOutput) -> Self {
+impl TryFrom<NftOutput> for iota::dto::NftOutputDto {
+    type Error = iota_sdk::types::block::Error;
+
+    fn try_from(value: NftOutput) -> Result<Self, Self::Error> {
         let mut unlock_conditions = vec![iota::unlock_condition::dto::UnlockConditionDto::Address(
             value.address_unlock_condition.into(),
         )];
@@ -200,10 +198,15 @@ impl From<NftOutput> for iota::dto::NftOutputDto {
         if let Some(uc) = value.expiration_unlock_condition {
             unlock_conditions.push(iota::unlock_condition::dto::UnlockConditionDto::Expiration(uc.into()));
         }
-        Self {
+        Ok(Self {
             kind: iota::NftOutput::KIND,
             amount: value.amount.0.to_string(),
-            native_tokens: value.native_tokens.into_vec().into_iter().map(Into::into).collect(),
+            native_tokens: value
+                .native_tokens
+                .into_vec()
+                .into_iter()
+                .map(TryInto::try_into)
+                .collect::<Result<Vec<_>, _>>()?,
             nft_id: value.nft_id.into(),
             unlock_conditions,
             features: value.features.into_vec().into_iter().map(Into::into).collect(),
@@ -213,13 +216,13 @@ impl From<NftOutput> for iota::dto::NftOutputDto {
                 .into_iter()
                 .map(Into::into)
                 .collect(),
-        }
+        })
     }
 }
 
 #[cfg(feature = "rand")]
 mod rand {
-    use iota_types::block::rand::{bytes::rand_bytes_array, output::rand_nft_output};
+    use iota_sdk::types::block::rand::{bytes::rand_bytes_array, output::rand_nft_output};
 
     use super::*;
 
@@ -232,7 +235,7 @@ mod rand {
 
     impl NftOutput {
         /// Generates a random [`NftOutput`].
-        pub fn rand(ctx: &iota_types::block::protocol::ProtocolParameters) -> Self {
+        pub fn rand(ctx: &iota_sdk::types::block::protocol::ProtocolParameters) -> Self {
             rand_nft_output(ctx.token_supply()).into()
         }
     }
@@ -254,7 +257,7 @@ mod test {
 
     #[test]
     fn test_nft_output_bson() {
-        let ctx = iota_types::block::protocol::protocol_parameters();
+        let ctx = iota_sdk::types::block::protocol::protocol_parameters();
         let output = NftOutput::rand(&ctx);
         iota::NftOutput::try_from_with_context(&ctx, output.clone()).unwrap();
         let bson = to_bson(&output).unwrap();

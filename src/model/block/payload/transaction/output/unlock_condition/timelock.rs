@@ -5,7 +5,7 @@
 
 use std::borrow::Borrow;
 
-use iota_types::block::output::unlock_condition as iota;
+use iota_sdk::types::block::output::unlock_condition as iota;
 use serde::{Deserialize, Serialize};
 
 use crate::model::tangle::MilestoneTimestamp;
@@ -25,7 +25,7 @@ impl<T: Borrow<iota::TimelockUnlockCondition>> From<T> for TimelockUnlockConditi
 }
 
 impl TryFrom<TimelockUnlockCondition> for iota::TimelockUnlockCondition {
-    type Error = iota_types::block::Error;
+    type Error = iota_sdk::types::block::Error;
 
     fn try_from(value: TimelockUnlockCondition) -> Result<Self, Self::Error> {
         Self::new(value.timestamp.0)
@@ -43,7 +43,7 @@ impl From<TimelockUnlockCondition> for iota::dto::TimelockUnlockConditionDto {
 
 #[cfg(feature = "rand")]
 mod rand {
-    use iota_types::block::rand::number::rand_number;
+    use iota_sdk::types::block::rand::number::rand_number;
 
     use super::*;
 

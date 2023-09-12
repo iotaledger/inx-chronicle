@@ -1,6 +1,8 @@
 // Copyright 2023 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
+use iota_sdk::types::block::output::Rent;
+
 use super::*;
 use crate::model::{ledger::RentStructureBytes, ProtocolParameters, TryFromWithContext};
 
@@ -11,16 +13,13 @@ trait LedgerSize {
 impl LedgerSize for Output {
     fn ledger_size(&self, protocol_params: &ProtocolParameters) -> LedgerSizeMeasurement {
         // Unwrap: acceptable risk
-        let protocol_params = iota_types::block::protocol::ProtocolParameters::try_from(protocol_params.clone())
+        let protocol_params = iota_sdk::types::block::protocol::ProtocolParameters::try_from(protocol_params.clone())
             .expect("protocol parameters conversion error");
-        let output = iota_types::block::output::Output::try_from_with_context(&protocol_params, self.clone()).unwrap();
+        let output =
+            iota_sdk::types::block::output::Output::try_from_with_context(&protocol_params, self.clone()).unwrap();
         let rent_bytes = RentStructureBytes::compute(&output);
         LedgerSizeMeasurement {
-            total_storage_deposit_amount: iota_types::block::output::Rent::rent_cost(
-                &output,
-                protocol_params.rent_structure(),
-            )
-            .into(),
+            total_storage_deposit_amount: Rent::rent_cost(&output, protocol_params.rent_structure()).into(),
             total_key_bytes: rent_bytes.num_key_bytes,
             total_data_bytes: rent_bytes.num_data_bytes,
         }

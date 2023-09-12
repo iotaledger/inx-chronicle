@@ -27,19 +27,16 @@ use chronicle::{
     },
 };
 use futures::TryStreamExt;
-use iota_types::{
-    api::core::{
-        dto::ReceiptDto,
-        response::{
-            self as iota, BaseTokenResponse, BlockMetadataResponse, ConfirmedMilestoneResponse,
-            LatestMilestoneResponse, OutputWithMetadataResponse, ReceiptsResponse, StatusResponse, TreasuryResponse,
-            UtxoChangesResponse,
-        },
+use iota_sdk::types::{
+    api::core::response::{
+        self as iota, BaseTokenResponse, BlockMetadataResponse, ConfirmedMilestoneResponse, LatestMilestoneResponse,
+        OutputWithMetadataResponse, ReceiptResponse, ReceiptsResponse, StatusResponse, TreasuryResponse,
+        UtxoChangesResponse,
     },
     block::{
-        output::dto::{OutputMetadataDto, RentStructureDto},
+        output::{OutputMetadata, RentStructure},
         payload::{dto::MilestonePayloadDto, milestone::option::dto::MilestoneOptionDto},
-        protocol::dto::ProtocolParametersDto,
+        protocol::ProtocolParameters,
         BlockDto,
     },
 };
@@ -129,14 +126,12 @@ pub async fn info(database: Extension<MongoDb>) -> ApiResult<InfoResponse> {
         index: newest_milestone.milestone_index.0,
         timestamp: Some(newest_milestone.milestone_timestamp.0),
         milestone_id: Some(
-            iota_types::block::payload::milestone::MilestoneId::from(
-                database
-                    .collection::<MilestoneCollection>()
-                    .get_milestone_id(newest_milestone.milestone_index)
-                    .await?
-                    .ok_or(CorruptStateError::Milestone)?,
-            )
-            .to_string(),
+            database
+                .collection::<MilestoneCollection>()
+                .get_milestone_id(newest_milestone.milestone_index)
+                .await?
+                .ok_or(CorruptStateError::Milestone)?
+                .into(),
         ),
     };
 
@@ -144,7 +139,7 @@ pub async fn info(database: Extension<MongoDb>) -> ApiResult<InfoResponse> {
     let confirmed_milestone = ConfirmedMilestoneResponse {
         index: latest_milestone.index,
         timestamp: latest_milestone.timestamp,
-        milestone_id: latest_milestone.milestone_id.clone(),
+        milestone_id: latest_milestone.milestone_id,
     };
 
     let base_token = database
@@ -164,19 +159,18 @@ pub async fn info(database: Extension<MongoDb>) -> ApiResult<InfoResponse> {
             confirmed_milestone,
             pruning_index: oldest_milestone.milestone_index.0 - 1,
         },
-        protocol: ProtocolParametersDto {
-            protocol_version: protocol.version,
-            network_name: protocol.network_name,
-            below_max_depth: protocol.below_max_depth,
-            bech32_hrp: protocol.bech32_hrp,
-            min_pow_score: protocol.min_pow_score,
-            rent_structure: RentStructureDto {
-                v_byte_cost: protocol.rent_structure.v_byte_cost,
-                v_byte_factor_data: protocol.rent_structure.v_byte_factor_data,
-                v_byte_factor_key: protocol.rent_structure.v_byte_factor_key,
-            },
-            token_supply: protocol.token_supply.to_string(),
-        },
+        protocol: ProtocolParameters::new(
+            protocol.version,
+            protocol.network_name,
+            protocol.bech32_hrp,
+            protocol.min_pow_score,
+            protocol.below_max_depth,
+            RentStructure::default()
+                .with_byte_cost(protocol.rent_structure.v_byte_cost)
+                .with_byte_factor_data(protocol.rent_structure.v_byte_factor_data)
+                .with_byte_factor_key(protocol.rent_structure.v_byte_factor_key),
+            protocol.token_supply,
+        )?,
         base_token: BaseTokenResponse {
             name: base_token.name,
             ticker_symbol: base_token.ticker_symbol,
@@ -211,13 +205,13 @@ async fn block(
         .await?
         .ok_or(MissingError::NoResults)?;
 
-    Ok(IotaRawResponse::Json(block.into()))
+    Ok(IotaRawResponse::Json(block.try_into()?))
 }
 
 fn create_block_metadata_response(block_id: BlockId, metadata: BlockMetadata) -> iota::BlockMetadataResponse {
     iota::BlockMetadataResponse {
-        block_id: block_id.to_hex(),
-        parents: metadata.parents.iter().map(BlockId::to_hex).collect(),
+        block_id: block_id.into(),
+        parents: metadata.parents.into_vec().into_iter().map(Into::into).collect(),
         is_solid: metadata.is_solid,
         referenced_by_milestone_index: Some(*metadata.referenced_by_milestone_index),
         milestone_index: Some(*metadata.milestone_index),
@@ -243,28 +237,30 @@ async fn block_metadata(
     Ok(create_block_metadata_response(block_id, metadata).into())
 }
 
-fn create_output_metadata_response(metadata: OutputMetadataResult, ledger_index: MilestoneIndex) -> OutputMetadataDto {
-    OutputMetadataDto {
-        block_id: metadata.block_id.to_hex(),
-        transaction_id: metadata.output_id.transaction_id.to_hex(),
-        output_index: metadata.output_id.index,
-        is_spent: metadata.spent_metadata.is_some(),
-        milestone_index_spent: metadata
+fn create_output_metadata_response(
+    metadata: OutputMetadataResult,
+    ledger_index: MilestoneIndex,
+) -> ApiResult<OutputMetadata> {
+    Ok(OutputMetadata::new(
+        metadata.block_id.into(),
+        metadata.output_id.try_into()?,
+        metadata.spent_metadata.is_some(),
+        metadata
             .spent_metadata
             .as_ref()
             .map(|spent_md| *spent_md.spent.milestone_index),
-        milestone_timestamp_spent: metadata
+        metadata
             .spent_metadata
             .as_ref()
             .map(|spent_md| *spent_md.spent.milestone_timestamp),
-        transaction_id_spent: metadata
+        metadata
             .spent_metadata
             .as_ref()
-            .map(|spent_md| spent_md.transaction_id.to_hex()),
-        milestone_index_booked: *metadata.booked.milestone_index,
-        milestone_timestamp_booked: *metadata.booked.milestone_timestamp,
-        ledger_index: ledger_index.0,
-    }
+            .map(|spent_md| spent_md.transaction_id.into()),
+        *metadata.booked.milestone_index,
+        *metadata.booked.milestone_timestamp,
+        *ledger_index,
+    ))
 }
 
 async fn output(
@@ -296,18 +292,18 @@ async fn output(
         return Ok(IotaRawResponse::Raw(output.raw(ctx)?));
     }
 
-    let metadata = create_output_metadata_response(metadata, ledger_index);
+    let metadata = create_output_metadata_response(metadata, ledger_index)?;
 
     Ok(IotaRawResponse::Json(OutputWithMetadataResponse {
         metadata,
-        output: output.into(),
+        output: output.try_into()?,
     }))
 }
 
 async fn output_metadata(
     database: Extension<MongoDb>,
     Path(output_id): Path<String>,
-) -> ApiResult<IotaResponse<OutputMetadataDto>> {
+) -> ApiResult<IotaResponse<OutputMetadata>> {
     let ledger_index = database
         .collection::<MilestoneCollection>()
         .get_ledger_index()
@@ -320,7 +316,7 @@ async fn output_metadata(
         .await?
         .ok_or(MissingError::NoResults)?;
 
-    Ok(create_output_metadata_response(metadata, ledger_index).into())
+    Ok(create_output_metadata_response(metadata, ledger_index)?.into())
 }
 
 async fn included_block(
@@ -347,7 +343,7 @@ async fn included_block(
         .ok_or(MissingError::NoResults)?
         .block;
 
-    Ok(IotaRawResponse::Json(block.into()))
+    Ok(IotaRawResponse::Json(block.try_into()?))
 }
 
 async fn included_block_metadata(
@@ -372,7 +368,7 @@ async fn receipts(database: Extension<MongoDb>) -> ApiResult<IotaResponse<Receip
     let mut receipts = Vec::new();
     while let Some((receipt, at)) = receipts_at.try_next().await? {
         if let MilestoneOptionDto::Receipt(receipt) = receipt.into() {
-            receipts.push(ReceiptDto {
+            receipts.push(ReceiptResponse {
                 receipt,
                 milestone_index: *at,
             });
@@ -394,7 +390,7 @@ async fn receipts_migrated_at(
     let mut receipts = Vec::new();
     while let Some((receipt, at)) = receipts_at.try_next().await? {
         if let MilestoneOptionDto::Receipt(receipt) = receipt.into() {
-            receipts.push(ReceiptDto {
+            receipts.push(ReceiptResponse {
                 receipt,
                 milestone_index: *at,
             });
@@ -413,7 +409,7 @@ async fn treasury(database: Extension<MongoDb>) -> ApiResult<IotaResponse<Treasu
         .ok_or(MissingError::NoResults)
         .map(|treasury| {
             iota::TreasuryResponse {
-                milestone_id: treasury.milestone_id.to_hex(),
+                milestone_id: treasury.milestone_id.into(),
                 amount: treasury.amount.to_string(),
             }
             .into()
@@ -441,8 +437,10 @@ async fn milestone(
             .parameters
             .try_into()?;
 
-        let milestone_payload =
-            iota_types::block::payload::MilestonePayload::try_from_with_context(&protocol_params, milestone_payload)?;
+        let milestone_payload = iota_sdk::types::block::payload::MilestonePayload::try_from_with_context(
+            &protocol_params,
+            milestone_payload,
+        )?;
 
         return Ok(IotaRawResponse::Raw(milestone_payload.pack_to_vec()));
     }
@@ -470,8 +468,10 @@ async fn milestone_by_index(
             .parameters
             .try_into()?;
 
-        let milestone_payload =
-            iota_types::block::payload::MilestonePayload::try_from_with_context(&protocol_params, milestone_payload)?;
+        let milestone_payload = iota_sdk::types::block::payload::MilestonePayload::try_from_with_context(
+            &protocol_params,
+            milestone_payload,
+        )?;
 
         return Ok(IotaRawResponse::Raw(milestone_payload.pack_to_vec()));
     }
@@ -516,8 +516,14 @@ async fn collect_utxo_changes(database: &MongoDb, milestone_index: MilestoneInde
         .await?
         .ok_or(MissingError::NoResults)?;
 
-    let created_outputs = created_outputs.iter().map(|output_id| output_id.to_hex()).collect();
-    let consumed_outputs = consumed_outputs.iter().map(|output_id| output_id.to_hex()).collect();
+    let created_outputs = created_outputs
+        .into_iter()
+        .map(TryInto::try_into)
+        .collect::<Result<Vec<_>, _>>()?;
+    let consumed_outputs = consumed_outputs
+        .into_iter()
+        .map(TryInto::try_into)
+        .collect::<Result<Vec<_>, _>>()?;
 
     Ok(iota::UtxoChangesResponse {
         index: *milestone_index,

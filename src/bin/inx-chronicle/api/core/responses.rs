@@ -1,7 +1,7 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-use iota_types::{api::core::response as iota, block::protocol::dto::ProtocolParametersDto};
+use iota_sdk::types::{api::core::response as iota, block::protocol::ProtocolParameters};
 use serde::{Deserialize, Serialize};
 
 use crate::api::responses::impl_success_response;
@@ -13,14 +13,14 @@ pub struct InfoResponse {
     pub name: String,
     pub version: String,
     pub status: iota::StatusResponse,
-    pub protocol: ProtocolParametersDto,
+    pub protocol: ProtocolParameters,
     pub base_token: iota::BaseTokenResponse,
 }
 
 impl_success_response!(InfoResponse);
 
 /// A wrapper struct that allows us to implement [`IntoResponse`](axum::response::IntoResponse) for the foreign
-/// responses from [`iota_types`](iota_types::api::core::response).
+/// responses from [`iota_types`](iota_sdk::types::api::core::response).
 #[derive(Clone, Debug, Serialize, derive_more::From)]
 pub struct IotaResponse<T: Serialize>(T);
 
@@ -31,7 +31,7 @@ impl<T: Serialize> axum::response::IntoResponse for IotaResponse<T> {
 }
 
 /// A wrapper struct that allows us to implement [`IntoResponse`](axum::response::IntoResponse) for the foreign
-/// raw responses from [`iota_types`](iota_types::api::core::response).
+/// raw responses from [`iota_types`](iota_sdk::types::api::core::response).
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum IotaRawResponse<T: Serialize> {

@@ -5,7 +5,7 @@
 
 use std::borrow::Borrow;
 
-use iota_types::block::output::unlock_condition as iota;
+use iota_sdk::types::block::output::unlock_condition as iota;
 use serde::{Deserialize, Serialize};
 
 use crate::model::utxo::Address;
@@ -28,7 +28,7 @@ impl<T: Borrow<iota::GovernorAddressUnlockCondition>> From<T> for GovernorAddres
 
 impl From<GovernorAddressUnlockCondition> for iota::GovernorAddressUnlockCondition {
     fn from(value: GovernorAddressUnlockCondition) -> Self {
-        Self::new(value.address.into())
+        Self::new(value.address)
     }
 }
 

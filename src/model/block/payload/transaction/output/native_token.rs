@@ -5,7 +5,7 @@
 
 use std::{borrow::Borrow, mem::size_of, str::FromStr};
 
-use iota_types::block::output as iota;
+use iota_sdk::types::block::output as iota;
 use primitive_types::U256;
 use serde::{Deserialize, Serialize};
 
@@ -30,12 +30,6 @@ impl From<NativeTokenAmount> for U256 {
     }
 }
 
-impl From<NativeTokenAmount> for iota_types::block::dto::U256Dto {
-    fn from(value: NativeTokenAmount) -> Self {
-        Into::into(&U256::from(value))
-    }
-}
-
 /// A unique native token identifier.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(transparent)]
@@ -57,14 +51,8 @@ impl From<NativeTokenId> for iota::TokenId {
     }
 }
 
-impl From<NativeTokenId> for iota::dto::TokenIdDto {
-    fn from(value: NativeTokenId) -> Self {
-        Into::into(&iota::TokenId::from(value))
-    }
-}
-
 impl FromStr for NativeTokenId {
-    type Err = iota_types::block::Error;
+    type Err = iota_sdk::types::block::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         Ok(iota::TokenId::from_str(s)?.into())
@@ -99,7 +87,7 @@ impl<T: Borrow<iota::TokenScheme>> From<T> for TokenScheme {
 }
 
 impl TryFrom<TokenScheme> for iota::TokenScheme {
-    type Error = iota_types::block::Error;
+    type Error = iota_sdk::types::block::Error;
 
     fn try_from(value: TokenScheme) -> Result<Self, Self::Error> {
         Ok(match value {
@@ -108,9 +96,9 @@ impl TryFrom<TokenScheme> for iota::TokenScheme {
                 melted_tokens,
                 maximum_supply,
             } => iota::TokenScheme::Simple(iota::SimpleTokenScheme::new(
-                minted_tokens.into(),
-                melted_tokens.into(),
-                maximum_supply.into(),
+                minted_tokens,
+                melted_tokens,
+                maximum_supply,
             )?),
         })
     }
@@ -152,25 +140,16 @@ impl<T: Borrow<iota::NativeToken>> From<T> for NativeToken {
 }
 
 impl TryFrom<NativeToken> for iota::NativeToken {
-    type Error = iota_types::block::Error;
+    type Error = iota_sdk::types::block::Error;
 
     fn try_from(value: NativeToken) -> Result<Self, Self::Error> {
-        Self::new(value.token_id.into(), value.amount.into())
-    }
-}
-
-impl From<NativeToken> for iota::dto::NativeTokenDto {
-    fn from(value: NativeToken) -> Self {
-        Self {
-            token_id: value.token_id.into(),
-            amount: value.amount.into(),
-        }
+        Self::new(value.token_id.into(), value.amount)
     }
 }
 
 #[cfg(feature = "rand")]
 mod rand {
-    use iota_types::block::rand::{
+    use iota_sdk::types::block::rand::{
         bytes::{rand_bytes, rand_bytes_array},
         output::rand_token_scheme,
     };

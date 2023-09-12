@@ -32,7 +32,7 @@ mod test {
 
     #[test]
     fn test_block_analytics() {
-        let protocol_params = iota_types::block::protocol::protocol_parameters();
+        let protocol_params = iota_sdk::types::block::protocol::protocol_parameters();
 
         let blocks = vec![
             Block::rand_treasury_transaction(&protocol_params),
@@ -48,7 +48,7 @@ mod test {
             BlockData {
                 block_id: BlockId::rand(),
                 block,
-                raw: iota_types::block::rand::bytes::rand_bytes((i + 1) * 100),
+                raw: iota_sdk::types::block::rand::bytes::rand_bytes((i + 1) * 100),
                 metadata: BlockMetadata {
                     parents,
                     is_solid: true,

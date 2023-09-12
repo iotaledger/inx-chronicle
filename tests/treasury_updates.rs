@@ -14,7 +14,7 @@ mod test_rand {
             tangle::MilestoneIndex,
         },
     };
-    use iota_types::block::rand::number::rand_number_range;
+    use iota_sdk::types::block::rand::number::rand_number_range;
 
     use super::common::{setup_collection, setup_database, teardown};
 
@@ -23,7 +23,7 @@ mod test_rand {
         let db = setup_database("test-insert-treasury-updates").await.unwrap();
         let update_collection = setup_collection::<TreasuryCollection>(&db).await.unwrap();
 
-        let ctx = iota_types::block::protocol::protocol_parameters();
+        let ctx = iota_sdk::types::block::protocol::protocol_parameters();
         let mut milestones = HashMap::new();
 
         for (milestone_index, payload) in

@@ -5,7 +5,7 @@
 
 use std::borrow::Borrow;
 
-use iota_types::block::output::unlock_condition as iota;
+use iota_sdk::types::block::output::unlock_condition as iota;
 use serde::{Deserialize, Serialize};
 
 use crate::model::utxo::Address;
@@ -27,7 +27,7 @@ impl<T: Borrow<iota::AddressUnlockCondition>> From<T> for AddressUnlockCondition
 
 impl From<AddressUnlockCondition> for iota::AddressUnlockCondition {
     fn from(value: AddressUnlockCondition) -> Self {
-        Self::new(value.address.into())
+        Self::new(value.address)
     }
 }
 

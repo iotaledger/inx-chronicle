@@ -5,7 +5,7 @@
 
 use std::borrow::Borrow;
 
-use iota_types::block::output as iota;
+use iota_sdk::types::block::output as iota;
 use serde::{Deserialize, Serialize};
 
 use super::{
@@ -60,15 +60,17 @@ impl<T: Borrow<iota::BasicOutput>> From<T> for BasicOutput {
 }
 
 impl TryFromWithContext<BasicOutput> for iota::BasicOutput {
-    type Error = iota_types::block::Error;
+    type Error = iota_sdk::types::block::Error;
 
     fn try_from_with_context(
-        ctx: &iota_types::block::protocol::ProtocolParameters,
+        ctx: &iota_sdk::types::block::protocol::ProtocolParameters,
         value: BasicOutput,
     ) -> Result<Self, Self::Error> {
         // The order of the conditions is imporant here because unlock conditions have to be sorted by type.
         let unlock_conditions = [
-            Some(iota::unlock_condition::AddressUnlockCondition::from(value.address_unlock_condition).into()),
+            Some(iota::unlock_condition::UnlockCondition::from(
+                iota::unlock_condition::AddressUnlockCondition::from(value.address_unlock_condition),
+            )),
             value
                 .storage_deposit_return_unlock_condition
                 .map(|x| iota::unlock_condition::StorageDepositReturnUnlockCondition::try_from_with_context(ctx, x))
@@ -86,7 +88,7 @@ impl TryFromWithContext<BasicOutput> for iota::BasicOutput {
                 .map(Into::into),
         ];
 
-        Self::build_with_amount(value.amount.0)?
+        Self::build_with_amount(value.amount.0)
             .with_native_tokens(
                 value
                     .native_tokens
@@ -101,15 +103,17 @@ impl TryFromWithContext<BasicOutput> for iota::BasicOutput {
                     .features
                     .into_vec()
                     .into_iter()
-                    .map(TryInto::try_into)
+                    .map(iota::feature::Feature::try_from)
                     .collect::<Result<Vec<_>, _>>()?,
             )
-            .finish(ctx.token_supply())
+            .finish()
     }
 }
 
-impl From<BasicOutput> for iota::dto::BasicOutputDto {
-    fn from(value: BasicOutput) -> Self {
+impl TryFrom<BasicOutput> for iota::dto::BasicOutputDto {
+    type Error = iota_sdk::types::block::Error;
+
+    fn try_from(value: BasicOutput) -> Result<Self, Self::Error> {
         let mut unlock_conditions = vec![iota::unlock_condition::dto::UnlockConditionDto::Address(
             value.address_unlock_condition.into(),
         )];
@@ -124,25 +128,30 @@ impl From<BasicOutput> for iota::dto::BasicOutputDto {
         if let Some(uc) = value.expiration_unlock_condition {
             unlock_conditions.push(iota::unlock_condition::dto::UnlockConditionDto::Expiration(uc.into()));
         }
-        Self {
+        Ok(Self {
             kind: iota::BasicOutput::KIND,
             amount: value.amount.0.to_string(),
-            native_tokens: value.native_tokens.into_vec().into_iter().map(Into::into).collect(),
+            native_tokens: value
+                .native_tokens
+                .into_vec()
+                .into_iter()
+                .map(TryInto::try_into)
+                .collect::<Result<Vec<_>, _>>()?,
             unlock_conditions,
             features: value.features.into_vec().into_iter().map(Into::into).collect(),
-        }
+        })
     }
 }
 
 #[cfg(feature = "rand")]
 mod rand {
-    use iota_types::block::rand::output::rand_basic_output;
+    use iota_sdk::types::block::rand::output::rand_basic_output;
 
     use super::*;
 
     impl BasicOutput {
         /// Generates a random [`BasicOutput`].
-        pub fn rand(ctx: &iota_types::block::protocol::ProtocolParameters) -> Self {
+        pub fn rand(ctx: &iota_sdk::types::block::protocol::ProtocolParameters) -> Self {
             rand_basic_output(ctx.token_supply()).into()
         }
     }
@@ -156,7 +165,7 @@ mod test {
 
     #[test]
     fn test_basic_output_bson() {
-        let ctx = iota_types::block::protocol::protocol_parameters();
+        let ctx = iota_sdk::types::block::protocol::protocol_parameters();
         let output = BasicOutput::rand(&ctx);
         iota::BasicOutput::try_from_with_context(&ctx, output.clone()).unwrap();
         let bson = to_bson(&output).unwrap();

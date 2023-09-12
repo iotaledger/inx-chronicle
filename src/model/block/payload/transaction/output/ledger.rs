@@ -67,16 +67,15 @@ pub struct RentStructureBytes {
 
 impl RentStructureBytes {
     #[allow(missing_docs)]
-    pub fn compute(output: &iota_types::block::output::Output) -> Self {
-        use iota_types::block::output::{Rent, RentStructureBuilder};
+    pub fn compute(output: &iota_sdk::types::block::output::Output) -> Self {
+        use iota_sdk::types::block::output::{Rent, RentStructure};
 
         let rent_cost = |byte_cost, data_factor, key_factor| {
             output.rent_cost(
-                &RentStructureBuilder::new()
-                    .byte_cost(byte_cost)
-                    .byte_factor_data(data_factor)
-                    .byte_factor_key(key_factor)
-                    .finish(),
+                &RentStructure::default()
+                    .with_byte_cost(byte_cost)
+                    .with_byte_factor_data(data_factor)
+                    .with_byte_factor_key(key_factor),
             )
         };
 
@@ -99,7 +98,7 @@ mod inx {
 
         fn try_from(value: ::inx::proto::LedgerOutput) -> Result<Self, Self::Error> {
             let data = maybe_missing!(value.output).data;
-            let bee_output = iota_types::block::output::Output::unpack_unverified(data)
+            let bee_output = iota_sdk::types::block::output::Output::unpack_unverified(data)
                 .map_err(|e| InxError::InvalidRawBytes(format!("{e:?}")))?;
 
             Ok(Self {
@@ -139,7 +138,7 @@ mod inx {
 mod test {
     #[cfg(feature = "rand")]
     impl super::RentStructureBytes {
-        fn rent_cost(&self, config: &iota_types::block::output::RentStructure) -> u64 {
+        fn rent_cost(&self, config: &iota_sdk::types::block::output::RentStructure) -> u64 {
             (self.num_data_bytes * config.byte_factor_data() as u64
                 + self.num_key_bytes * config.byte_factor_key() as u64)
                 * config.byte_cost() as u64
@@ -149,11 +148,11 @@ mod test {
     #[cfg(feature = "rand")]
     #[test]
     fn test_compute_rent_structure() {
-        use iota_types::block::{output::Rent, rand::output};
+        use iota_sdk::types::block::{output::Rent, rand::output};
 
         use super::RentStructureBytes;
 
-        let protocol_params = iota_types::block::protocol::protocol_parameters();
+        let protocol_params = iota_sdk::types::block::protocol::protocol_parameters();
 
         let outputs = [
             output::rand_basic_output(protocol_params.token_supply()).into(),

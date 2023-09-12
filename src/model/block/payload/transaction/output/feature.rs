@@ -5,7 +5,7 @@
 
 use std::borrow::Borrow;
 
-use iota_types::block::output::feature as iota;
+use iota_sdk::types::block::output::feature as iota;
 use serde::{Deserialize, Serialize};
 
 use crate::model::utxo::Address;
@@ -58,14 +58,14 @@ impl<T: Borrow<iota::Feature>> From<T> for Feature {
 }
 
 impl TryFrom<Feature> for iota::Feature {
-    type Error = iota_types::block::Error;
+    type Error = iota_sdk::types::block::Error;
 
     fn try_from(value: Feature) -> Result<Self, Self::Error> {
         Ok(match value {
-            Feature::Sender { address } => iota::Feature::Sender(iota::SenderFeature::new(address.into())),
-            Feature::Issuer { address } => iota::Feature::Issuer(iota::IssuerFeature::new(address.into())),
-            Feature::Metadata { data } => iota::Feature::Metadata(iota::MetadataFeature::new(data.into())?),
-            Feature::Tag { data } => iota::Feature::Tag(iota::TagFeature::new(data.into())?),
+            Feature::Sender { address } => iota::Feature::Sender(iota::SenderFeature::new(address)),
+            Feature::Issuer { address } => iota::Feature::Issuer(iota::IssuerFeature::new(address)),
+            Feature::Metadata { data } => iota::Feature::Metadata(iota::MetadataFeature::new(data)?),
+            Feature::Tag { data } => iota::Feature::Tag(iota::TagFeature::new(data)?),
         })
     }
 }
@@ -83,11 +83,11 @@ impl From<Feature> for iota::dto::FeatureDto {
             }),
             Feature::Metadata { data } => Self::Metadata(iota::dto::MetadataFeatureDto {
                 kind: iota::MetadataFeature::KIND,
-                data: prefix_hex::encode(data),
+                data,
             }),
-            Feature::Tag { data } => Self::Tag(iota::dto::TagFeatureDto {
+            Feature::Tag { data: tag } => Self::Tag(iota::dto::TagFeatureDto {
                 kind: iota::TagFeature::KIND,
-                tag: prefix_hex::encode(data),
+                tag,
             }),
         }
     }
@@ -95,7 +95,7 @@ impl From<Feature> for iota::dto::FeatureDto {
 
 #[cfg(feature = "rand")]
 mod rand {
-    use iota_types::block::{
+    use iota_sdk::types::block::{
         output::feature::FeatureFlags,
         rand::output::feature::{
             rand_allowed_features, rand_issuer_feature, rand_metadata_feature, rand_sender_feature, rand_tag_feature,

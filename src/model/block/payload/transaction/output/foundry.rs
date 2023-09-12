@@ -5,12 +5,12 @@
 
 use std::{borrow::Borrow, str::FromStr};
 
-use iota_types::block::output as iota;
+use iota_sdk::types::block::output as iota;
 use mongodb::bson::{spec::BinarySubtype, Binary, Bson};
 use serde::{Deserialize, Serialize};
 
 use super::{unlock_condition::ImmutableAliasAddressUnlockCondition, Feature, NativeToken, TokenAmount, TokenScheme};
-use crate::model::{bytify, stringify, TryFromWithContext};
+use crate::model::{bytify, stringify};
 
 /// The id of a foundry.
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Hash)]
@@ -41,7 +41,7 @@ impl From<FoundryId> for iota::FoundryId {
 }
 
 impl FromStr for FoundryId {
-    type Err = iota_types::block::Error;
+    type Err = iota_sdk::types::block::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         Ok(iota::FoundryId::from_str(s)?.into())
@@ -106,19 +106,16 @@ impl<T: Borrow<iota::FoundryOutput>> From<T> for FoundryOutput {
     }
 }
 
-impl TryFromWithContext<FoundryOutput> for iota::FoundryOutput {
-    type Error = iota_types::block::Error;
+impl TryFrom<FoundryOutput> for iota::FoundryOutput {
+    type Error = iota_sdk::types::block::Error;
 
-    fn try_from_with_context(
-        ctx: &iota_types::block::protocol::ProtocolParameters,
-        value: FoundryOutput,
-    ) -> Result<Self, Self::Error> {
+    fn try_from(value: FoundryOutput) -> Result<Self, Self::Error> {
         let u: iota::UnlockCondition = iota::unlock_condition::ImmutableAliasAddressUnlockCondition::try_from(
             value.immutable_alias_address_unlock_condition,
         )?
         .into();
 
-        Self::build_with_amount(value.amount.0, value.serial_number, value.token_scheme.try_into()?)?
+        Self::build_with_amount(value.amount.0, value.serial_number, value.token_scheme.try_into()?)
             .with_native_tokens(
                 value
                     .native_tokens
@@ -133,7 +130,7 @@ impl TryFromWithContext<FoundryOutput> for iota::FoundryOutput {
                     .features
                     .into_vec()
                     .into_iter()
-                    .map(TryInto::try_into)
+                    .map(iota::feature::Feature::try_from)
                     .collect::<Result<Vec<_>, _>>()?,
             )
             .with_immutable_features(
@@ -141,22 +138,29 @@ impl TryFromWithContext<FoundryOutput> for iota::FoundryOutput {
                     .immutable_features
                     .into_vec()
                     .into_iter()
-                    .map(TryInto::try_into)
+                    .map(iota::feature::Feature::try_from)
                     .collect::<Result<Vec<_>, _>>()?,
             )
-            .finish(ctx.token_supply())
+            .finish()
     }
 }
 
-impl From<FoundryOutput> for iota::dto::FoundryOutputDto {
-    fn from(value: FoundryOutput) -> Self {
+impl TryFrom<FoundryOutput> for iota::dto::FoundryOutputDto {
+    type Error = iota_sdk::types::block::Error;
+
+    fn try_from(value: FoundryOutput) -> Result<Self, Self::Error> {
         let unlock_conditions = vec![iota::unlock_condition::dto::UnlockConditionDto::ImmutableAliasAddress(
             value.immutable_alias_address_unlock_condition.into(),
         )];
-        Self {
+        Ok(Self {
             kind: iota::FoundryOutput::KIND,
             amount: value.amount.0.to_string(),
-            native_tokens: value.native_tokens.into_vec().into_iter().map(Into::into).collect(),
+            native_tokens: value
+                .native_tokens
+                .into_vec()
+                .into_iter()
+                .map(TryInto::try_into)
+                .collect::<Result<Vec<_>, _>>()?,
             serial_number: value.serial_number,
             token_scheme: value.token_scheme.into(),
             unlock_conditions,
@@ -167,13 +171,13 @@ impl From<FoundryOutput> for iota::dto::FoundryOutputDto {
                 .into_iter()
                 .map(Into::into)
                 .collect(),
-        }
+        })
     }
 }
 
 #[cfg(feature = "rand")]
 mod rand {
-    use iota_types::block::rand::{bytes::rand_bytes_array, output::rand_foundry_output};
+    use iota_sdk::types::block::rand::{bytes::rand_bytes_array, output::rand_foundry_output};
 
     use super::*;
 
@@ -186,7 +190,7 @@ mod rand {
 
     impl FoundryOutput {
         /// Generates a random [`FoundryOutput`].
-        pub fn rand(ctx: &iota_types::block::protocol::ProtocolParameters) -> Self {
+        pub fn rand(ctx: &iota_sdk::types::block::protocol::ProtocolParameters) -> Self {
             rand_foundry_output(ctx.token_supply()).into()
         }
     }
@@ -200,9 +204,9 @@ mod test {
 
     #[test]
     fn test_foundry_output_bson() {
-        let ctx = iota_types::block::protocol::protocol_parameters();
+        let ctx = iota_sdk::types::block::protocol::protocol_parameters();
         let output = FoundryOutput::rand(&ctx);
-        iota::FoundryOutput::try_from_with_context(&ctx, output.clone()).unwrap();
+        iota::FoundryOutput::try_from(output.clone()).unwrap();
         let bson = to_bson(&output).unwrap();
         assert_eq!(output, from_bson::<FoundryOutput>(bson).unwrap());
     }

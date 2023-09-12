@@ -40,7 +40,7 @@ impl TransactionSizeBuckets {
 
     /// Gets an enumerated iterator over the single buckets.
     pub(crate) fn single_buckets(&self) -> impl Iterator<Item = (usize, usize)> {
-        (1..8).zip(self.single.into_iter())
+        (1..8).zip(self.single)
     }
 }
 

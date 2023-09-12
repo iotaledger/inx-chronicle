@@ -5,7 +5,7 @@
 
 use std::str::FromStr;
 
-use iota_types::block::address as iota;
+use iota_sdk::types::block::address as iota;
 use mongodb::bson::{doc, Bson};
 use serde::{Deserialize, Serialize};
 
@@ -68,10 +68,10 @@ impl From<Address> for iota::dto::AddressDto {
 }
 
 impl FromStr for Address {
-    type Err = iota_types::block::Error;
+    type Err = iota_sdk::types::block::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        Ok(iota::Address::try_from_bech32(s)?.1.into())
+        Ok(iota::Address::try_from_bech32(s)?.into())
     }
 }
 

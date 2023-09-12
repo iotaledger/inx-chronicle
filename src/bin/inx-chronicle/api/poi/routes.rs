@@ -15,6 +15,7 @@ use chronicle::{
     },
     model::{metadata::LedgerInclusionState, node::MilestoneKeyRange, tangle::MilestoneIndex, BlockId},
 };
+use iota_sdk::types::TryFromDto;
 
 use super::{
     error as poi,
@@ -99,7 +100,7 @@ async fn create_proof_for_referenced_blocks(
 
     Ok(CreateProofResponse {
         milestone: milestone_payload.into(),
-        block: block.into(),
+        block: block.try_into()?,
         audit_path: merkle_audit_path.into(),
     })
 }
@@ -113,10 +114,10 @@ async fn validate_proof_for_referenced_blocks(
     }): Json<CreateProofResponse>,
 ) -> ApiResult<ValidateProofResponse> {
     // Extract block, milestone, and audit path.
-    let block = iota_types::block::Block::try_from_dto_unverified(&block)
+    let block = iota_sdk::types::block::Block::try_from_dto(block)
         .map_err(|_| RequestError::PoI(poi::RequestError::MalformedJsonBlock))?;
     let block_id = block.id().into();
-    let milestone = iota_types::block::payload::milestone::MilestonePayload::try_from_dto_unverified(&milestone)
+    let milestone = iota_sdk::types::block::payload::milestone::MilestonePayload::try_from_dto(milestone)
         .map_err(|_| RequestError::PoI(poi::RequestError::MalformedJsonMilestone))?;
     let milestone_index = milestone.essence().index();
     let proof = MerkleAuditPath::try_from(merkle_path)
@@ -204,7 +205,7 @@ async fn create_proof_for_applied_blocks(
 
     Ok(CreateProofResponse {
         milestone: milestone.into(),
-        block: block.into(),
+        block: block.try_into()?,
         audit_path: merkle_audit_path.into(),
     })
 }
@@ -218,10 +219,10 @@ async fn validate_proof_for_applied_blocks(
     }): Json<CreateProofResponse>,
 ) -> ApiResult<ValidateProofResponse> {
     // Extract block, milestone, and audit path.
-    let block = iota_types::block::Block::try_from_dto_unverified(&block)
+    let block = iota_sdk::types::block::Block::try_from_dto(block)
         .map_err(|_| RequestError::PoI(poi::RequestError::MalformedJsonBlock))?;
     let block_id = block.id().into();
-    let milestone = iota_types::block::payload::milestone::MilestonePayload::try_from_dto_unverified(&milestone)
+    let milestone = iota_sdk::types::block::payload::milestone::MilestonePayload::try_from_dto(milestone)
         .map_err(|_| RequestError::PoI(poi::RequestError::MalformedJsonMilestone))?;
     let milestone_index = milestone.essence().index();
     let audit_path = MerkleAuditPath::try_from(audit_path)

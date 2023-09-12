@@ -3,7 +3,7 @@
 
 //! Module containing the [`Signature`] type.
 
-use iota_types::block::signature as iota;
+use iota_sdk::types::block::signature as iota;
 use serde::{Deserialize, Serialize};
 
 use crate::model::bytify;
@@ -32,48 +32,50 @@ impl From<&iota::Signature> for Signature {
     fn from(value: &iota::Signature) -> Self {
         match value {
             iota::Signature::Ed25519(signature) => Self::Ed25519 {
-                public_key: *signature.public_key(),
-                signature: *signature.signature(),
+                public_key: signature.public_key().to_bytes(),
+                signature: signature.signature().to_bytes(),
             },
         }
     }
 }
 
-impl From<Signature> for iota::Signature {
-    fn from(value: Signature) -> Self {
-        match value {
+impl TryFrom<Signature> for iota::Signature {
+    type Error = iota_sdk::types::block::Error;
+
+    fn try_from(value: Signature) -> Result<Self, Self::Error> {
+        Ok(match value {
             Signature::Ed25519 { public_key, signature } => {
-                iota::Signature::Ed25519(iota::Ed25519Signature::new(public_key, signature))
+                iota::Ed25519Signature::try_from_bytes(public_key, signature)?.into()
             }
-        }
+        })
     }
 }
 
 impl From<Signature> for iota::dto::SignatureDto {
     fn from(value: Signature) -> Self {
         match value {
-            Signature::Ed25519 { public_key, signature } => Self::Ed25519(iota::dto::Ed25519SignatureDto {
-                kind: iota::Ed25519Signature::KIND,
-                public_key: prefix_hex::encode(public_key),
-                signature: prefix_hex::encode(signature),
-            }),
+            Signature::Ed25519 { public_key, signature } => Self::Ed25519(
+                iota::dto::Ed25519SignatureDto {
+                    kind: iota::Ed25519Signature::KIND,
+                    public_key: prefix_hex::encode(public_key),
+                    signature: prefix_hex::encode(signature),
+                }
+                .into(),
+            ),
         }
     }
 }
 
 #[cfg(feature = "rand")]
 mod rand {
-    use iota_types::block::rand::bytes::rand_bytes_array;
+    use iota_sdk::types::block::rand::signature::rand_signature;
 
     use super::*;
 
     impl Signature {
         /// Generates a random [`Signature`] with an [`iota::Ed25519Signature`].
         pub fn rand() -> Self {
-            Self::from(&iota::Signature::Ed25519(iota::Ed25519Signature::new(
-                rand_bytes_array(),
-                rand_bytes_array(),
-            )))
+            Self::from(&rand_signature())
         }
     }
 }

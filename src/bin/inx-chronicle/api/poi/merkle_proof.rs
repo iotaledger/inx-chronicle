@@ -187,7 +187,7 @@ impl TryFrom<HashableDto> for Hashable {
     type Error = prefix_hex::Error;
 
     fn try_from(hashed: HashableDto) -> Result<Self, Self::Error> {
-        use iota_types::block::payload::milestone::MerkleRoot;
+        use iota_sdk::types::block::payload::milestone::MerkleRoot;
         Ok(match hashed {
             HashableDto::Node { hash } => Hashable::Node(prefix_hex::decode::<[u8; MerkleRoot::LENGTH]>(&hash)?.into()),
             HashableDto::Path(path) => Hashable::Path(Box::new(MerkleAuditPath::try_from(*path)?)),
