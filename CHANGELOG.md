@@ -1,3 +1,19 @@
+## [1.0.0-rc.2](https://github.com/iotaledger/inx-chronicle/compare/v1.0.0-rc.1...v1.0.0-rc.2) (2023-09-12)
+
+
+### ⚠ BREAKING CHANGES
+
+* **deps:** use `iota-sdk` and remove dependency causing security alert (#1247)
+
+### Bug Fixes
+
+* forward worker errors to main exit code ([#1230](https://github.com/iotaledger/inx-chronicle/issues/1230)) ([6702440](https://github.com/iotaledger/inx-chronicle/commit/67024402c9d09f3f8507e54635209321196e09b8))
+
+
+### Miscellaneous Chores
+
+* **deps:** use `iota-sdk` and remove dependency causing security alert ([#1247](https://github.com/iotaledger/inx-chronicle/issues/1247)) ([02f0e0b](https://github.com/iotaledger/inx-chronicle/commit/02f0e0bbbc77986f1d0d4dc8bb90d793a99ed4fa))
+
 ## [1.0.0-rc.1](https://github.com/iotaledger/inx-chronicle/compare/v1.0.0-beta.37...v1.0.0-rc.1) (2023-03-22)
 
 
