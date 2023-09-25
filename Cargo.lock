@@ -521,7 +521,7 @@ dependencies = [
  "time",
  "tokio",
  "tokio-stream",
- "tonic",
+ "tonic 0.10.1",
  "tower",
  "tower-http 0.4.4",
  "tracing",
@@ -1685,7 +1685,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4b459b0f2ec8bc8434b8f4c0f70f91221738f7892f00150d15dc7edc075f70a0"
 dependencies = [
  "prost",
- "tonic",
+ "tonic 0.8.3",
  "tonic-build",
 ]
 
@@ -3502,6 +3502,25 @@ dependencies = [
  "tower-service",
  "tracing",
  "tracing-futures",
+]
+
+[[package]]
+name = "tonic"
+version = "0.10.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "14c00bc15e49625f3d2f20b17082601e5e17cf27ead69e805174026c194b6664"
+dependencies = [
+ "base64 0.21.4",
+ "bytes",
+ "http",
+ "http-body",
+ "percent-encoding",
+ "pin-project",
+ "tokio",
+ "tokio-stream",
+ "tower-layer",
+ "tower-service",
+ "tracing",
 ]
 
 [[package]]
