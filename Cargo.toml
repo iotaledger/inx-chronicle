@@ -34,7 +34,7 @@ humantime = { version = "2.1.0", default-features = false }
 humantime-serde = { version = "1.1", default-features = false }
 iota-crypto = { version = "0.23", default-features = false, features = [ "blake2b", "ed25519", "slip10", "bip39-en" ] }
 iota-sdk = { version = "1.0", default-features = false, features = [ "std", "serde" ] }
-mongodb = { version = "2.4", default-features = false, features = [ "tokio-runtime" ] }
+mongodb = { version = "2.7", default-features = false, features = [ "tokio-runtime" ] }
 packable = { version = "0.8", default-features = false }
 pin-project = { version = "1.0", default-features = false }
 prefix-hex = { version = "0.7.0", default-features = false, features = [ "primitive-types", "std" ] }
