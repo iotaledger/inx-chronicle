@@ -64,7 +64,7 @@ ed25519-zebra = { version = "4.0", default-features = false, features = [ "std",
 hex = { version = "0.4", default-features = false, optional = true }
 hyper = { version = "0.14", default-features = false, features = [ "server", "tcp", "stream" ], optional = true }
 rand = { version = "0.8", default-features = false, features = [ "std" ], optional = true }
-regex = { version = "1.7", default-features = false, features = [ "std" ], optional = true }
+regex = { version = "1.9", default-features = false, features = [ "std" ], optional = true }
 rust-argon2 = { version = "2.0.0", default-features = false, optional = true }
 serde_urlencoded = { version = "0.7", default-features = false, optional = true }
 tower = { version = "0.4", default-features = false, optional = true }
