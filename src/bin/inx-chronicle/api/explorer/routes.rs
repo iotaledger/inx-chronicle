@@ -40,9 +40,9 @@ use crate::api::{
     ApiResult,
 };
 
-use std::time::{Instant, Duration};
-use tokio::sync::{RwLock};
 use once_cell::sync::Lazy;
+use std::time::{Duration, Instant};
+use tokio::sync::RwLock;
 
 pub fn routes() -> Router {
     Router::new()
@@ -378,7 +378,10 @@ async fn richest_addresses_ledger_analytics(
     };
 
     // Store the response in the cache
-    *RICHEST_ADDRESSES_CACHE.write().await = Some(RichestCacheData { last_updated: Instant::now(), data: response.clone() });
+    *RICHEST_ADDRESSES_CACHE.write().await = Some(RichestCacheData {
+        last_updated: Instant::now(),
+        data: response.clone(),
+    });
 
     Ok(response)
 }
@@ -409,7 +412,10 @@ async fn token_distribution_ledger_analytics(
     };
 
     // Store the response in the cache
-    *TOKEN_DISTRIBUTION_CACHE.write().await = Some(TokenCacheData { last_updated: Instant::now(), data: response.clone() });
+    *TOKEN_DISTRIBUTION_CACHE.write().await = Some(TokenCacheData {
+        last_updated: Instant::now(),
+        data: response.clone(),
+    });
 
     Ok(response)
 }
