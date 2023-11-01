@@ -375,6 +375,7 @@ mod test {
 
     use futures::TryStreamExt;
     use packable::PackableExt;
+    use pretty_assertions::assert_eq;
     use serde::{de::DeserializeOwned, Deserialize, Serialize};
 
     use super::{

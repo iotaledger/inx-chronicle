@@ -86,6 +86,7 @@ impl From<RawMessage<iota_sdk::types::block::payload::Payload>> for proto::RawMi
 #[cfg(test)]
 mod test {
     use iota_sdk::types::block::{payload::Payload, rand::output::rand_output};
+    use pretty_assertions::assert_eq;
 
     use super::*;
 

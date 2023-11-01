@@ -48,6 +48,7 @@ impl From<MilestoneTimestamp> for influxdb::Timestamp {
 
 #[cfg(test)]
 mod test {
+    use pretty_assertions::assert_eq;
     use time::macros::datetime;
 
     use super::*;

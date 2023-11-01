@@ -10,6 +10,7 @@ mod test_rand {
         model::{tangle::MilestoneIndex, ProtocolParameters},
     };
     use iota_sdk::types::block::rand::number::rand_number_range;
+    use pretty_assertions::assert_eq;
 
     use super::common::{setup_collection, setup_database, teardown};
 

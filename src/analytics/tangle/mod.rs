@@ -19,6 +19,8 @@ mod protocol_params;
 
 #[cfg(test)]
 mod test {
+    use pretty_assertions::assert_eq;
+
     use super::BlockActivityMeasurement;
     use crate::{
         analytics::{tangle::MilestoneSizeMeasurement, test::TestContext, Analytics},

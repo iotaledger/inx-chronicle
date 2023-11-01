@@ -403,6 +403,7 @@ mod rand {
 #[cfg(all(test, feature = "rand"))]
 mod test {
     use mongodb::bson::{from_bson, to_bson, Bson};
+    use pretty_assertions::assert_eq;
 
     use super::*;
 

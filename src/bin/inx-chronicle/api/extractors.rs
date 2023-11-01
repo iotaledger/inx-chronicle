@@ -104,6 +104,7 @@ mod test {
         extract::{FromRequest, RequestParts},
         http::Request,
     };
+    use pretty_assertions::assert_eq;
 
     use super::*;
     use crate::api::ApiConfig;

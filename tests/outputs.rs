@@ -16,6 +16,7 @@ mod test_rand {
             BlockId,
         },
     };
+    use pretty_assertions::assert_eq;
 
     use super::common::{setup_collection, setup_database, teardown};
 

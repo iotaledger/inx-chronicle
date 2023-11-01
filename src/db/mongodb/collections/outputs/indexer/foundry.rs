@@ -39,6 +39,7 @@ impl From<FoundryOutputsQuery> for bson::Document {
 #[cfg(all(test, feature = "rand"))]
 mod test {
     use mongodb::bson::{self, doc};
+    use pretty_assertions::assert_eq;
     use primitive_types::U256;
 
     use super::FoundryOutputsQuery;

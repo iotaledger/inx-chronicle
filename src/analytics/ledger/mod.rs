@@ -65,6 +65,8 @@ impl CountAndAmount {
 mod test {
     use std::collections::BTreeMap;
 
+    use pretty_assertions::assert_eq;
+
     use super::*;
     use crate::{
         analytics::{test::TestContext, Analytics},

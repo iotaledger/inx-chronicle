@@ -132,6 +132,7 @@ mod rand {
 #[cfg(all(test, feature = "rand"))]
 mod test {
     use mongodb::bson::{doc, from_bson, to_bson, to_document};
+    use pretty_assertions::assert_eq;
 
     use super::*;
 

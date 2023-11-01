@@ -149,6 +149,7 @@ mod test {
     #[test]
     fn test_compute_rent_structure() {
         use iota_sdk::types::block::{output::Rent, rand::output};
+        use pretty_assertions::assert_eq;
 
         use super::RentStructureBytes;
 

@@ -9,6 +9,7 @@ mod test_rand {
         db::mongodb::collections::MilestoneCollection,
         model::payload::{MilestoneId, MilestonePayload},
     };
+    use pretty_assertions::assert_eq;
 
     use super::common::{setup_collection, setup_database, teardown};
 

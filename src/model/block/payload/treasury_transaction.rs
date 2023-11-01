@@ -86,6 +86,7 @@ mod rand {
 #[cfg(all(test, feature = "rand"))]
 mod test {
     use mongodb::bson::{from_bson, to_bson};
+    use pretty_assertions::assert_eq;
 
     use super::*;
 

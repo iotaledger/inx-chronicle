@@ -18,6 +18,7 @@ mod test_rand {
     };
     use futures::TryStreamExt;
     use packable::PackableExt;
+    use pretty_assertions::assert_eq;
     use serde::Deserialize;
 
     #[derive(Deserialize)]

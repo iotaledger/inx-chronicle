@@ -450,6 +450,7 @@ impl<B: Send> FromRequest<B> for BlocksByMilestoneIdPagination {
 #[cfg(test)]
 mod test {
     use axum::{extract::RequestParts, http::Request};
+    use pretty_assertions::assert_eq;
 
     use super::*;
     use crate::api::ApiConfig;

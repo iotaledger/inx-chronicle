@@ -60,6 +60,7 @@ mod tests {
     use std::str::FromStr;
 
     use chronicle::model::BlockId;
+    use pretty_assertions::assert_eq;
 
     use super::*;
 
