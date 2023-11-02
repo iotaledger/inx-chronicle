@@ -7,6 +7,7 @@ mod collection;
 /// Module containing the collections in the database.
 pub mod collections;
 pub mod config;
+mod error;
 
 use std::collections::{HashMap, HashSet};
 
@@ -18,7 +19,10 @@ use mongodb::{
     Client,
 };
 
-pub use self::collection::{InsertIgnoreDuplicatesExt, MongoDbCollection, MongoDbCollectionExt};
+pub use self::{
+    collection::{InsertIgnoreDuplicatesExt, MongoDbCollection, MongoDbCollectionExt},
+    error::DbError,
+};
 
 /// A handle to the underlying `MongoDB` database.
 #[derive(Clone, Debug)]

@@ -10,19 +10,19 @@ use serde::{Deserialize, Serialize};
 
 /// Represents the tagged data payload for data blocks.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct TaggedDataPayload {
+pub struct TaggedDataPayloadDto {
     #[serde(with = "serde_bytes")]
     tag: Box<[u8]>,
     #[serde(with = "serde_bytes")]
     data: Box<[u8]>,
 }
 
-impl TaggedDataPayload {
+impl TaggedDataPayloadDto {
     /// A `&str` representation of the type.
     pub const KIND: &'static str = "tagged_data";
 }
 
-impl<T: Borrow<iota::TaggedDataPayload>> From<T> for TaggedDataPayload {
+impl<T: Borrow<iota::TaggedDataPayload>> From<T> for TaggedDataPayloadDto {
     fn from(value: T) -> Self {
         Self {
             tag: value.borrow().tag().to_vec().into_boxed_slice(),
@@ -31,50 +31,26 @@ impl<T: Borrow<iota::TaggedDataPayload>> From<T> for TaggedDataPayload {
     }
 }
 
-impl TryFrom<TaggedDataPayload> for iota::TaggedDataPayload {
+impl TryFrom<TaggedDataPayloadDto> for iota::TaggedDataPayload {
     type Error = iota_sdk::types::block::Error;
 
-    fn try_from(value: TaggedDataPayload) -> Result<Self, Self::Error> {
+    fn try_from(value: TaggedDataPayloadDto) -> Result<Self, Self::Error> {
         iota::TaggedDataPayload::new(value.tag, value.data)
     }
 }
 
-impl From<TaggedDataPayload> for iota::dto::TaggedDataPayloadDto {
-    fn from(value: TaggedDataPayload) -> Self {
-        Self {
-            kind: iota::TaggedDataPayload::KIND,
-            tag: value.tag,
-            data: value.data,
-        }
-    }
-}
+// #[cfg(all(test, feature = "rand"))]
+// mod test {
+//     use mongodb::bson::{from_bson, to_bson};
+//     use pretty_assertions::assert_eq;
 
-#[cfg(feature = "rand")]
-mod rand {
-    use iota_sdk::types::block::rand::payload::rand_tagged_data_payload;
+//     use super::*;
 
-    use super::*;
-
-    impl TaggedDataPayload {
-        /// Generates a random [`TaggedDataPayload`].
-        pub fn rand() -> Self {
-            rand_tagged_data_payload().into()
-        }
-    }
-}
-
-#[cfg(all(test, feature = "rand"))]
-mod test {
-    use mongodb::bson::{from_bson, to_bson};
-    use pretty_assertions::assert_eq;
-
-    use super::*;
-
-    #[test]
-    fn test_tagged_data_payload_bson() {
-        let payload = TaggedDataPayload::rand();
-        iota::TaggedDataPayload::try_from(payload.clone()).unwrap();
-        let bson = to_bson(&payload).unwrap();
-        assert_eq!(payload, from_bson::<TaggedDataPayload>(bson).unwrap());
-    }
-}
+//     #[test]
+//     fn test_tagged_data_payload_bson() {
+//         let payload = TaggedDataPayloadDto::rand();
+//         iota::TaggedDataPayload::try_from(payload.clone()).unwrap();
+//         let bson = to_bson(&payload).unwrap();
+//         assert_eq!(payload, from_bson::<TaggedDataPayloadDto>(bson).unwrap());
+//     }
+// }

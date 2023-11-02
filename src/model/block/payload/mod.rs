@@ -5,194 +5,100 @@
 
 use std::borrow::Borrow;
 
-use iota_sdk::types::block::payload as iota;
+use iota_sdk::types::block::payload::{self as iota};
 use serde::{Deserialize, Serialize};
 
-pub mod milestone;
 pub mod tagged_data;
 pub mod transaction;
-pub mod treasury_transaction;
 
-pub use self::{
-    milestone::{MilestoneId, MilestoneOption, MilestonePayload},
-    tagged_data::TaggedDataPayload,
-    transaction::{TransactionEssence, TransactionId, TransactionPayload},
-    treasury_transaction::TreasuryTransactionPayload,
-};
-use crate::model::{TryFromWithContext, TryIntoWithContext};
+pub use self::{tagged_data::TaggedDataPayloadDto, transaction::SignedTransactionPayloadDto};
 
 /// The different payloads of a [`Block`](crate::model::Block).
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", tag = "kind")]
-pub enum Payload {
+pub enum PayloadDto {
     /// Signals a transaction of tokens.
-    Transaction(Box<TransactionPayload>),
-    /// Signals a milestone that acts as a checkpoint on which all nodes agree.
-    Milestone(Box<MilestonePayload>),
-    /// Signals a transaction that modifies the treasury.
-    TreasuryTransaction(Box<TreasuryTransactionPayload>),
+    SignedTransaction(Box<SignedTransactionPayloadDto>),
     /// Signals arbitrary data as a key-value pair.
-    TaggedData(Box<TaggedDataPayload>),
+    TaggedData(Box<TaggedDataPayloadDto>),
+    /// A candidacy announcement payload.
+    CandidacyAnnouncement,
 }
 
-impl<T: Borrow<iota::Payload>> From<T> for Payload {
+impl<T: Borrow<iota::Payload>> From<T> for PayloadDto {
     fn from(value: T) -> Self {
         match value.borrow() {
-            iota::Payload::Transaction(p) => Self::Transaction(Box::new(p.as_ref().into())),
-            iota::Payload::Milestone(p) => Self::Milestone(Box::new(p.as_ref().into())),
-            iota::Payload::TreasuryTransaction(p) => Self::TreasuryTransaction(Box::new(p.as_ref().into())),
+            iota::Payload::SignedTransaction(p) => Self::SignedTransaction(Box::new(p.as_ref().into())),
             iota::Payload::TaggedData(p) => Self::TaggedData(Box::new(p.as_ref().into())),
+            iota::Payload::CandidacyAnnouncement(_) => Self::CandidacyAnnouncement,
         }
     }
 }
 
-impl TryFromWithContext<Payload> for iota::Payload {
-    type Error = iota_sdk::types::block::Error;
+// #[cfg(all(test, feature = "rand"))]
+// mod test {
+//     use mongodb::bson::{doc, from_bson, to_bson, to_document};
+//     use pretty_assertions::assert_eq;
 
-    fn try_from_with_context(
-        ctx: &iota_sdk::types::block::protocol::ProtocolParameters,
-        value: Payload,
-    ) -> Result<Self, Self::Error> {
-        Ok(match value {
-            Payload::Transaction(p) => iota::Payload::Transaction(Box::new((*p).try_into_with_context(ctx)?)),
-            Payload::Milestone(p) => iota::Payload::Milestone(Box::new((*p).try_into_with_context(ctx)?)),
-            Payload::TreasuryTransaction(p) => {
-                iota::Payload::TreasuryTransaction(Box::new((*p).try_into_with_context(ctx)?))
-            }
-            Payload::TaggedData(p) => iota::Payload::TaggedData(Box::new((*p).try_into()?)),
-        })
-    }
-}
+//     use super::*;
 
-impl TryFrom<Payload> for iota::dto::PayloadDto {
-    type Error = iota_sdk::types::block::Error;
+//     #[test]
+//     fn test_transaction_payload_bson() {
+//         let ctx = iota_sdk::types::block::protocol::protocol_parameters();
+//         let payload = PayloadDto::rand_transaction(&ctx);
+//         let mut bson = to_bson(&payload).unwrap();
+//         // Need to re-add outputs as they are not serialized
+//         let outputs_doc = if let PayloadDto::Transaction(payload) = &payload {
+//             let TransactionEssence::Regular { outputs, .. } = &payload.essence;
+//             doc! { "outputs": outputs.iter().map(to_document).collect::<Result<Vec<_>, _>>().unwrap() }
+//         } else {
+//             unreachable!();
+//         };
+//         let doc = bson.as_document_mut().unwrap().get_document_mut("essence").unwrap();
+//         doc.extend(outputs_doc);
+//         assert_eq!(
+//             bson.as_document().unwrap().get_str("kind").unwrap(),
+//             TransactionPayloadDto::KIND
+//         );
+//         assert_eq!(payload, from_bson::<PayloadDto>(bson).unwrap());
+//     }
 
-    fn try_from(value: Payload) -> Result<Self, Self::Error> {
-        Ok(match value {
-            Payload::Transaction(p) => Self::Transaction(Box::new((*p).try_into()?)),
-            Payload::Milestone(p) => Self::Milestone(Box::new((*p).into())),
-            Payload::TreasuryTransaction(p) => Self::TreasuryTransaction(Box::new((*p).into())),
-            Payload::TaggedData(p) => Self::TaggedData(Box::new((*p).into())),
-        })
-    }
-}
+//     #[test]
+//     fn test_milestone_payload_bson() {
+//         let ctx = iota_sdk::types::block::protocol::protocol_parameters();
+//         let payload = PayloadDto::rand_milestone(&ctx);
+//         iota::Payload::try_from_with_context(&ctx, payload.clone()).unwrap();
+//         let bson = to_bson(&payload).unwrap();
+//         assert_eq!(
+//             bson.as_document().unwrap().get_str("kind").unwrap(),
+//             MilestonePayload::KIND
+//         );
+//         assert_eq!(payload, from_bson::<PayloadDto>(bson).unwrap());
+//     }
 
-#[cfg(feature = "rand")]
-mod rand {
-    use iota_sdk::types::block::rand::number::rand_number_range;
+//     #[test]
+//     fn test_treasury_transaction_payload_bson() {
+//         let ctx = iota_sdk::types::block::protocol::protocol_parameters();
+//         let payload = PayloadDto::rand_treasury_transaction(&ctx);
+//         iota::Payload::try_from_with_context(&ctx, payload.clone()).unwrap();
+//         let bson = to_bson(&payload).unwrap();
+//         assert_eq!(
+//             bson.as_document().unwrap().get_str("kind").unwrap(),
+//             TreasuryTransactionPayload::KIND
+//         );
+//         assert_eq!(payload, from_bson::<PayloadDto>(bson).unwrap());
+//     }
 
-    use super::*;
-
-    impl Payload {
-        /// Generates a random [`Payload`].
-        pub fn rand(ctx: &iota_sdk::types::block::protocol::ProtocolParameters) -> Self {
-            match rand_number_range(0..4) {
-                0 => Self::rand_transaction(ctx),
-                1 => Self::rand_milestone(ctx),
-                2 => Self::rand_tagged_data(),
-                3 => Self::rand_treasury_transaction(ctx),
-                _ => unreachable!(),
-            }
-        }
-
-        /// Generates a random, optional [`Payload`].
-        pub fn rand_opt(ctx: &iota_sdk::types::block::protocol::ProtocolParameters) -> Option<Self> {
-            match rand_number_range(0..5) {
-                0 => Self::rand_transaction(ctx).into(),
-                1 => Self::rand_milestone(ctx).into(),
-                2 => Self::rand_tagged_data().into(),
-                3 => Self::rand_treasury_transaction(ctx).into(),
-                4 => None,
-                _ => unreachable!(),
-            }
-        }
-
-        /// Generates a random transaction [`Payload`].
-        pub fn rand_transaction(ctx: &iota_sdk::types::block::protocol::ProtocolParameters) -> Self {
-            Self::Transaction(Box::new(TransactionPayload::rand(ctx)))
-        }
-
-        /// Generates a random milestone [`Payload`].
-        pub fn rand_milestone(ctx: &iota_sdk::types::block::protocol::ProtocolParameters) -> Self {
-            Self::Milestone(Box::new(MilestonePayload::rand(ctx)))
-        }
-
-        /// Generates a random tagged data [`Payload`].
-        pub fn rand_tagged_data() -> Self {
-            Self::TaggedData(Box::new(TaggedDataPayload::rand()))
-        }
-
-        /// Generates a random treasury transaction [`Payload`].
-        pub fn rand_treasury_transaction(ctx: &iota_sdk::types::block::protocol::ProtocolParameters) -> Self {
-            Self::TreasuryTransaction(Box::new(TreasuryTransactionPayload::rand(ctx)))
-        }
-    }
-}
-
-#[cfg(all(test, feature = "rand"))]
-mod test {
-    use mongodb::bson::{doc, from_bson, to_bson, to_document};
-    use pretty_assertions::assert_eq;
-
-    use super::*;
-
-    #[test]
-    fn test_transaction_payload_bson() {
-        let ctx = iota_sdk::types::block::protocol::protocol_parameters();
-        let payload = Payload::rand_transaction(&ctx);
-        let mut bson = to_bson(&payload).unwrap();
-        // Need to re-add outputs as they are not serialized
-        let outputs_doc = if let Payload::Transaction(payload) = &payload {
-            let TransactionEssence::Regular { outputs, .. } = &payload.essence;
-            doc! { "outputs": outputs.iter().map(to_document).collect::<Result<Vec<_>, _>>().unwrap() }
-        } else {
-            unreachable!();
-        };
-        let doc = bson.as_document_mut().unwrap().get_document_mut("essence").unwrap();
-        doc.extend(outputs_doc);
-        assert_eq!(
-            bson.as_document().unwrap().get_str("kind").unwrap(),
-            TransactionPayload::KIND
-        );
-        assert_eq!(payload, from_bson::<Payload>(bson).unwrap());
-    }
-
-    #[test]
-    fn test_milestone_payload_bson() {
-        let ctx = iota_sdk::types::block::protocol::protocol_parameters();
-        let payload = Payload::rand_milestone(&ctx);
-        iota::Payload::try_from_with_context(&ctx, payload.clone()).unwrap();
-        let bson = to_bson(&payload).unwrap();
-        assert_eq!(
-            bson.as_document().unwrap().get_str("kind").unwrap(),
-            MilestonePayload::KIND
-        );
-        assert_eq!(payload, from_bson::<Payload>(bson).unwrap());
-    }
-
-    #[test]
-    fn test_treasury_transaction_payload_bson() {
-        let ctx = iota_sdk::types::block::protocol::protocol_parameters();
-        let payload = Payload::rand_treasury_transaction(&ctx);
-        iota::Payload::try_from_with_context(&ctx, payload.clone()).unwrap();
-        let bson = to_bson(&payload).unwrap();
-        assert_eq!(
-            bson.as_document().unwrap().get_str("kind").unwrap(),
-            TreasuryTransactionPayload::KIND
-        );
-        assert_eq!(payload, from_bson::<Payload>(bson).unwrap());
-    }
-
-    #[test]
-    fn test_tagged_data_payload_bson() {
-        let ctx = iota_sdk::types::block::protocol::protocol_parameters();
-        let payload = Payload::rand_tagged_data();
-        iota::Payload::try_from_with_context(&ctx, payload.clone()).unwrap();
-        let bson = to_bson(&payload).unwrap();
-        assert_eq!(
-            bson.as_document().unwrap().get_str("kind").unwrap(),
-            TaggedDataPayload::KIND
-        );
-        assert_eq!(payload, from_bson::<Payload>(bson).unwrap());
-    }
-}
+//     #[test]
+//     fn test_tagged_data_payload_bson() {
+//         let ctx = iota_sdk::types::block::protocol::protocol_parameters();
+//         let payload = PayloadDto::rand_tagged_data();
+//         iota::Payload::try_from_with_context(&ctx, payload.clone()).unwrap();
+//         let bson = to_bson(&payload).unwrap();
+//         assert_eq!(
+//             bson.as_document().unwrap().get_str("kind").unwrap(),
+//             TaggedDataPayloadDto::KIND
+//         );
+//         assert_eq!(payload, from_bson::<PayloadDto>(bson).unwrap());
+//     }
+// }

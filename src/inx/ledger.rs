@@ -7,6 +7,7 @@ use inx::proto;
 use iota_sdk::types::{
     api::core::{BlockFailureReason, BlockState, TransactionState},
     block::{
+        address::Address,
         output::{Output, OutputId},
         payload::signed_transaction::TransactionId,
         semantic::TransactionFailureReason,
@@ -41,6 +42,25 @@ impl LedgerOutput {
     pub fn amount(&self) -> u64 {
         self.output.amount()
     }
+
+    pub fn owning_address(&self) -> Option<Address> {
+        match &self.output {
+            Output::Basic(o) => Some(o.address().clone()),
+            Output::Account(o) => Some(o.address().clone()),
+            Output::Foundry(o) => Some(o.account_address().clone().into()),
+            Output::Nft(o) => Some(o.address().clone()),
+            Output::Delegation(o) => Some(o.address().clone()),
+            Output::Anchor(o) => Some(o.state_controller_address().clone()),
+        }
+    }
+
+    /// Checks if an output is trivially unlockable by only providing a signature.
+    pub fn is_trivial_unlock(&self) -> bool {
+        self.output
+            .unlock_conditions()
+            .map(|uc| uc.storage_deposit_return().is_none() && uc.timelock().is_none() && uc.expiration().is_none())
+            .unwrap_or(true)
+    }
 }
 
 /// A spent output according to the ledger.
@@ -61,6 +81,14 @@ impl LedgerSpent {
 
     pub fn amount(&self) -> u64 {
         self.output.amount()
+    }
+
+    pub fn owning_address(&self) -> Option<Address> {
+        self.output.owning_address()
+    }
+
+    pub fn is_trivial_unlock(&self) -> bool {
+        self.output.is_trivial_unlock()
     }
 }
 

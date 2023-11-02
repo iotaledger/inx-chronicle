@@ -13,6 +13,7 @@ use iota_sdk::types::{
     },
 };
 use packable::PackableExt;
+use serde::{Deserialize, Serialize};
 
 use super::{
     convert::{ConvertTo, TryConvertFrom, TryConvertTo},
@@ -49,23 +50,24 @@ pub enum OutputPayload {
     Output(LedgerOutput),
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ProtocolParameters {
     start_epoch: EpochIndex,
     parameters: iota_sdk::types::block::protocol::ProtocolParameters,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct BaseToken {
     pub name: String,
     pub ticker_symbol: String,
     pub unit: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub subunit: Option<String>,
     pub decimals: u32,
     pub use_metric_prefix: bool,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct NodeConfiguration {
     pub base_token: BaseToken,
     pub protocol_parameters: Vec<ProtocolParameters>,

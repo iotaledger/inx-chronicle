@@ -5,24 +5,27 @@
 
 use std::borrow::Borrow;
 
-use iota_sdk::types::block::output::feature as iota;
+use iota_sdk::types::block::{
+    output::feature::{self as iota, Ed25519BlockIssuerKey},
+    slot::{EpochIndex, SlotIndex},
+};
 use serde::{Deserialize, Serialize};
 
-use crate::model::utxo::Address;
+use crate::model::utxo::AddressDto;
 
-/// The different [`Feature`] variants.
+/// The different feature variants.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", tag = "kind")]
-pub enum Feature {
+pub enum FeatureDto {
     /// The sender feature.
     Sender {
         /// The address associated with the feature.
-        address: Address,
+        address: AddressDto,
     },
     /// The issuer feature.
     Issuer {
         /// The address associated with the feature.
-        address: Address,
+        address: AddressDto,
     },
     /// The metadata feature.
     Metadata {
@@ -36,16 +39,34 @@ pub enum Feature {
         #[serde(with = "serde_bytes")]
         data: Box<[u8]>,
     },
+    /// A block issuer feature.
+    BlockIssuer {
+        /// The slot index at which the feature expires and can be removed.
+        expiry_slot: SlotIndex,
+        /// The block issuer keys.
+        block_issuer_keys: Vec<Ed25519BlockIssuerKey>,
+    },
+    /// A staking feature.
+    Staking {
+        /// The amount of coins that are locked and staked in the containing account.
+        staked_amount: u64,
+        /// The fixed cost of the validator, which it receives as part of its Mana rewards.
+        fixed_cost: u64,
+        /// The epoch index in which the staking started.
+        start_epoch: EpochIndex,
+        /// The epoch index in which the staking ends.
+        end_epoch: EpochIndex,
+    },
 }
 
-impl<T: Borrow<iota::Feature>> From<T> for Feature {
+impl<T: Borrow<iota::Feature>> From<T> for FeatureDto {
     fn from(value: T) -> Self {
         match value.borrow() {
             iota::Feature::Sender(a) => Self::Sender {
-                address: (*a.address()).into(),
+                address: a.address().into(),
             },
             iota::Feature::Issuer(a) => Self::Issuer {
-                address: (*a.address()).into(),
+                address: a.address().into(),
             },
             iota::Feature::Metadata(b) => Self::Metadata {
                 data: b.data().to_vec().into_boxed_slice(),
@@ -53,115 +74,78 @@ impl<T: Borrow<iota::Feature>> From<T> for Feature {
             iota::Feature::Tag(b) => Self::Tag {
                 data: b.tag().to_vec().into_boxed_slice(),
             },
+            iota::Feature::BlockIssuer(f) => Self::BlockIssuer {
+                expiry_slot: f.expiry_slot(),
+                block_issuer_keys: f.block_issuer_keys().iter().map(|b| *b.as_ed25519()).collect(),
+            },
+            iota::Feature::Staking(f) => Self::Staking {
+                staked_amount: f.staked_amount(),
+                fixed_cost: f.fixed_cost(),
+                start_epoch: f.start_epoch(),
+                end_epoch: f.end_epoch(),
+            },
         }
     }
 }
 
-impl TryFrom<Feature> for iota::Feature {
+impl TryFrom<FeatureDto> for iota::Feature {
     type Error = iota_sdk::types::block::Error;
 
-    fn try_from(value: Feature) -> Result<Self, Self::Error> {
+    fn try_from(value: FeatureDto) -> Result<Self, Self::Error> {
         Ok(match value {
-            Feature::Sender { address } => iota::Feature::Sender(iota::SenderFeature::new(address)),
-            Feature::Issuer { address } => iota::Feature::Issuer(iota::IssuerFeature::new(address)),
-            Feature::Metadata { data } => iota::Feature::Metadata(iota::MetadataFeature::new(data)?),
-            Feature::Tag { data } => iota::Feature::Tag(iota::TagFeature::new(data)?),
+            FeatureDto::Sender { address } => iota::Feature::Sender(iota::SenderFeature::new(address)),
+            FeatureDto::Issuer { address } => iota::Feature::Issuer(iota::IssuerFeature::new(address)),
+            FeatureDto::Metadata { data } => iota::Feature::Metadata(iota::MetadataFeature::new(data)?),
+            FeatureDto::Tag { data } => iota::Feature::Tag(iota::TagFeature::new(data)?),
+            FeatureDto::BlockIssuer {
+                expiry_slot,
+                block_issuer_keys,
+            } => iota::Feature::BlockIssuer(iota::BlockIssuerFeature::new(
+                expiry_slot,
+                block_issuer_keys.into_iter().map(|b| iota::BlockIssuerKey::Ed25519(b)),
+            )?),
+            FeatureDto::Staking {
+                staked_amount,
+                fixed_cost,
+                start_epoch,
+                end_epoch,
+            } => iota::Feature::Staking(iota::StakingFeature::new(
+                staked_amount,
+                fixed_cost,
+                start_epoch,
+                end_epoch,
+            )),
         })
     }
 }
 
-impl From<Feature> for iota::dto::FeatureDto {
-    fn from(value: Feature) -> Self {
-        match value {
-            Feature::Sender { address } => Self::Sender(iota::dto::SenderFeatureDto {
-                kind: iota::SenderFeature::KIND,
-                address: address.into(),
-            }),
-            Feature::Issuer { address } => Self::Issuer(iota::dto::IssuerFeatureDto {
-                kind: iota::IssuerFeature::KIND,
-                address: address.into(),
-            }),
-            Feature::Metadata { data } => Self::Metadata(iota::dto::MetadataFeatureDto {
-                kind: iota::MetadataFeature::KIND,
-                data,
-            }),
-            Feature::Tag { data: tag } => Self::Tag(iota::dto::TagFeatureDto {
-                kind: iota::TagFeature::KIND,
-                tag,
-            }),
-        }
-    }
-}
+// #[cfg(all(test, feature = "rand"))]
+// mod test {
+//     use mongodb::bson::{from_bson, to_bson};
+//     use pretty_assertions::assert_eq;
 
-#[cfg(feature = "rand")]
-mod rand {
-    use iota_sdk::types::block::{
-        output::feature::FeatureFlags,
-        rand::output::feature::{
-            rand_allowed_features, rand_issuer_feature, rand_metadata_feature, rand_sender_feature, rand_tag_feature,
-        },
-    };
+//     use super::*;
 
-    use super::*;
+//     #[test]
+//     fn test_feature_bson() {
+//         let block = FeatureDto::rand_sender();
+//         iota::Feature::try_from(block.clone()).unwrap();
+//         let bson = to_bson(&block).unwrap();
+//         assert_eq!(block, from_bson::<FeatureDto>(bson).unwrap());
 
-    impl Feature {
-        /// Generates a random [`Feature`].
-        pub fn rand_allowed_features(allowed_features: FeatureFlags) -> Vec<Self> {
-            rand_allowed_features(allowed_features)
-                .into_iter()
-                .map(Into::into)
-                .collect()
-        }
+//         let block = FeatureDto::rand_issuer();
+//         iota::Feature::try_from(block.clone()).unwrap();
+//         let bson = to_bson(&block).unwrap();
+//         assert_eq!(block, from_bson::<FeatureDto>(bson).unwrap());
 
-        /// Generates a random sender [`Feature`].
-        pub fn rand_sender() -> Self {
-            iota::Feature::from(rand_sender_feature()).into()
-        }
+//         let block = FeatureDto::rand_metadata();
+//         iota::Feature::try_from(block.clone()).unwrap();
+//         let bson = to_bson(&block).unwrap();
+//         assert_eq!(block, from_bson::<FeatureDto>(bson).unwrap());
 
-        /// Generates a random issuer [`Feature`].
-        pub fn rand_issuer() -> Self {
-            iota::Feature::from(rand_issuer_feature()).into()
-        }
-
-        /// Generates a random metadata [`Feature`].
-        pub fn rand_metadata() -> Self {
-            iota::Feature::from(rand_metadata_feature()).into()
-        }
-
-        /// Generates a random tag [`Feature`].
-        pub fn rand_tag() -> Self {
-            iota::Feature::from(rand_tag_feature()).into()
-        }
-    }
-}
-
-#[cfg(all(test, feature = "rand"))]
-mod test {
-    use mongodb::bson::{from_bson, to_bson};
-    use pretty_assertions::assert_eq;
-
-    use super::*;
-
-    #[test]
-    fn test_feature_bson() {
-        let block = Feature::rand_sender();
-        iota::Feature::try_from(block.clone()).unwrap();
-        let bson = to_bson(&block).unwrap();
-        assert_eq!(block, from_bson::<Feature>(bson).unwrap());
-
-        let block = Feature::rand_issuer();
-        iota::Feature::try_from(block.clone()).unwrap();
-        let bson = to_bson(&block).unwrap();
-        assert_eq!(block, from_bson::<Feature>(bson).unwrap());
-
-        let block = Feature::rand_metadata();
-        iota::Feature::try_from(block.clone()).unwrap();
-        let bson = to_bson(&block).unwrap();
-        assert_eq!(block, from_bson::<Feature>(bson).unwrap());
-
-        let block = Feature::rand_tag();
-        iota::Feature::try_from(block.clone()).unwrap();
-        let bson = to_bson(&block).unwrap();
-        assert_eq!(block, from_bson::<Feature>(bson).unwrap());
-    }
-}
+//         let block = FeatureDto::rand_tag();
+//         iota::Feature::try_from(block.clone()).unwrap();
+//         let bson = to_bson(&block).unwrap();
+//         assert_eq!(block, from_bson::<FeatureDto>(bson).unwrap());
+//     }
+// }

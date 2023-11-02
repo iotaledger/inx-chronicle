@@ -1,10 +1,7 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-use iota_sdk::types::{
-    api::core::BaseTokenResponse,
-    block::{protocol::ProtocolParameters, slot::SlotIndex},
-};
+use iota_sdk::types::block::slot::SlotIndex;
 use mongodb::{
     bson::doc,
     error::Error,
@@ -12,9 +9,13 @@ use mongodb::{
 };
 use serde::{Deserialize, Serialize};
 
-use crate::db::{
-    mongodb::{MongoDbCollection, MongoDbCollectionExt},
-    MongoDb,
+use crate::{
+    db::{
+        mongodb::{MongoDbCollection, MongoDbCollectionExt},
+        MongoDb,
+    },
+    inx::responses::NodeConfiguration,
+    model::SerializeToBson,
 };
 
 /// The corresponding MongoDb document representation to store [`NodeConfiguration`]s.
@@ -73,7 +74,7 @@ impl ConfigurationUpdateCollection {
         if !matches!(node_config, Some(node_config) if node_config.config == config) {
             self.update_one(
                 doc! { "_id": slot_index.0 },
-                doc! { "$set": mongodb::bson::to_bson(&config)? },
+                doc! { "$set": config.to_bson() },
                 UpdateOptions::builder().upsert(true).build(),
             )
             .await?;

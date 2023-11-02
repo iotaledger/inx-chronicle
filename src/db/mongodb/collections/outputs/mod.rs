@@ -6,6 +6,16 @@ mod indexer;
 use std::borrow::Borrow;
 
 use futures::{Stream, TryStreamExt};
+use iota_sdk::types::{
+    block::{
+        address::Address,
+        output::{dto::OutputDto, AccountId, AnchorId, DelegationId, NftId, Output, OutputId},
+        payload::signed_transaction::TransactionId,
+        slot::{SlotCommitmentId, SlotIndex},
+        BlockId,
+    },
+    TryFromDto,
+};
 use mongodb::{
     bson::{doc, to_bson, to_document},
     error::Error,
@@ -20,16 +30,11 @@ pub use self::indexer::{
 };
 use crate::{
     db::{
-        mongodb::{InsertIgnoreDuplicatesExt, MongoDbCollection, MongoDbCollectionExt},
+        mongodb::{DbError, InsertIgnoreDuplicatesExt, MongoDbCollection, MongoDbCollectionExt},
         MongoDb,
     },
-    model::{
-        ledger::{LedgerOutput, LedgerSpent, RentStructureBytes},
-        metadata::{OutputMetadata, SpentMetadata},
-        tangle::{MilestoneIndex, MilestoneIndexTimestamp, MilestoneTimestamp},
-        utxo::{Address, AliasId, NftId, Output, OutputId},
-        BlockId,
-    },
+    inx::ledger::{LedgerOutput, LedgerSpent},
+    model::SerializeToBson,
 };
 
 /// Chronicle Output record.
@@ -37,9 +42,29 @@ use crate::{
 pub struct OutputDocument {
     #[serde(rename = "_id")]
     output_id: OutputId,
-    output: Output,
+    output: OutputDto,
     metadata: OutputMetadata,
     details: OutputDetails,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct OutputMetadata {
+    /// The ID of the block in which the output was included.
+    pub block_id: BlockId,
+    pub slot_booked: SlotIndex,
+    /// Commitment ID that includes the output.
+    pub included_commitment_id: SlotCommitmentId,
+    pub spent_metadata: Option<SpentMetadata>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SpentMetadata {
+    // Slot where the output was spent.
+    pub slot_spent: SlotIndex,
+    // Commitment ID that includes the spent output.
+    pub commitment_id_spent: SlotCommitmentId,
+    // Transaction ID that spent the output.
+    pub transaction_id_spent: TransactionId,
 }
 
 /// The iota outputs collection.
@@ -91,46 +116,61 @@ struct OutputDetails {
     #[serde(skip_serializing_if = "Option::is_none")]
     address: Option<Address>,
     is_trivial_unlock: bool,
-    rent_structure: RentStructureBytes,
     #[serde(skip_serializing_if = "Option::is_none")]
     indexed_id: Option<IndexedId>,
 }
 
 impl From<&LedgerOutput> for OutputDocument {
     fn from(rec: &LedgerOutput) -> Self {
-        let address = rec.output.owning_address().copied();
-        let is_trivial_unlock = rec.output.is_trivial_unlock();
+        let address = rec.owning_address();
+        let is_trivial_unlock = rec.is_trivial_unlock();
 
         Self {
             output_id: rec.output_id,
-            output: rec.output.clone(),
+            output: (&rec.output).into(),
             metadata: OutputMetadata {
                 block_id: rec.block_id,
-                booked: rec.booked,
+                slot_booked: rec.slot_booked,
+                included_commitment_id: rec.commitment_id_included,
                 spent_metadata: None,
             },
             details: OutputDetails {
                 address,
                 is_trivial_unlock,
-                rent_structure: rec.rent_structure,
                 indexed_id: match &rec.output {
-                    Output::Alias(output) => Some(
-                        if output.alias_id == AliasId::implicit() {
-                            AliasId::from(rec.output_id)
+                    Output::Account(output) => Some(
+                        if output.account_id() == &AccountId::null() {
+                            AccountId::from(&rec.output_id)
                         } else {
-                            output.alias_id
+                            *output.account_id()
+                        }
+                        .into(),
+                    ),
+                    Output::Anchor(output) => Some(
+                        if output.anchor_id() == &AnchorId::null() {
+                            AnchorId::from(&rec.output_id)
+                        } else {
+                            *output.anchor_id()
                         }
                         .into(),
                     ),
                     Output::Nft(output) => Some(
-                        if output.nft_id == NftId::implicit() {
-                            NftId::from(rec.output_id)
+                        if output.nft_id() == &NftId::null() {
+                            NftId::from(&rec.output_id)
                         } else {
-                            output.nft_id
+                            *output.nft_id()
                         }
                         .into(),
                     ),
-                    Output::Foundry(output) => Some(output.foundry_id.into()),
+                    Output::Delegation(output) => Some(
+                        if output.delegation_id() == &DelegationId::null() {
+                            DelegationId::from(&rec.output_id)
+                        } else {
+                            *output.delegation_id()
+                        }
+                        .into(),
+                    ),
+                    Output::Foundry(output) => Some(output.id().into()),
                     _ => None,
                 },
             },
@@ -141,7 +181,11 @@ impl From<&LedgerOutput> for OutputDocument {
 impl From<&LedgerSpent> for OutputDocument {
     fn from(rec: &LedgerSpent) -> Self {
         let mut res = Self::from(&rec.output);
-        res.metadata.spent_metadata.replace(rec.spent_metadata);
+        res.metadata.spent_metadata.replace(SpentMetadata {
+            slot_spent: rec.slot_spent,
+            commitment_id_spent: rec.commitment_id_spent,
+            transaction_id_spent: rec.transaction_id_spent,
+        });
         res
     }
 }
@@ -151,11 +195,11 @@ impl From<&LedgerSpent> for OutputDocument {
 pub struct OutputMetadataResult {
     pub output_id: OutputId,
     pub block_id: BlockId,
-    pub booked: MilestoneIndexTimestamp,
+    pub booked: SlotIndex,
     pub spent_metadata: Option<SpentMetadata>,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 #[allow(missing_docs)]
 pub struct OutputWithMetadataResult {
     pub output: Output,
@@ -187,7 +231,7 @@ impl OutputCollection {
             .into_iter()
             .map(|output| {
                 Ok(doc! {
-                    "q": { "_id": output.output.output_id },
+                    "q": { "_id": output.output.output_id.to_bson() },
                     "u": to_document(&OutputDocument::from(output))?,
                     "upsert": true,
                 })
@@ -228,59 +272,76 @@ impl OutputCollection {
     }
 
     /// Get an [`Output`] by [`OutputId`].
-    pub async fn get_output(&self, output_id: &OutputId) -> Result<Option<Output>, Error> {
-        self.aggregate(
-            [
-                doc! { "$match": { "_id": output_id } },
-                doc! { "$replaceWith": "$output" },
-            ],
-            None,
-        )
-        .await?
-        .try_next()
-        .await
+    pub async fn get_output(&self, output_id: &OutputId) -> Result<Option<Output>, DbError> {
+        Ok(self
+            .aggregate::<OutputDto>(
+                [
+                    doc! { "$match": { "_id": output_id.to_bson() } },
+                    doc! { "$replaceWith": "$output" },
+                ],
+                None,
+            )
+            .await?
+            .try_next()
+            .await?
+            .map(|o| Output::try_from_dto(o))
+            .transpose()?)
     }
 
     /// Get an [`Output`] with its [`OutputMetadata`] by [`OutputId`].
     pub async fn get_output_with_metadata(
         &self,
         output_id: &OutputId,
-        ledger_index: MilestoneIndex,
-    ) -> Result<Option<OutputWithMetadataResult>, Error> {
-        self.aggregate(
-            [
-                doc! { "$match": {
-                    "_id": output_id,
-                    "metadata.booked.milestone_index": { "$lte": ledger_index }
-                } },
-                doc! { "$project": {
-                    "output": "$output",
-                    "metadata": {
-                        "output_id": "$_id",
-                        "block_id": "$metadata.block_id",
-                        "booked": "$metadata.booked",
-                        "spent_metadata": "$metadata.spent_metadata",
-                    },
-                } },
-            ],
-            None,
-        )
-        .await?
-        .try_next()
-        .await
+        slot_index: SlotIndex,
+    ) -> Result<Option<OutputWithMetadataResult>, DbError> {
+        #[derive(Deserialize)]
+        struct OutputWithMetadataRes {
+            output: OutputDto,
+            metadata: OutputMetadataResult,
+        }
+
+        Ok(self
+            .aggregate(
+                [
+                    doc! { "$match": {
+                        "_id": output_id.to_bson(),
+                        "metadata.slot_booked": { "$lte": slot_index.0 }
+                    } },
+                    doc! { "$project": {
+                        "output": "$output",
+                        "metadata": {
+                            "output_id": "$_id",
+                            "block_id": "$metadata.block_id",
+                            "booked": "$metadata.booked",
+                            "spent_metadata": "$metadata.spent_metadata",
+                        },
+                    } },
+                ],
+                None,
+            )
+            .await?
+            .try_next()
+            .await?
+            .map(|OutputWithMetadataRes { output, metadata }| {
+                Result::<_, DbError>::Ok(OutputWithMetadataResult {
+                    output: Output::try_from_dto(output)?,
+                    metadata,
+                })
+            })
+            .transpose()?)
     }
 
     /// Get an [`OutputMetadata`] by [`OutputId`].
     pub async fn get_output_metadata(
         &self,
         output_id: &OutputId,
-        ledger_index: MilestoneIndex,
+        slot_index: SlotIndex,
     ) -> Result<Option<OutputMetadataResult>, Error> {
         self.aggregate(
             [
                 doc! { "$match": {
-                    "_id": &output_id,
-                    "metadata.booked.milestone_index": { "$lte": ledger_index }
+                    "_id": output_id.to_bson(),
+                    "metadata.booked.milestone_index": { "$lte": slot_index.0 }
                 } },
                 doc! { "$project": {
                     "output_id": "$_id",

@@ -5,62 +5,26 @@
 
 use std::borrow::Borrow;
 
-use iota_sdk::types::block::output::unlock_condition as iota;
+use iota_sdk::{types::block::output::unlock_condition as iota, utils::serde::string};
 use serde::{Deserialize, Serialize};
 
-use super::TokenAmount;
-use crate::model::{utxo::Address, TryFromWithContext};
+use crate::model::utxo::AddressDto;
 
 /// Defines the amount of tokens used as storage deposit that have to be returned to the return address.
-#[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct StorageDepositReturnUnlockCondition {
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct StorageDepositReturnUnlockConditionDto {
     /// The address to which funds will be returned once the storage deposit is unlocked.
-    pub return_address: Address,
+    pub return_address: AddressDto,
     /// The amount held in storage.
-    pub amount: TokenAmount,
+    #[serde(with = "string")]
+    pub amount: u64,
 }
 
-impl<T: Borrow<iota::StorageDepositReturnUnlockCondition>> From<T> for StorageDepositReturnUnlockCondition {
+impl<T: Borrow<iota::StorageDepositReturnUnlockCondition>> From<T> for StorageDepositReturnUnlockConditionDto {
     fn from(value: T) -> Self {
         Self {
             return_address: value.borrow().return_address().into(),
             amount: value.borrow().amount().into(),
-        }
-    }
-}
-
-impl TryFromWithContext<StorageDepositReturnUnlockCondition> for iota::StorageDepositReturnUnlockCondition {
-    type Error = iota_sdk::types::block::Error;
-
-    fn try_from_with_context(
-        ctx: &iota_sdk::types::block::protocol::ProtocolParameters,
-        value: StorageDepositReturnUnlockCondition,
-    ) -> Result<Self, Self::Error> {
-        iota::StorageDepositReturnUnlockCondition::new(value.return_address, value.amount.0, ctx.token_supply())
-    }
-}
-
-impl From<StorageDepositReturnUnlockCondition> for iota::dto::StorageDepositReturnUnlockConditionDto {
-    fn from(value: StorageDepositReturnUnlockCondition) -> Self {
-        Self {
-            kind: iota::StorageDepositReturnUnlockCondition::KIND,
-            return_address: value.return_address.into(),
-            amount: value.amount.0.to_string(),
-        }
-    }
-}
-
-#[cfg(feature = "rand")]
-mod rand {
-    use super::*;
-
-    impl StorageDepositReturnUnlockCondition {
-        /// Generates a random [`StorageDepositReturnUnlockCondition`].
-        pub fn rand(ctx: &iota_sdk::types::block::protocol::ProtocolParameters) -> Self {
-            Self {
-                return_address: Address::rand_ed25519(),
-                amount: TokenAmount::rand(ctx),
-            }
         }
     }
 }

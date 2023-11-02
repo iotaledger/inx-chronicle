@@ -5,59 +5,24 @@
 
 use std::borrow::Borrow;
 
-use iota_sdk::types::block::output::unlock_condition as iota;
+use iota_sdk::types::block::{output::unlock_condition as iota, slot::SlotIndex};
 use serde::{Deserialize, Serialize};
 
-use crate::model::{tangle::MilestoneTimestamp, utxo::Address};
+use crate::model::utxo::AddressDto;
 
 /// Defines a unix time until which only Address, defined in Address Unlock Condition, is allowed to unlock the output.
 /// After or at the unix time, only Return Address can unlock it.
-#[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct ExpirationUnlockCondition {
-    return_address: Address,
-    timestamp: MilestoneTimestamp,
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ExpirationUnlockConditionDto {
+    pub return_address: AddressDto,
+    pub slot_index: SlotIndex,
 }
 
-impl<T: Borrow<iota::ExpirationUnlockCondition>> From<T> for ExpirationUnlockCondition {
+impl<T: Borrow<iota::ExpirationUnlockCondition>> From<T> for ExpirationUnlockConditionDto {
     fn from(value: T) -> Self {
         Self {
             return_address: value.borrow().return_address().into(),
-            timestamp: value.borrow().timestamp().into(),
-        }
-    }
-}
-
-impl TryFrom<ExpirationUnlockCondition> for iota::ExpirationUnlockCondition {
-    type Error = iota_sdk::types::block::Error;
-
-    fn try_from(value: ExpirationUnlockCondition) -> Result<Self, Self::Error> {
-        iota::ExpirationUnlockCondition::new(value.return_address, value.timestamp.0)
-    }
-}
-
-impl From<ExpirationUnlockCondition> for iota::dto::ExpirationUnlockConditionDto {
-    fn from(value: ExpirationUnlockCondition) -> Self {
-        Self {
-            kind: iota::ExpirationUnlockCondition::KIND,
-            return_address: value.return_address.into(),
-            timestamp: value.timestamp.0,
-        }
-    }
-}
-
-#[cfg(feature = "rand")]
-mod rand {
-    use iota_sdk::types::block::rand::number::rand_number;
-
-    use super::*;
-
-    impl ExpirationUnlockCondition {
-        /// Generates a random [`ExpirationUnlockCondition`].
-        pub fn rand() -> Self {
-            Self {
-                return_address: Address::rand_ed25519(),
-                timestamp: rand_number::<u32>().into(),
-            }
+            slot_index: value.borrow().slot_index(),
         }
     }
 }

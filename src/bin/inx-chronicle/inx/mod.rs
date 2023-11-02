@@ -17,12 +17,6 @@ use chronicle::{
         MongoDb,
     },
     inx::{Inx, InxError},
-    model::{
-        ledger::{LedgerOutput, LedgerSpent},
-        metadata::LedgerInclusionState,
-        payload::Payload,
-        tangle::{MilestoneIndex, MilestoneIndexTimestamp},
-    },
     tangle::{Milestone, Tangle},
 };
 use eyre::{bail, Result};

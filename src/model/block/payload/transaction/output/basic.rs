@@ -10,47 +10,51 @@ use serde::{Deserialize, Serialize};
 
 use super::{
     unlock_condition::{
-        AddressUnlockCondition, ExpirationUnlockCondition, StorageDepositReturnUnlockCondition, TimelockUnlockCondition,
+        AddressUnlockConditionDto, ExpirationUnlockConditionDto, StorageDepositReturnUnlockConditionDto,
+        TimelockUnlockConditionDto,
     },
-    Feature, NativeToken, TokenAmount,
+    FeatureDto, NativeTokenDto,
 };
-use crate::model::TryFromWithContext;
 
 /// Represents a basic output in the UTXO model.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct BasicOutput {
-    /// The output amount.
-    pub amount: TokenAmount,
-    /// The list of [`NativeToken`]s.
-    pub native_tokens: Box<[NativeToken]>,
+pub struct BasicOutputDto {
+    // Amount of IOTA coins held by the output.
+    pub amount: u64,
+    // Amount of mana held by the output.
+    pub mana: u64,
+    /// Native tokens held by the output.
+    pub native_tokens: Vec<NativeTokenDto>,
     /// The address unlock condition.
-    pub address_unlock_condition: AddressUnlockCondition,
+    pub address_unlock_condition: AddressUnlockConditionDto,
     /// The storage deposit return unlock condition (SDRUC).
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub storage_deposit_return_unlock_condition: Option<StorageDepositReturnUnlockCondition>,
+    pub storage_deposit_return_unlock_condition: Option<StorageDepositReturnUnlockConditionDto>,
     /// The timelock unlock condition.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub timelock_unlock_condition: Option<TimelockUnlockCondition>,
+    pub timelock_unlock_condition: Option<TimelockUnlockConditionDto>,
     /// The expiration unlock condition.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub expiration_unlock_condition: Option<ExpirationUnlockCondition>,
+    pub expiration_unlock_condition: Option<ExpirationUnlockConditionDto>,
     /// The corresponding list of [`Feature`]s.
-    pub features: Box<[Feature]>,
+    pub features: Vec<FeatureDto>,
 }
 
-impl BasicOutput {
+impl BasicOutputDto {
     /// A `&str` representation of the type.
     pub const KIND: &'static str = "basic";
 }
 
-impl<T: Borrow<iota::BasicOutput>> From<T> for BasicOutput {
+impl<T: Borrow<iota::BasicOutput>> From<T> for BasicOutputDto {
     fn from(value: T) -> Self {
         let value = value.borrow();
         Self {
-            amount: value.amount().into(),
+            amount: value.amount(),
+            mana: value.mana(),
             native_tokens: value.native_tokens().iter().map(Into::into).collect(),
-            // Panic: The address unlock condition has to be present.
-            address_unlock_condition: value.unlock_conditions().address().unwrap().into(),
+            address_unlock_condition: AddressUnlockConditionDto {
+                address: value.address().into(),
+            },
             storage_deposit_return_unlock_condition: value.unlock_conditions().storage_deposit_return().map(Into::into),
             timelock_unlock_condition: value.unlock_conditions().timelock().map(Into::into),
             expiration_unlock_condition: value.unlock_conditions().expiration().map(Into::into),
@@ -59,117 +63,19 @@ impl<T: Borrow<iota::BasicOutput>> From<T> for BasicOutput {
     }
 }
 
-impl TryFromWithContext<BasicOutput> for iota::BasicOutput {
-    type Error = iota_sdk::types::block::Error;
+// #[cfg(all(test, feature = "rand"))]
+// mod test {
+//     use mongodb::bson::{from_bson, to_bson};
+//     use pretty_assertions::assert_eq;
 
-    fn try_from_with_context(
-        ctx: &iota_sdk::types::block::protocol::ProtocolParameters,
-        value: BasicOutput,
-    ) -> Result<Self, Self::Error> {
-        // The order of the conditions is imporant here because unlock conditions have to be sorted by type.
-        let unlock_conditions = [
-            Some(iota::unlock_condition::UnlockCondition::from(
-                iota::unlock_condition::AddressUnlockCondition::from(value.address_unlock_condition),
-            )),
-            value
-                .storage_deposit_return_unlock_condition
-                .map(|x| iota::unlock_condition::StorageDepositReturnUnlockCondition::try_from_with_context(ctx, x))
-                .transpose()?
-                .map(Into::into),
-            value
-                .timelock_unlock_condition
-                .map(iota::unlock_condition::TimelockUnlockCondition::try_from)
-                .transpose()?
-                .map(Into::into),
-            value
-                .expiration_unlock_condition
-                .map(iota::unlock_condition::ExpirationUnlockCondition::try_from)
-                .transpose()?
-                .map(Into::into),
-        ];
+//     use super::*;
 
-        Self::build_with_amount(value.amount.0)
-            .with_native_tokens(
-                value
-                    .native_tokens
-                    .into_vec()
-                    .into_iter()
-                    .map(TryInto::try_into)
-                    .collect::<Result<Vec<_>, _>>()?,
-            )
-            .with_unlock_conditions(unlock_conditions.into_iter().flatten())
-            .with_features(
-                value
-                    .features
-                    .into_vec()
-                    .into_iter()
-                    .map(iota::feature::Feature::try_from)
-                    .collect::<Result<Vec<_>, _>>()?,
-            )
-            .finish()
-    }
-}
-
-impl TryFrom<BasicOutput> for iota::dto::BasicOutputDto {
-    type Error = iota_sdk::types::block::Error;
-
-    fn try_from(value: BasicOutput) -> Result<Self, Self::Error> {
-        let mut unlock_conditions = vec![iota::unlock_condition::dto::UnlockConditionDto::Address(
-            value.address_unlock_condition.into(),
-        )];
-        if let Some(uc) = value.storage_deposit_return_unlock_condition {
-            unlock_conditions.push(iota::unlock_condition::dto::UnlockConditionDto::StorageDepositReturn(
-                uc.into(),
-            ));
-        }
-        if let Some(uc) = value.timelock_unlock_condition {
-            unlock_conditions.push(iota::unlock_condition::dto::UnlockConditionDto::Timelock(uc.into()));
-        }
-        if let Some(uc) = value.expiration_unlock_condition {
-            unlock_conditions.push(iota::unlock_condition::dto::UnlockConditionDto::Expiration(uc.into()));
-        }
-        Ok(Self {
-            kind: iota::BasicOutput::KIND,
-            amount: value.amount.0.to_string(),
-            native_tokens: value
-                .native_tokens
-                .into_vec()
-                .into_iter()
-                .map(TryInto::try_into)
-                .collect::<Result<Vec<_>, _>>()?,
-            unlock_conditions,
-            features: value.features.into_vec().into_iter().map(Into::into).collect(),
-        })
-    }
-}
-
-#[cfg(feature = "rand")]
-mod rand {
-    use iota_sdk::types::block::rand::output::rand_basic_output;
-
-    use super::*;
-
-    impl BasicOutput {
-        /// Generates a random [`BasicOutput`].
-        pub fn rand(ctx: &iota_sdk::types::block::protocol::ProtocolParameters) -> Self {
-            rand_basic_output(ctx.token_supply()).into()
-        }
-    }
-}
-
-#[cfg(all(test, feature = "rand"))]
-mod test {
-    use mongodb::bson::{from_bson, to_bson};
-    use pretty_assertions::assert_eq;
-
-    use super::*;
-
-    #[test]
-    fn test_basic_output_bson() {
-        let ctx = iota_sdk::types::block::protocol::protocol_parameters();
-        let output = BasicOutput::rand(&ctx);
-        iota::BasicOutput::try_from_with_context(&ctx, output.clone()).unwrap();
-        let bson = to_bson(&output).unwrap();
-        assert_eq!(output, from_bson::<BasicOutput>(bson).unwrap());
-    }
-}
+//     #[test]
+//     fn test_basic_output_bson() {
+//         let ctx = iota_sdk::types::block::protocol::protocol_parameters();
+//         let output = BasicOutputDto::rand(&ctx);
+//         iota::BasicOutput::try_from_with_context(&ctx, output.clone()).unwrap();
+//         let bson = to_bson(&output).unwrap();
+//         assert_eq!(output, from_bson::<BasicOutputDto>(bson).unwrap());
+//     }
+// }

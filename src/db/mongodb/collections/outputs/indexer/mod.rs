@@ -9,6 +9,13 @@ mod queries;
 
 use derive_more::From;
 use futures::TryStreamExt;
+use iota_sdk::types::block::{
+    output::{
+        AccountId, AccountOutput, AnchorId, DelegationId, FoundryId, FoundryOutput, NftId, NftOutput, OutputId,
+        OutputMetadata,
+    },
+    slot::SlotIndex,
+};
 use mongodb::{
     bson::{self, doc, Bson},
     error::Error,
@@ -23,18 +30,14 @@ pub use self::{
 use super::{OutputCollection, OutputDocument};
 use crate::{
     db::mongodb::{collections::SortOrder, MongoDbCollectionExt},
-    model::{
-        metadata::OutputMetadata,
-        tangle::MilestoneIndex,
-        utxo::{AliasId, AliasOutput, FoundryId, FoundryOutput, NftId, NftOutput, OutputId},
-    },
+    model::SerializeToBson,
 };
 
 #[derive(Clone, Debug, Deserialize)]
 #[allow(missing_docs)]
 pub struct OutputResult {
     pub output_id: OutputId,
-    pub booked_index: MilestoneIndex,
+    pub booked_index: SlotIndex,
 }
 
 #[derive(Clone, Debug)]
@@ -47,18 +50,22 @@ pub struct OutputsResult {
 #[serde(untagged)]
 #[allow(missing_docs)]
 pub enum IndexedId {
-    Alias(AliasId),
+    Account(AccountId),
     Foundry(FoundryId),
     Nft(NftId),
+    Delegation(DelegationId),
+    Anchor(AnchorId),
 }
 
 impl IndexedId {
     /// Get the indexed ID kind.
     pub fn kind(&self) -> &'static str {
         match self {
-            IndexedId::Alias(_) => AliasOutput::KIND,
-            IndexedId::Foundry(_) => FoundryOutput::KIND,
-            IndexedId::Nft(_) => NftOutput::KIND,
+            Self::Account(_) => "account",
+            Self::Foundry(_) => "foundry",
+            Self::Nft(_) => "nft",
+            Self::Delegation(_) => "delegation",
+            Self::Anchor(_) => "anchor",
         }
     }
 }
@@ -66,9 +73,11 @@ impl IndexedId {
 impl From<IndexedId> for Bson {
     fn from(id: IndexedId) -> Self {
         match id {
-            IndexedId::Alias(id) => id.into(),
-            IndexedId::Foundry(id) => id.into(),
-            IndexedId::Nft(id) => id.into(),
+            IndexedId::Account(id) => id.to_bson(),
+            IndexedId::Foundry(id) => id.to_bson(),
+            IndexedId::Nft(id) => id.to_bson(),
+            IndexedId::Delegation(id) => id.to_bson(),
+            IndexedId::Anchor(id) => id.to_bson(),
         }
     }
 }
@@ -84,7 +93,7 @@ impl OutputCollection {
     pub async fn get_indexed_output_by_id(
         &self,
         id: impl Into<IndexedId>,
-        ledger_index: MilestoneIndex,
+        slot_index: SlotIndex,
     ) -> Result<Option<IndexedOutputResult>, Error> {
         let id = id.into();
         let mut res = self
@@ -103,16 +112,10 @@ impl OutputCollection {
             .await?
             .try_next()
             .await?;
-        if let Some(OutputDocument {
-            metadata: OutputMetadata {
-                spent_metadata: spent @ Some(_),
-                ..
-            },
-            ..
-        }) = res.as_mut()
-        {
-            // TODO: record that we got an output that is spent past the ledger_index to metrics
-            spent.take();
+        if let Some(OutputDocument { metadata, .. }) = res.as_mut() {
+            if metadata.is_spent() {
+                // TODO: record that we got an output that is spent past the slot index to metrics
+            }
         }
         Ok(res.map(|doc| IndexedOutputResult {
             output_id: doc.output_id,

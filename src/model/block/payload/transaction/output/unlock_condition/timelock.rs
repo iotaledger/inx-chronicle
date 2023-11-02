@@ -5,54 +5,19 @@
 
 use std::borrow::Borrow;
 
-use iota_sdk::types::block::output::unlock_condition as iota;
+use iota_sdk::types::block::{output::unlock_condition as iota, slot::SlotIndex};
 use serde::{Deserialize, Serialize};
-
-use crate::model::tangle::MilestoneTimestamp;
 
 /// Defines a unix timestamp until which the output can not be unlocked.
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct TimelockUnlockCondition {
-    timestamp: MilestoneTimestamp,
+pub struct TimelockUnlockConditionDto {
+    slot_index: SlotIndex,
 }
 
-impl<T: Borrow<iota::TimelockUnlockCondition>> From<T> for TimelockUnlockCondition {
+impl<T: Borrow<iota::TimelockUnlockCondition>> From<T> for TimelockUnlockConditionDto {
     fn from(value: T) -> Self {
         Self {
-            timestamp: value.borrow().timestamp().into(),
-        }
-    }
-}
-
-impl TryFrom<TimelockUnlockCondition> for iota::TimelockUnlockCondition {
-    type Error = iota_sdk::types::block::Error;
-
-    fn try_from(value: TimelockUnlockCondition) -> Result<Self, Self::Error> {
-        Self::new(value.timestamp.0)
-    }
-}
-
-impl From<TimelockUnlockCondition> for iota::dto::TimelockUnlockConditionDto {
-    fn from(value: TimelockUnlockCondition) -> Self {
-        Self {
-            kind: iota::TimelockUnlockCondition::KIND,
-            timestamp: value.timestamp.0,
-        }
-    }
-}
-
-#[cfg(feature = "rand")]
-mod rand {
-    use iota_sdk::types::block::rand::number::rand_number;
-
-    use super::*;
-
-    impl TimelockUnlockCondition {
-        /// Generates a random [`TimelockUnlockCondition`].
-        pub fn rand() -> Self {
-            Self {
-                timestamp: rand_number::<u32>().into(),
-            }
+            slot_index: value.borrow().slot_index(),
         }
     }
 }

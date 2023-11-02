@@ -13,9 +13,13 @@ use serde::{Deserialize, Serialize};
 use tracing::instrument;
 
 use super::SortOrder;
-use crate::db::{
-    mongodb::{InsertIgnoreDuplicatesExt, MongoDbCollection, MongoDbCollectionExt},
-    MongoDb,
+use crate::{
+    db::{
+        mongodb::{InsertIgnoreDuplicatesExt, MongoDbCollection, MongoDbCollectionExt},
+        MongoDb,
+    },
+    inx::ledger::{LedgerOutput, LedgerSpent},
+    model::SerializeToBson,
 };
 
 /// Contains all information related to an output.
@@ -23,7 +27,6 @@ use crate::db::{
 pub struct LedgerUpdateDocument {
     _id: LedgerUpdateByAddressRecord,
     address: Address,
-    slot_timestamp: u64,
 }
 
 /// The iota ledger updates collection.
@@ -96,23 +99,17 @@ impl LedgerUpdateCollection {
         I: IntoIterator<Item = &'a LedgerSpent>,
         I::IntoIter: Send + Sync,
     {
-        let ledger_updates = outputs.into_iter().filter_map(
-            |LedgerSpent {
-                 output: LedgerOutput { output_id, output, .. },
-                 spent_metadata,
-             }| {
-                // Ledger updates
-                output.owning_address().map(|&address| LedgerUpdateDocument {
-                    _id: Id {
-                        milestone_index: spent_metadata.spent.milestone_index,
-                        output_id: *output_id,
-                        is_spent: true,
-                    },
-                    address,
-                    milestone_timestamp: spent_metadata.spent.milestone_timestamp,
-                })
-            },
-        );
+        let ledger_updates = outputs.into_iter().filter_map(|LedgerSpent { output, .. }| {
+            // Ledger updates
+            output.owning_address().map(|address| LedgerUpdateDocument {
+                _id: LedgerUpdateByAddressRecord {
+                    slot_index: output.slot_booked,
+                    output_id: output.output_id,
+                    is_spent: true,
+                },
+                address,
+            })
+        });
         self.insert_many_ignore_duplicates(ledger_updates, InsertManyOptions::builder().ordered(false).build())
             .await?;
 
@@ -126,25 +123,17 @@ impl LedgerUpdateCollection {
         I: IntoIterator<Item = &'a LedgerOutput>,
         I::IntoIter: Send + Sync,
     {
-        let ledger_updates = outputs.into_iter().filter_map(
-            |LedgerOutput {
-                 output_id,
-                 booked,
-                 output,
-                 ..
-             }| {
-                // Ledger updates
-                output.owning_address().map(|&address| LedgerUpdateDocument {
-                    _id: Id {
-                        milestone_index: booked.milestone_index,
-                        output_id: *output_id,
-                        is_spent: false,
-                    },
-                    address,
-                    milestone_timestamp: booked.milestone_timestamp,
-                })
-            },
-        );
+        let ledger_updates = outputs.into_iter().filter_map(|output| {
+            // Ledger updates
+            output.owning_address().map(|address| LedgerUpdateDocument {
+                _id: LedgerUpdateByAddressRecord {
+                    slot_index: output.slot_booked,
+                    output_id: output.output_id,
+                    is_spent: false,
+                },
+                address,
+            })
+        });
         self.insert_many_ignore_duplicates(ledger_updates, InsertManyOptions::builder().ordered(false).build())
             .await?;
 
@@ -156,7 +145,7 @@ impl LedgerUpdateCollection {
         &self,
         address: &Address,
         page_size: usize,
-        cursor: Option<(MilestoneIndex, Option<(OutputId, bool)>)>,
+        cursor: Option<(SlotIndex, Option<(OutputId, bool)>)>,
         order: SortOrder,
     ) -> Result<impl Stream<Item = Result<LedgerUpdateByAddressRecord, Error>>, Error> {
         let (sort, cmp1, cmp2) = match order {
@@ -164,18 +153,18 @@ impl LedgerUpdateCollection {
             SortOrder::Oldest => (oldest(), "$gt", "$gte"),
         };
 
-        let mut queries = vec![doc! { "address": address }];
+        let mut queries = vec![doc! { "address": address.to_bson() }];
 
-        if let Some((milestone_index, rest)) = cursor {
-            let mut cursor_queries = vec![doc! { "_id.milestone_index": { cmp1: milestone_index } }];
+        if let Some((slot_index, rest)) = cursor {
+            let mut cursor_queries = vec![doc! { "_id.slot_index": { cmp1: slot_index.to_bson() } }];
             if let Some((output_id, is_spent)) = rest {
                 cursor_queries.push(doc! {
-                    "_id.milestone_index": milestone_index,
-                    "_id.output_id": { cmp1: output_id }
+                    "_id.slot_index": slot_index.to_bson(),
+                    "_id.output_id": { cmp1: output_id.to_bson() }
                 });
                 cursor_queries.push(doc! {
-                    "_id.milestone_index": milestone_index,
-                    "_id.output_id": output_id,
+                    "_id.slot_index": slot_index.to_bson(),
+                    "_id.output_id": output_id.to_bson(),
                     "_id.is_spent": { cmp2: is_spent }
                 });
             }
@@ -189,7 +178,7 @@ impl LedgerUpdateCollection {
             )
             .await?
             .map_ok(|doc| LedgerUpdateByAddressRecord {
-                at: doc._id.milestone_index.with_timestamp(doc.milestone_timestamp),
+                slot_index: doc._id.slot_index,
                 output_id: doc._id.output_id,
                 is_spent: doc._id.is_spent,
             }))
@@ -198,18 +187,18 @@ impl LedgerUpdateCollection {
     /// Streams updates to the ledger for a given milestone index (sorted by [`OutputId`]).
     pub async fn get_ledger_updates_by_milestone(
         &self,
-        milestone_index: MilestoneIndex,
+        slot_index: SlotIndex,
         page_size: usize,
         cursor: Option<(OutputId, bool)>,
     ) -> Result<impl Stream<Item = Result<LedgerUpdateBySlotRecord, Error>>, Error> {
         let (cmp1, cmp2) = ("$gt", "$gte");
 
-        let mut queries = vec![doc! { "_id.milestone_index": milestone_index }];
+        let mut queries = vec![doc! { "_id.slot_index": slot_index.to_bson() }];
 
         if let Some((output_id, is_spent)) = cursor {
-            let mut cursor_queries = vec![doc! { "_id.output_id": { cmp1: output_id } }];
+            let mut cursor_queries = vec![doc! { "_id.output_id": { cmp1: output_id.to_bson() } }];
             cursor_queries.push(doc! {
-                "_id.output_id": output_id,
+                "_id.output_id": output_id.to_bson(),
                 "_id.is_spent": { cmp2: is_spent }
             });
             queries.push(doc! { "$or": cursor_queries });

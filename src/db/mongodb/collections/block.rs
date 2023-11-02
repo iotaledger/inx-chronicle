@@ -11,7 +11,7 @@ use iota_sdk::types::{
     TryFromDto,
 };
 use mongodb::{
-    bson::{doc, to_bson},
+    bson::doc,
     error::Error,
     options::{IndexOptions, InsertManyOptions},
     IndexModel,
@@ -21,9 +21,12 @@ use serde::{Deserialize, Serialize};
 use tracing::instrument;
 
 use super::SortOrder;
-use crate::db::{
-    mongodb::{InsertIgnoreDuplicatesExt, MongoDbCollection, MongoDbCollectionExt},
-    MongoDb,
+use crate::{
+    db::{
+        mongodb::{InsertIgnoreDuplicatesExt, MongoDbCollection, MongoDbCollectionExt},
+        MongoDb,
+    },
+    model::SerializeToBson,
 };
 
 /// Chronicle Block record.
@@ -91,7 +94,7 @@ impl MongoDbCollection for BlockCollection {
                         .name("transaction_id_index".to_string())
                         .partial_filter_expression(doc! {
                             "block.payload.transaction_id": { "$exists": true },
-                            "metadata.block_state": { "$eq": to_bson(&BlockState::Finalized).unwrap() },
+                            "metadata.block_state": { "$eq": BlockState::Finalized.to_bson() },
                         })
                         .build(),
                 )
@@ -157,7 +160,7 @@ impl BlockCollection {
         Ok(self
             .aggregate(
                 [
-                    doc! { "$match": { "_id": to_bson(block_id).unwrap() } },
+                    doc! { "$match": { "_id": block_id.to_bson() } },
                     doc! { "$project": { "raw": 1 } },
                 ],
                 None,
@@ -172,7 +175,7 @@ impl BlockCollection {
     pub async fn get_block_metadata(&self, block_id: &BlockId) -> Result<Option<BlockMetadataResponse>, Error> {
         self.aggregate(
             [
-                doc! { "$match": { "_id": to_bson(block_id).unwrap() } },
+                doc! { "$match": { "_id": block_id.to_bson() } },
                 doc! { "$replaceWith": "$metadata" },
             ],
             None,
@@ -311,8 +314,8 @@ impl BlockCollection {
             .aggregate(
                 [
                     doc! { "$match": {
-                        "metadata.block_state": to_bson(&BlockState::Finalized).unwrap(),
-                        "block.payload.transaction_id": to_bson(transaction_id).unwrap(),
+                        "metadata.block_state": BlockState::Finalized.to_bson(),
+                        "block.payload.transaction_id": transaction_id.to_bson(),
                     } },
                     doc! { "$project": { "block_id": "$_id", "block": 1 } },
                 ],
@@ -336,8 +339,8 @@ impl BlockCollection {
             .aggregate(
                 [
                     doc! { "$match": {
-                        "metadata.block_state": to_bson(&BlockState::Finalized).unwrap(),
-                        "block.payload.transaction_id": to_bson(transaction_id).unwrap(),
+                        "metadata.block_state": BlockState::Finalized.to_bson(),
+                        "block.payload.transaction_id": transaction_id.to_bson(),
                     } },
                     doc! { "$project": { "raw": 1 } },
                 ],
@@ -357,8 +360,8 @@ impl BlockCollection {
         self.aggregate(
             [
                 doc! { "$match": {
-                    "metadata.block_state": to_bson(&BlockState::Finalized).unwrap(),
-                    "block.payload.transaction_id": to_bson(transaction_id).unwrap(),
+                    "metadata.block_state": BlockState::Finalized.to_bson(),
+                    "block.payload.transaction_id": transaction_id.to_bson(),
                 } },
                 doc! { "$project": {
                     "_id": 1,
@@ -377,8 +380,8 @@ impl BlockCollection {
         self.aggregate(
             [
                 doc! { "$match": {
-                    "metadata.block_state": to_bson(&BlockState::Finalized).unwrap(),
-                    "block.payload.essence.inputs.transaction_id": to_bson(output_id.transaction_id()).unwrap(),
+                    "metadata.block_state": BlockState::Finalized.to_bson(),
+                    "block.payload.essence.inputs.transaction_id": output_id.transaction_id().to_bson(),
                     "block.payload.essence.inputs.index": &(output_id.index() as i32)
                 } },
                 doc! { "$project": { "raw": 1 } },

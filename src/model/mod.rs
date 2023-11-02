@@ -3,38 +3,21 @@
 
 //! Module that contains the types.
 
-// pub mod block;
-// pub mod node;
-// pub mod protocol;
-// pub mod signature;
-// pub mod util;
+pub mod block;
 
-// pub use block::*;
-// pub use node::*;
-// pub use protocol::*;
-// pub use signature::*;
-// pub use util::*;
+pub use block::*;
 
-// pub mod utxo {
-//     //! A logical grouping of UTXO types for convenience.
-//     #![allow(ambiguous_glob_reexports)]
-//     pub use super::block::payload::transaction::{
-//         input::*,
-//         output::{address::*, unlock_condition::*, *},
-//         unlock::*,
-//     };
-// }
-// // Bring this module up to the top level for convenience
-// pub use self::block::payload::transaction::output::ledger;
-// pub mod metadata {
-//     //! A logical grouping of metadata types for convenience.
-//     pub use super::{block::metadata::*, utxo::metadata::*};
-// }
-// pub mod tangle {
-//     //! A logical grouping of ledger types for convenience.
-//     pub use super::block::payload::milestone::{MilestoneIndex, MilestoneIndexTimestamp, MilestoneTimestamp};
-// }
-
+pub mod utxo {
+    //! A logical grouping of UTXO types for convenience.
+    #![allow(ambiguous_glob_reexports)]
+    pub use super::block::payload::transaction::{
+        input::*,
+        output::{address::*, unlock_condition::*, *},
+        unlock::*,
+    };
+}
+use iota_sdk::types::ValidationParams;
+// Bring this module up to the top level for convenience
 use mongodb::bson::Bson;
 use serde::{de::DeserializeOwned, Serialize};
 
@@ -58,3 +41,20 @@ pub trait DeserializeFromBson: DeserializeOwned {
     }
 }
 impl<T: DeserializeOwned> DeserializeFromBson for T {}
+
+pub trait TryFromDto<Dto>: Sized {
+    type Error;
+
+    fn try_from_dto(dto: Dto) -> Result<Self, Self::Error> {
+        Self::try_from_dto_with_params(dto, ValidationParams::default())
+    }
+
+    fn try_from_dto_with_params<'a>(
+        dto: Dto,
+        params: impl Into<ValidationParams<'a>> + Send,
+    ) -> Result<Self, Self::Error> {
+        Self::try_from_dto_with_params_inner(dto, params.into())
+    }
+
+    fn try_from_dto_with_params_inner(dto: Dto, params: ValidationParams<'_>) -> Result<Self, Self::Error>;
+}

@@ -9,9 +9,12 @@ use mongodb::{
 };
 use serde::{Deserialize, Serialize};
 
-use crate::db::{
-    mongodb::{MongoDbCollection, MongoDbCollectionExt},
-    MongoDb,
+use crate::{
+    db::{
+        mongodb::{MongoDbCollection, MongoDbCollectionExt},
+        MongoDb,
+    },
+    model::SerializeToBson,
 };
 
 /// A milestone's metadata.
@@ -86,7 +89,7 @@ impl ProtocolUpdateCollection {
             self.update_one(
                 doc! { "_id": epoch_index.0 },
                 doc! { "$set": {
-                    "parameters": mongodb::bson::to_bson(&parameters)?
+                    "parameters": parameters.to_bson()
                 } },
                 UpdateOptions::builder().upsert(true).build(),
             )

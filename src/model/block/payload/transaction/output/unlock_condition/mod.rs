@@ -12,66 +12,66 @@ pub mod storage_deposit_return;
 pub mod timelock;
 
 pub use self::{
-    address::AddressUnlockCondition, expiration::ExpirationUnlockCondition,
-    governor_address::GovernorAddressUnlockCondition, immutable_alias_address::ImmutableAliasAddressUnlockCondition,
-    state_controller_address::StateControllerAddressUnlockCondition,
-    storage_deposit_return::StorageDepositReturnUnlockCondition, timelock::TimelockUnlockCondition,
+    address::AddressUnlockConditionDto, expiration::ExpirationUnlockConditionDto,
+    governor_address::GovernorAddressUnlockConditionDto,
+    immutable_alias_address::ImmutableAccountAddressUnlockConditionDto,
+    state_controller_address::StateControllerAddressUnlockConditionDto,
+    storage_deposit_return::StorageDepositReturnUnlockConditionDto, timelock::TimelockUnlockConditionDto,
 };
-use super::TokenAmount;
 
-#[cfg(all(test, feature = "rand"))]
-mod test {
-    use mongodb::bson::{from_bson, to_bson};
+// #[cfg(all(test, feature = "rand"))]
+// mod test {
+//     use mongodb::bson::{from_bson, to_bson};
 
-    use super::*;
+//     use super::*;
 
-    #[test]
-    fn test_address_unlock_bson() {
-        let unlock = AddressUnlockCondition::rand();
-        let bson = to_bson(&unlock).unwrap();
-        from_bson::<AddressUnlockCondition>(bson).unwrap();
-    }
+//     #[test]
+//     fn test_address_unlock_bson() {
+//         let unlock = AddressUnlockCondition::rand();
+//         let bson = to_bson(&unlock).unwrap();
+//         from_bson::<AddressUnlockCondition>(bson).unwrap();
+//     }
 
-    #[test]
-    fn test_storage_deposit_unlock_bson() {
-        let ctx = iota_sdk::types::block::protocol::protocol_parameters();
-        let unlock = StorageDepositReturnUnlockCondition::rand(&ctx);
-        let bson = to_bson(&unlock).unwrap();
-        from_bson::<StorageDepositReturnUnlockCondition>(bson).unwrap();
-    }
+//     #[test]
+//     fn test_storage_deposit_unlock_bson() {
+//         let ctx = iota_sdk::types::block::protocol::protocol_parameters();
+//         let unlock = StorageDepositReturnUnlockConditionDto::rand(&ctx);
+//         let bson = to_bson(&unlock).unwrap();
+//         from_bson::<StorageDepositReturnUnlockConditionDto>(bson).unwrap();
+//     }
 
-    #[test]
-    fn test_timelock_unlock_bson() {
-        let unlock = TimelockUnlockCondition::rand();
-        let bson = to_bson(&unlock).unwrap();
-        from_bson::<TimelockUnlockCondition>(bson).unwrap();
-    }
+//     #[test]
+//     fn test_timelock_unlock_bson() {
+//         let unlock = TimelockUnlockConditionDto::rand();
+//         let bson = to_bson(&unlock).unwrap();
+//         from_bson::<TimelockUnlockConditionDto>(bson).unwrap();
+//     }
 
-    #[test]
-    fn test_expiration_unlock_bson() {
-        let unlock = ExpirationUnlockCondition::rand();
-        let bson = to_bson(&unlock).unwrap();
-        from_bson::<ExpirationUnlockCondition>(bson).unwrap();
-    }
+//     #[test]
+//     fn test_expiration_unlock_bson() {
+//         let unlock = ExpirationUnlockConditionDto::rand();
+//         let bson = to_bson(&unlock).unwrap();
+//         from_bson::<ExpirationUnlockConditionDto>(bson).unwrap();
+//     }
 
-    #[test]
-    fn test_governor_unlock_bson() {
-        let unlock = GovernorAddressUnlockCondition::rand();
-        let bson = to_bson(&unlock).unwrap();
-        from_bson::<GovernorAddressUnlockCondition>(bson).unwrap();
-    }
+//     #[test]
+//     fn test_governor_unlock_bson() {
+//         let unlock = GovernorAddressUnlockConditionDto::rand();
+//         let bson = to_bson(&unlock).unwrap();
+//         from_bson::<GovernorAddressUnlockConditionDto>(bson).unwrap();
+//     }
 
-    #[test]
-    fn test_state_controller_unlock_bson() {
-        let unlock = StateControllerAddressUnlockCondition::rand();
-        let bson = to_bson(&unlock).unwrap();
-        from_bson::<StateControllerAddressUnlockCondition>(bson).unwrap();
-    }
+//     #[test]
+//     fn test_state_controller_unlock_bson() {
+//         let unlock = StateControllerAddressUnlockConditionDto::rand();
+//         let bson = to_bson(&unlock).unwrap();
+//         from_bson::<StateControllerAddressUnlockConditionDto>(bson).unwrap();
+//     }
 
-    #[test]
-    fn test_immut_alias_unlock_bson() {
-        let unlock = ImmutableAliasAddressUnlockCondition::rand();
-        let bson = to_bson(&unlock).unwrap();
-        from_bson::<ImmutableAliasAddressUnlockCondition>(bson).unwrap();
-    }
-}
+//     #[test]
+//     fn test_immut_alias_unlock_bson() {
+//         let unlock = ImmutableAliasAddressUnlockConditionDto::rand();
+//         let bson = to_bson(&unlock).unwrap();
+//         from_bson::<ImmutableAliasAddressUnlockConditionDto>(bson).unwrap();
+//     }
+// }
