@@ -7,86 +7,81 @@ use std::ops::{Bound, RangeBounds};
 
 use inx::proto;
 
-use crate::model::{payload::MilestoneId, tangle::MilestoneIndex};
+// /// A request for a milestone that can either be a [`MilestoneIndex`] or a [`MilestoneId`].
+// pub enum MilestoneRequest {
+//     /// Request milestone information by milestone index.
+//     MilestoneIndex(MilestoneIndex),
+//     /// Request milestone information by milestone id.
+//     MilestoneId(MilestoneId),
+// }
 
-/// A request for a milestone that can either be a [`MilestoneIndex`] or a [`MilestoneId`].
-pub enum MilestoneRequest {
-    /// Request milestone information by milestone index.
-    MilestoneIndex(MilestoneIndex),
-    /// Request milestone information by milestone id.
-    MilestoneId(MilestoneId),
-}
+// impl From<MilestoneRequest> for proto::MilestoneRequest {
+//     fn from(value: MilestoneRequest) -> Self {
+//         match value {
+//             MilestoneRequest::MilestoneIndex(MilestoneIndex(milestone_index)) => Self {
+//                 milestone_index,
+//                 milestone_id: None,
+//             },
+//             MilestoneRequest::MilestoneId(milestone_id) => Self {
+//                 milestone_index: 0,
+//                 milestone_id: Some(inx::proto::MilestoneId {
+//                     id: milestone_id.0.to_vec(),
+//                 }),
+//             },
+//         }
+//     }
+// }
 
-impl From<MilestoneRequest> for proto::MilestoneRequest {
-    fn from(value: MilestoneRequest) -> Self {
-        match value {
-            MilestoneRequest::MilestoneIndex(MilestoneIndex(milestone_index)) => Self {
-                milestone_index,
-                milestone_id: None,
-            },
-            MilestoneRequest::MilestoneId(milestone_id) => Self {
-                milestone_index: 0,
-                milestone_id: Some(inx::proto::MilestoneId {
-                    id: milestone_id.0.to_vec(),
-                }),
-            },
-        }
-    }
-}
+// impl<T: Into<u32>> From<T> for MilestoneRequest {
+//     fn from(value: T) -> Self {
+//         Self::MilestoneIndex(MilestoneIndex(value.into()))
+//     }
+// }
 
-impl<T: Into<u32>> From<T> for MilestoneRequest {
-    fn from(value: T) -> Self {
-        Self::MilestoneIndex(MilestoneIndex(value.into()))
-    }
-}
-
-fn to_milestone_range_request<T, I>(range: T) -> proto::MilestoneRangeRequest
+fn to_slot_range_request<T, I>(range: T) -> proto::SlotRangeRequest
 where
     T: RangeBounds<I>,
     I: Into<u32> + Copy,
 {
-    let start_milestone_index = match range.start_bound() {
+    let start_slot = match range.start_bound() {
         Bound::Included(&idx) => idx.into(),
         Bound::Excluded(&idx) => idx.into() + 1,
         Bound::Unbounded => 0,
     };
-    let end_milestone_index = match range.end_bound() {
+    let end_slot = match range.end_bound() {
         Bound::Included(&idx) => idx.into(),
         Bound::Excluded(&idx) => idx.into() - 1,
         Bound::Unbounded => 0,
     };
-    proto::MilestoneRangeRequest {
-        start_milestone_index,
-        end_milestone_index,
-    }
+    proto::SlotRangeRequest { start_slot, end_slot }
 }
 
-/// A request for a range of milestones by [`MilestoneIndex`].
+/// A request for a range of slots by [`SlotIndex`](iota_sdk::types::block::slot::SlotIndex).
 #[derive(Clone, Debug, PartialEq)]
-pub struct MilestoneRangeRequest(proto::MilestoneRangeRequest);
+pub struct SlotRangeRequest(proto::SlotRangeRequest);
 
-impl<T> From<T> for MilestoneRangeRequest
+impl<T> From<T> for SlotRangeRequest
 where
     T: RangeBounds<u32>,
 {
-    fn from(value: T) -> MilestoneRangeRequest {
-        MilestoneRangeRequest(to_milestone_range_request(value))
+    fn from(value: T) -> SlotRangeRequest {
+        SlotRangeRequest(to_slot_range_request(value))
     }
 }
 
-impl MilestoneRangeRequest {
+impl SlotRangeRequest {
     /// Convert any range that can be interpreted as a range request.
     pub fn from_range<T, I>(range: T) -> Self
     where
         T: RangeBounds<I>,
         I: Into<u32> + Copy,
     {
-        Self(to_milestone_range_request(range))
+        Self(to_slot_range_request(range))
     }
 }
 
-impl From<MilestoneRangeRequest> for proto::MilestoneRangeRequest {
-    fn from(value: MilestoneRangeRequest) -> Self {
+impl From<SlotRangeRequest> for proto::SlotRangeRequest {
+    fn from(value: SlotRangeRequest) -> Self {
         value.0
     }
 }
@@ -99,24 +94,24 @@ mod test {
 
     #[test]
     fn exclusive() {
-        let range = MilestoneRangeRequest::from(17..43);
+        let range = SlotRangeRequest::from(17..43);
         assert_eq!(
             range,
-            MilestoneRangeRequest(proto::MilestoneRangeRequest {
-                start_milestone_index: 17,
-                end_milestone_index: 42
+            SlotRangeRequest(proto::SlotRangeRequest {
+                start_slot: 17,
+                end_slot: 42
             })
         );
     }
 
     #[test]
     fn inclusive() {
-        let range = MilestoneRangeRequest::from(17..=42);
+        let range = SlotRangeRequest::from(17..=42);
         assert_eq!(
             range,
-            MilestoneRangeRequest(proto::MilestoneRangeRequest {
-                start_milestone_index: 17,
-                end_milestone_index: 42
+            SlotRangeRequest(proto::SlotRangeRequest {
+                start_slot: 17,
+                end_slot: 42
             })
         );
     }

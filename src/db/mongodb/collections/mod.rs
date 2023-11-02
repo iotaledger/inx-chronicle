@@ -8,34 +8,31 @@ mod block;
 mod configuration_update;
 /// Module containing the LedgerUpdate model.
 mod ledger_update;
-/// Module containing the Milestone document model.
-mod milestone;
 /// Module containing Block outputs.
 mod outputs;
 /// Module containing the protocol parameters collection.
 mod protocol_update;
-/// Module containing the treasury model.
-mod treasury;
 
 use std::str::FromStr;
 
+use iota_sdk::types::block::output::{
+    AccountOutput, AnchorOutput, BasicOutput, DelegationOutput, FoundryOutput, NftOutput, Output,
+};
 use thiserror::Error;
 
 pub use self::{
     application_state::{ApplicationStateCollection, MigrationVersion},
     block::BlockCollection,
     configuration_update::ConfigurationUpdateCollection,
-    ledger_update::{LedgerUpdateByAddressRecord, LedgerUpdateByMilestoneRecord, LedgerUpdateCollection},
-    milestone::{MilestoneCollection, MilestoneResult, SyncData},
+    ledger_update::{LedgerUpdateByAddressRecord, LedgerUpdateBySlotRecord, LedgerUpdateCollection},
     outputs::{
         AddressStat, AliasOutputsQuery, BasicOutputsQuery, DistributionStat, FoundryOutputsQuery, IndexedId,
         NftOutputsQuery, OutputCollection, OutputMetadataResult, OutputWithMetadataResult, OutputsResult,
         UtxoChangesResult,
     },
     protocol_update::ProtocolUpdateCollection,
-    treasury::{TreasuryCollection, TreasuryResult},
 };
-use crate::model::utxo::{AliasOutput, BasicOutput, FoundryOutput, NftOutput, Output};
+// use crate::model::utxo::{AliasOutput, BasicOutput, FoundryOutput, NftOutput, Output};
 
 /// Helper to specify a kind for an output type.
 pub trait OutputKindQuery {
@@ -50,18 +47,20 @@ impl OutputKindQuery for Output {
 }
 
 macro_rules! impl_output_kind_query {
-    ($t:ty) => {
+    ($t:ty, $kind:literal) => {
         impl OutputKindQuery for $t {
             fn kind() -> Option<&'static str> {
-                Some(<$t>::KIND)
+                Some($kind)
             }
         }
     };
 }
-impl_output_kind_query!(BasicOutput);
-impl_output_kind_query!(AliasOutput);
-impl_output_kind_query!(NftOutput);
-impl_output_kind_query!(FoundryOutput);
+impl_output_kind_query!(BasicOutput, "basic");
+impl_output_kind_query!(AccountOutput, "account");
+impl_output_kind_query!(FoundryOutput, "foundry");
+impl_output_kind_query!(NftOutput, "nft");
+impl_output_kind_query!(DelegationOutput, "delegation");
+impl_output_kind_query!(AnchorOutput, "anchor");
 
 #[allow(missing_docs)]
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]

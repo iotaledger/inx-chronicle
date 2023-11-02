@@ -1,21 +1,19 @@
 // Copyright 2023 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
+use iota_sdk::types::block::slot::SlotIndex;
 use mongodb::{bson::doc, error::Error, options::UpdateOptions};
 use serde::{Deserialize, Serialize};
 
-use crate::{
-    db::{
-        mongodb::{MongoDbCollection, MongoDbCollectionExt},
-        MongoDb,
-    },
-    model::tangle::MilestoneIndexTimestamp,
+use crate::db::{
+    mongodb::{MongoDbCollection, MongoDbCollectionExt},
+    MongoDb,
 };
 
 /// The MongoDb document representation of singleton Application State.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct ApplicationStateDocument {
-    pub starting_index: Option<MilestoneIndexTimestamp>,
+    pub starting_slot: Option<SlotIndex>,
     pub last_migration: Option<MigrationVersion>,
 }
 
@@ -54,19 +52,19 @@ impl MongoDbCollection for ApplicationStateCollection {
 
 impl ApplicationStateCollection {
     /// Gets the application starting milestone index.
-    pub async fn get_starting_index(&self) -> Result<Option<MilestoneIndexTimestamp>, Error> {
+    pub async fn get_starting_index(&self) -> Result<Option<SlotIndex>, Error> {
         Ok(self
             .find_one::<ApplicationStateDocument>(doc! {}, None)
             .await?
-            .and_then(|doc| doc.starting_index))
+            .and_then(|doc| doc.starting_slot))
     }
 
     /// Set the starting milestone index in the singleton application state.
-    pub async fn set_starting_index(&self, starting_index: MilestoneIndexTimestamp) -> Result<(), Error> {
+    pub async fn set_starting_index(&self, starting_slot: SlotIndex) -> Result<(), Error> {
         self.update_one(
             doc! {},
             doc! {
-                "$set": { "starting_index": starting_index }
+                "$set": { "starting_slot": starting_slot.0 }
             },
             UpdateOptions::builder().upsert(true).build(),
         )

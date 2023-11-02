@@ -2,8 +2,16 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use futures::{Stream, TryStreamExt};
+use iota_sdk::types::{
+    api::core::{BlockMetadataResponse, BlockState},
+    block::{
+        output::OutputId, payload::signed_transaction::TransactionId, slot::SlotIndex, BlockId, SignedBlock,
+        SignedBlockDto,
+    },
+    TryFromDto,
+};
 use mongodb::{
-    bson::doc,
+    bson::{doc, to_bson},
     error::Error,
     options::{IndexOptions, InsertManyOptions},
     IndexModel,
@@ -13,19 +21,9 @@ use serde::{Deserialize, Serialize};
 use tracing::instrument;
 
 use super::SortOrder;
-use crate::{
-    db::{
-        mongodb::{InsertIgnoreDuplicatesExt, MongoDbCollection, MongoDbCollectionExt},
-        MongoDb,
-    },
-    model::{
-        metadata::{BlockMetadata, LedgerInclusionState},
-        payload::TransactionId,
-        tangle::MilestoneIndex,
-        utxo::OutputId,
-        Block, BlockId,
-    },
-    tangle::BlockData,
+use crate::db::{
+    mongodb::{InsertIgnoreDuplicatesExt, MongoDbCollection, MongoDbCollectionExt},
+    MongoDb,
 };
 
 /// Chronicle Block record.
@@ -34,51 +32,45 @@ pub struct BlockDocument {
     #[serde(rename = "_id")]
     block_id: BlockId,
     /// The block.
-    block: Block,
+    block: SignedBlockDto,
     /// The raw bytes of the block.
     #[serde(with = "serde_bytes")]
     raw: Vec<u8>,
     /// The block's metadata.
-    metadata: BlockMetadata,
+    metadata: BlockMetadataResponse,
 }
 
-impl From<BlockData> for BlockDocument {
-    fn from(
-        BlockData {
-            block_id,
-            block,
-            raw,
-            metadata,
-        }: BlockData,
-    ) -> Self {
-        Self {
-            block_id,
-            block,
-            raw,
-            metadata,
-        }
-    }
-}
+// impl From<BlockData> for BlockDocument {
+//     fn from(
+//         BlockData {
+//             block_id,
+//             block,
+//             raw,
+//             metadata,
+//         }: BlockData,
+//     ) -> Self { Self { block_id, block, raw, metadata, }
+//     }
+// }
 
-impl From<(BlockId, Block, Vec<u8>, BlockMetadata)> for BlockDocument {
-    fn from((block_id, block, raw, metadata): (BlockId, Block, Vec<u8>, BlockMetadata)) -> Self {
-        Self {
-            block_id,
-            block,
-            raw,
-            metadata,
-        }
-    }
-}
+// impl From<(BlockId, Block, Vec<u8>, BlockMetadata)> for BlockDocument {
+//     fn from((block_id, block, raw, metadata): (BlockId, Block, Vec<u8>, BlockMetadata)) -> Self {
+//         Self {
+//             block_id,
+//             block,
+//             raw,
+//             metadata,
+//         }
+//     }
+// }
 
-/// The stardust blocks collection.
+/// The iota blocks collection.
 pub struct BlockCollection {
     collection: mongodb::Collection<BlockDocument>,
 }
 
 #[async_trait::async_trait]
 impl MongoDbCollection for BlockCollection {
-    const NAME: &'static str = "stardust_blocks";
+    const NAME: &'static str = "iota_blocks";
     type Document = BlockDocument;
 
     fn instantiate(_db: &MongoDb, collection: mongodb::Collection<Self::Document>) -> Self {
@@ -99,7 +91,7 @@ impl MongoDbCollection for BlockCollection {
                         .name("transaction_id_index".to_string())
                         .partial_filter_expression(doc! {
                             "block.payload.transaction_id": { "$exists": true },
-                            "metadata.inclusion_state": { "$eq": LedgerInclusionState::Included },
+                            "metadata.block_state": { "$eq": to_bson(&BlockState::Finalized).unwrap() },
                         })
                         .build(),
                 )
@@ -125,18 +117,17 @@ impl MongoDbCollection for BlockCollection {
     }
 }
 
-#[derive(Deserialize, Debug, Clone)]
+#[derive(Debug, Clone)]
 pub struct IncludedBlockResult {
-    #[serde(rename = "_id")]
     pub block_id: BlockId,
-    pub block: Block,
+    pub block: SignedBlock,
 }
 
 #[derive(Deserialize, Debug, Clone)]
 pub struct IncludedBlockMetadataResult {
     #[serde(rename = "_id")]
     pub block_id: BlockId,
-    pub metadata: BlockMetadata,
+    pub metadata: BlockMetadataResponse,
 }
 
 #[derive(Deserialize)]
@@ -154,11 +145,11 @@ struct BlockIdResult {
 /// Implements the queries for the core API.
 impl BlockCollection {
     /// Get a [`Block`] by its [`BlockId`].
-    pub async fn get_block(&self, block_id: &BlockId) -> Result<Option<Block>, Error> {
+    pub async fn get_block(&self, block_id: &BlockId) -> Result<Option<SignedBlock>, Error> {
         Ok(self
             .get_block_raw(block_id)
             .await?
-            .map(|raw| iota_sdk::types::block::Block::unpack_unverified(raw).unwrap().into()))
+            .map(|raw| SignedBlock::unpack_unverified(raw).unwrap()))
     }
 
     /// Get the raw bytes of a [`Block`] by its [`BlockId`].
@@ -166,7 +157,7 @@ impl BlockCollection {
         Ok(self
             .aggregate(
                 [
-                    doc! { "$match": { "_id": block_id } },
+                    doc! { "$match": { "_id": to_bson(block_id).unwrap() } },
                     doc! { "$project": { "raw": 1 } },
                 ],
                 None,
@@ -178,10 +169,10 @@ impl BlockCollection {
     }
 
     /// Get the metadata of a [`Block`] by its [`BlockId`].
-    pub async fn get_block_metadata(&self, block_id: &BlockId) -> Result<Option<BlockMetadata>, Error> {
+    pub async fn get_block_metadata(&self, block_id: &BlockId) -> Result<Option<BlockMetadataResponse>, Error> {
         self.aggregate(
             [
-                doc! { "$match": { "_id": block_id } },
+                doc! { "$match": { "_id": to_bson(block_id).unwrap() } },
                 doc! { "$replaceWith": "$metadata" },
             ],
             None,
@@ -191,116 +182,99 @@ impl BlockCollection {
         .await
     }
 
-    /// Get the children of a [`Block`] as a stream of [`BlockId`]s.
-    pub async fn get_block_children(
-        &self,
-        block_id: &BlockId,
-        block_referenced_index: MilestoneIndex,
-        below_max_depth: u8,
-        page_size: usize,
-        page: usize,
-    ) -> Result<impl Stream<Item = Result<BlockId, Error>>, Error> {
-        let max_referenced_index = block_referenced_index + below_max_depth as u32;
+    // /// Get the children of a [`Block`] as a stream of [`BlockId`]s.
+    // pub async fn get_block_children(
+    //     &self,
+    //     block_id: &BlockId,
+    //     block_referenced_index: MilestoneIndex,
+    //     below_max_depth: u8,
+    //     page_size: usize,
+    //     page: usize,
+    // ) -> Result<impl Stream<Item = Result<BlockId, Error>>, Error> { let max_referenced_index =
+    //   block_referenced_index + below_max_depth as u32;
 
-        Ok(self
-            .aggregate(
-                [
-                    doc! { "$match": {
-                        "metadata.referenced_by_milestone_index": {
-                            "$gte": block_referenced_index,
-                            "$lte": max_referenced_index
-                        },
-                        "block.parents": block_id,
-                    } },
-                    doc! { "$sort": {"metadata.referenced_by_milestone_index": -1} },
-                    doc! { "$skip": (page_size * page) as i64 },
-                    doc! { "$limit": page_size as i64 },
-                    doc! { "$project": { "_id": 1 } },
-                ],
-                None,
-            )
-            .await?
-            .map_ok(|BlockIdResult { block_id }| block_id))
-    }
+    //     Ok(self
+    //         .aggregate(
+    //             [
+    //                 doc! { "$match": {
+    //                     "metadata.referenced_by_milestone_index": {
+    //                         "$gte": block_referenced_index,
+    //                         "$lte": max_referenced_index
+    //                     },
+    //                     "block.parents": block_id,
+    //                 } },
+    //                 doc! { "$sort": {"metadata.referenced_by_milestone_index": -1} },
+    //                 doc! { "$skip": (page_size * page) as i64 },
+    //                 doc! { "$limit": page_size as i64 },
+    //                 doc! { "$project": { "_id": 1 } },
+    //             ],
+    //             None,
+    //         )
+    //         .await?
+    //         .map_ok(|BlockIdResult { block_id }| block_id))
+    // }
 
-    /// Get the blocks that were referenced by the specified milestone (in White-Flag order).
-    pub async fn get_referenced_blocks_in_white_flag_order(
-        &self,
-        index: MilestoneIndex,
-    ) -> Result<Vec<BlockId>, Error> {
-        let block_ids = self
-            .aggregate::<BlockIdResult>(
-                [
-                    doc! { "$match": { "metadata.referenced_by_milestone_index": index } },
-                    doc! { "$sort": { "metadata.white_flag_index": 1 } },
-                    doc! { "$project": { "_id": 1 } },
-                ],
-                None,
-            )
-            .await?
-            .map_ok(|res| res.block_id)
-            .try_collect()
-            .await?;
+    // /// Get the blocks that were referenced by the specified milestone (in White-Flag order).
+    // pub async fn get_referenced_blocks_in_white_flag_order(
+    //     &self,
+    //     index: MilestoneIndex,
+    // ) -> Result<Vec<BlockId>, Error> { let block_ids = self .aggregate::<BlockIdResult>( [ doc! { "$match": {
+    //   "metadata.referenced_by_milestone_index": index } }, doc! { "$sort": { "metadata.white_flag_index": 1 } }, doc!
+    //   { "$project": { "_id": 1 } }, ], None, ) .await? .map_ok(|res| res.block_id) .try_collect() .await?;
 
-        Ok(block_ids)
-    }
+    //     Ok(block_ids)
+    // }
 
-    /// Get the blocks that were referenced by the specified milestone (in White-Flag order).
-    pub async fn get_referenced_blocks_in_white_flag_order_stream(
-        &self,
-        index: MilestoneIndex,
-    ) -> Result<impl Stream<Item = Result<(BlockId, Block, Vec<u8>, BlockMetadata), Error>>, Error> {
-        #[derive(Debug, Deserialize)]
-        struct QueryRes {
-            #[serde(rename = "_id")]
-            block_id: BlockId,
-            #[serde(with = "serde_bytes")]
-            raw: Vec<u8>,
-            metadata: BlockMetadata,
-        }
+    // /// Get the blocks that were referenced by the specified milestone (in White-Flag order).
+    // pub async fn get_referenced_blocks_in_white_flag_order_stream(
+    //     &self,
+    //     index: MilestoneIndex,
+    // ) -> Result<impl Stream<Item = Result<(BlockId, Block, Vec<u8>, BlockMetadata), Error>>, Error> { #[derive(Debug,
+    //   Deserialize)] struct QueryRes { #[serde(rename = "_id")] block_id: BlockId, #[serde(with = "serde_bytes")] raw:
+    //   Vec<u8>, metadata: BlockMetadata, }
 
-        Ok(self
-            .aggregate::<QueryRes>(
-                [
-                    doc! { "$match": { "metadata.referenced_by_milestone_index": index } },
-                    doc! { "$sort": { "metadata.white_flag_index": 1 } },
-                ],
-                None,
-            )
-            .await?
-            .map_ok(|r| {
-                (
-                    r.block_id,
-                    iota_sdk::types::block::Block::unpack_unverified(r.raw.clone())
-                        .unwrap()
-                        .into(),
-                    r.raw,
-                    r.metadata,
-                )
-            }))
-    }
+    //     Ok(self
+    //         .aggregate::<QueryRes>(
+    //             [
+    //                 doc! { "$match": { "metadata.referenced_by_milestone_index": index } },
+    //                 doc! { "$sort": { "metadata.white_flag_index": 1 } },
+    //             ],
+    //             None,
+    //         )
+    //         .await?
+    //         .map_ok(|r| {
+    //             (
+    //                 r.block_id,
+    //                 iota_sdk::types::block::Block::unpack_unverified(r.raw.clone())
+    //                     .unwrap()
+    //                     .into(),
+    //                 r.raw,
+    //                 r.metadata,
+    //             )
+    //         }))
+    // }
 
-    /// Get the blocks that were applied by the specified milestone (in White-Flag order).
-    pub async fn get_applied_blocks_in_white_flag_order(&self, index: MilestoneIndex) -> Result<Vec<BlockId>, Error> {
-        let block_ids = self
-            .aggregate::<BlockIdResult>(
-                [
-                    doc! { "$match": {
-                        "metadata.referenced_by_milestone_index": index,
-                        "metadata.inclusion_state": LedgerInclusionState::Included,
-                    } },
-                    doc! { "$sort": { "metadata.white_flag_index": 1 } },
-                    doc! { "$project": { "_id": 1 } },
-                ],
-                None,
-            )
-            .await?
-            .map_ok(|res| res.block_id)
-            .try_collect()
-            .await?;
+    // /// Get the blocks that were applied by the specified milestone (in White-Flag order).
+    // pub async fn get_applied_blocks_in_white_flag_order(&self, index: MilestoneIndex) -> Result<Vec<BlockId>, Error>
+    // {     let block_ids = self
+    //         .aggregate::<BlockIdResult>(
+    //             [
+    //                 doc! { "$match": {
+    //                     "metadata.referenced_by_milestone_index": index,
+    //                     "metadata.inclusion_state": LedgerInclusionState::Included,
+    //                 } },
+    //                 doc! { "$sort": { "metadata.white_flag_index": 1 } },
+    //                 doc! { "$project": { "_id": 1 } },
+    //             ],
+    //             None,
+    //         )
+    //         .await?
+    //         .map_ok(|res| res.block_id)
+    //         .try_collect()
+    //         .await?;
 
-        Ok(block_ids)
-    }
+    //     Ok(block_ids)
+    // }
 
     /// Inserts [`Block`]s together with their associated [`BlockMetadata`].
     #[instrument(skip_all, err, level = "trace")]
@@ -326,13 +300,31 @@ impl BlockCollection {
         &self,
         transaction_id: &TransactionId,
     ) -> Result<Option<IncludedBlockResult>, Error> {
-        Ok(self.get_block_raw_for_transaction(transaction_id).await?.map(|raw| {
-            let block = iota_sdk::types::block::Block::unpack_unverified(raw).unwrap();
-            IncludedBlockResult {
-                block_id: block.id().into(),
-                block: block.into(),
-            }
-        }))
+        #[derive(Deserialize)]
+        pub struct IncludedBlockRes {
+            #[serde(rename = "_id")]
+            pub block_id: BlockId,
+            pub block: SignedBlockDto,
+        }
+
+        Ok(self
+            .aggregate(
+                [
+                    doc! { "$match": {
+                        "metadata.block_state": to_bson(&BlockState::Finalized).unwrap(),
+                        "block.payload.transaction_id": to_bson(transaction_id).unwrap(),
+                    } },
+                    doc! { "$project": { "block_id": "$_id", "block": 1 } },
+                ],
+                None,
+            )
+            .await?
+            .try_next()
+            .await?
+            .map(|IncludedBlockRes { block_id, block }| IncludedBlockResult {
+                block_id,
+                block: SignedBlock::try_from_dto(block).unwrap(),
+            }))
     }
 
     /// Finds the raw bytes of the block that included a transaction by [`TransactionId`].
@@ -344,8 +336,8 @@ impl BlockCollection {
             .aggregate(
                 [
                     doc! { "$match": {
-                        "metadata.inclusion_state": LedgerInclusionState::Included,
-                        "block.payload.transaction_id": transaction_id,
+                        "metadata.block_state": to_bson(&BlockState::Finalized).unwrap(),
+                        "block.payload.transaction_id": to_bson(transaction_id).unwrap(),
                     } },
                     doc! { "$project": { "raw": 1 } },
                 ],
@@ -357,7 +349,7 @@ impl BlockCollection {
             .map(|RawResult { raw }| raw))
     }
 
-    /// Finds the [`BlockMetadata`] that included a transaction by [`TransactionId`].
+    /// Finds the block metadata that included a transaction by [`TransactionId`].
     pub async fn get_block_metadata_for_transaction(
         &self,
         transaction_id: &TransactionId,
@@ -365,8 +357,8 @@ impl BlockCollection {
         self.aggregate(
             [
                 doc! { "$match": {
-                    "metadata.inclusion_state": LedgerInclusionState::Included,
-                    "block.payload.transaction_id": transaction_id,
+                    "metadata.block_state": to_bson(&BlockState::Finalized).unwrap(),
+                    "block.payload.transaction_id": to_bson(transaction_id).unwrap(),
                 } },
                 doc! { "$project": {
                     "_id": 1,
@@ -381,20 +373,20 @@ impl BlockCollection {
     }
 
     /// Gets the spending transaction of an [`Output`](crate::model::utxo::Output) by [`OutputId`].
-    pub async fn get_spending_transaction(&self, output_id: &OutputId) -> Result<Option<Block>, Error> {
+    pub async fn get_spending_transaction(&self, output_id: &OutputId) -> Result<Option<SignedBlock>, Error> {
         self.aggregate(
             [
                 doc! { "$match": {
-                    "metadata.inclusion_state": LedgerInclusionState::Included,
-                    "block.payload.essence.inputs.transaction_id": &output_id.transaction_id,
-                    "block.payload.essence.inputs.index": &(output_id.index as i32)
+                    "metadata.block_state": to_bson(&BlockState::Finalized).unwrap(),
+                    "block.payload.essence.inputs.transaction_id": to_bson(output_id.transaction_id()).unwrap(),
+                    "block.payload.essence.inputs.index": &(output_id.index() as i32)
                 } },
                 doc! { "$project": { "raw": 1 } },
             ],
             None,
         )
         .await?
-        .map_ok(|RawResult { raw }| iota_sdk::types::block::Block::unpack_unverified(raw).unwrap().into())
+        .map_ok(|RawResult { raw }| SignedBlock::unpack_unverified(raw).unwrap())
         .try_next()
         .await
     }
@@ -402,30 +394,30 @@ impl BlockCollection {
 
 #[derive(Clone, Debug, Deserialize)]
 #[allow(missing_docs)]
-pub struct BlocksByMilestoneResult {
+pub struct BlocksBySlotResult {
     #[serde(rename = "_id")]
     pub block_id: BlockId,
     pub payload_kind: Option<String>,
-    pub white_flag_index: u32,
+    pub issuing_time: u64,
 }
 
 impl BlockCollection {
     /// Get the [`Block`]s in a milestone by index as a stream of [`BlockId`]s.
-    pub async fn get_blocks_by_milestone_index(
+    pub async fn get_blocks_by_slot_index(
         &self,
-        milestone_index: MilestoneIndex,
+        slot_index: SlotIndex,
         page_size: usize,
         cursor: Option<u32>,
         sort: SortOrder,
-    ) -> Result<impl Stream<Item = Result<BlocksByMilestoneResult, Error>>, Error> {
+    ) -> Result<impl Stream<Item = Result<BlocksBySlotResult, Error>>, Error> {
         let (sort, cmp) = match sort {
-            SortOrder::Newest => (doc! {"metadata.white_flag_index": -1 }, "$lte"),
-            SortOrder::Oldest => (doc! {"metadata.white_flag_index": 1 }, "$gte"),
+            SortOrder::Newest => (doc! {"block.issuing_time": -1 }, "$lte"),
+            SortOrder::Oldest => (doc! {"block.issuing_time": 1 }, "$gte"),
         };
 
-        let mut queries = vec![doc! { "metadata.referenced_by_milestone_index": milestone_index }];
-        if let Some(white_flag_index) = cursor {
-            queries.push(doc! { "metadata.white_flag_index": { cmp: white_flag_index } });
+        let mut queries = vec![doc! { "block.latest_finalized_slot": slot_index.0 }];
+        if let Some(issuing_time) = cursor {
+            queries.push(doc! { "block.issuing_time": { cmp: issuing_time } });
         }
 
         self.aggregate(
@@ -436,7 +428,7 @@ impl BlockCollection {
                 doc! { "$project": {
                     "_id": 1,
                     "payload_kind": "$block.payload.kind",
-                    "white_flag_index": "$metadata.white_flag_index"
+                    "issuing_time": "$block.issuing_time"
                 } },
             ],
             None,

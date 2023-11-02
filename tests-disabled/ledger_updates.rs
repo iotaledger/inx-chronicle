@@ -10,7 +10,7 @@ mod test_rand {
     use chronicle::{
         db::{
             mongodb::collections::{
-                LedgerUpdateByAddressRecord, LedgerUpdateByMilestoneRecord, LedgerUpdateCollection, SortOrder,
+                LedgerUpdateByAddressRecord, LedgerUpdateBySlotRecord, LedgerUpdateCollection, SortOrder,
             },
             MongoDbCollectionExt,
         },
@@ -163,7 +163,7 @@ mod test_rand {
             .await
             .unwrap();
 
-        while let Some(LedgerUpdateByMilestoneRecord {
+        while let Some(LedgerUpdateBySlotRecord {
             output_id, is_spent, ..
         }) = s.try_next().await.unwrap()
         {

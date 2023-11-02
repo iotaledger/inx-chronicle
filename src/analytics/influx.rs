@@ -102,7 +102,7 @@ where
 }
 
 impl Measurement for AddressBalanceMeasurement {
-    const NAME: &'static str = "stardust_addresses";
+    const NAME: &'static str = "iota_addresses";
 
     fn add_fields(&self, query: WriteQuery) -> WriteQuery {
         let mut query = query.add_field("address_with_balance_count", self.address_with_balance_count as u64);
@@ -116,7 +116,7 @@ impl Measurement for AddressBalanceMeasurement {
 }
 
 impl Measurement for BaseTokenActivityMeasurement {
-    const NAME: &'static str = "stardust_base_token_activity";
+    const NAME: &'static str = "iota_base_token_activity";
 
     fn add_fields(&self, query: WriteQuery) -> WriteQuery {
         query
@@ -126,7 +126,7 @@ impl Measurement for BaseTokenActivityMeasurement {
 }
 
 impl Measurement for BlockActivityMeasurement {
-    const NAME: &'static str = "stardust_block_activity";
+    const NAME: &'static str = "iota_block_activity";
 
     fn add_fields(&self, query: WriteQuery) -> WriteQuery {
         query
@@ -142,7 +142,7 @@ impl Measurement for BlockActivityMeasurement {
 }
 
 impl Measurement for AddressActivityMeasurement {
-    const NAME: &'static str = "stardust_active_addresses";
+    const NAME: &'static str = "iota_active_addresses";
 
     fn add_fields(&self, query: WriteQuery) -> WriteQuery {
         query.add_field("count", self.count as u64)
@@ -151,12 +151,12 @@ impl Measurement for AddressActivityMeasurement {
 
 impl IntervalMeasurement for AddressActivityMeasurement {
     fn name(interval: AnalyticsInterval) -> String {
-        format!("stardust_{interval}_active_addresses")
+        format!("iota_{interval}_active_addresses")
     }
 }
 
 impl Measurement for TransactionSizeMeasurement {
-    const NAME: &'static str = "stardust_transaction_size_distribution";
+    const NAME: &'static str = "iota_transaction_size_distribution";
 
     fn add_fields(&self, mut query: WriteQuery) -> WriteQuery {
         for (bucket, value) in self.input_buckets.single_buckets() {
@@ -180,7 +180,7 @@ impl Measurement for TransactionSizeMeasurement {
 }
 
 impl Measurement for LedgerOutputMeasurement {
-    const NAME: &'static str = "stardust_ledger_outputs";
+    const NAME: &'static str = "iota_ledger_outputs";
 
     fn add_fields(&self, query: WriteQuery) -> WriteQuery {
         query
@@ -198,7 +198,7 @@ impl Measurement for LedgerOutputMeasurement {
 }
 
 impl Measurement for LedgerSizeMeasurement {
-    const NAME: &'static str = "stardust_ledger_size";
+    const NAME: &'static str = "iota_ledger_size";
 
     fn add_fields(&self, query: WriteQuery) -> WriteQuery {
         query
@@ -209,7 +209,7 @@ impl Measurement for LedgerSizeMeasurement {
 }
 
 impl Measurement for MilestoneSizeMeasurement {
-    const NAME: &'static str = "stardust_milestone_size";
+    const NAME: &'static str = "iota_milestone_size";
 
     fn add_fields(&self, query: WriteQuery) -> WriteQuery {
         query
@@ -234,7 +234,7 @@ impl Measurement for MilestoneSizeMeasurement {
 }
 
 impl Measurement for OutputActivityMeasurement {
-    const NAME: &'static str = "stardust_output_activity";
+    const NAME: &'static str = "iota_output_activity";
 
     fn add_fields(&self, query: WriteQuery) -> WriteQuery {
         query
@@ -252,7 +252,7 @@ impl Measurement for OutputActivityMeasurement {
 }
 
 impl Measurement for ProtocolParameters {
-    const NAME: &'static str = "stardust_protocol_params";
+    const NAME: &'static str = "iota_protocol_params";
 
     fn add_fields(&self, query: WriteQuery) -> WriteQuery {
         query
@@ -266,7 +266,7 @@ impl Measurement for ProtocolParameters {
 }
 
 impl Measurement for UnclaimedTokenMeasurement {
-    const NAME: &'static str = "stardust_unclaimed_rewards";
+    const NAME: &'static str = "iota_unclaimed_rewards";
 
     fn add_fields(&self, query: WriteQuery) -> WriteQuery {
         query
@@ -276,7 +276,7 @@ impl Measurement for UnclaimedTokenMeasurement {
 }
 
 impl Measurement for UnlockConditionMeasurement {
-    const NAME: &'static str = "stardust_unlock_conditions";
+    const NAME: &'static str = "iota_unlock_conditions";
 
     fn add_fields(&self, query: WriteQuery) -> WriteQuery {
         query

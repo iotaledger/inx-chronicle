@@ -7,50 +7,45 @@ use async_trait::async_trait;
 use futures::stream::BoxStream;
 use thiserror::Error;
 
-use super::{BlockData, InputSource, MilestoneData};
-use crate::{model::tangle::MilestoneIndex, tangle::ledger_updates::LedgerUpdateStore};
+use super::{BlockData, InputSource};
+use crate::tangle::ledger_updates::LedgerUpdateStore;
 
-pub struct InMemoryData {
-    pub milestone: MilestoneData,
-    pub cone: BTreeMap<u32, BlockData>,
-    pub ledger_updates: LedgerUpdateStore,
-}
+// pub struct InMemoryData {
+//     pub milestone: MilestoneData,
+//     pub cone: BTreeMap<u32, BlockData>,
+//     pub ledger_updates: LedgerUpdateStore,
+// }
 
-#[derive(Debug, Error)]
-pub enum InMemoryInputSourceError {
-    #[error("missing block data for milestone {0}")]
-    MissingBlockData(MilestoneIndex),
-}
+// #[derive(Debug, Error)]
+// pub enum InMemoryInputSourceError {
+//     #[error("missing block data for milestone {0}")]
+//     MissingBlockData(MilestoneIndex),
+// }
 
-#[async_trait]
-impl InputSource for BTreeMap<MilestoneIndex, InMemoryData> {
-    type Error = InMemoryInputSourceError;
+// #[async_trait]
+// impl InputSource for BTreeMap<MilestoneIndex, InMemoryData> {
+//     type Error = InMemoryInputSourceError;
 
-    async fn milestone_stream(
-        &self,
-        range: impl RangeBounds<MilestoneIndex> + Send,
-    ) -> Result<BoxStream<Result<MilestoneData, Self::Error>>, Self::Error> {
-        Ok(Box::pin(futures::stream::iter(
-            self.range(range).map(|(_, v)| Ok(v.milestone.clone())),
-        )))
-    }
+//     async fn milestone_stream(
+//         &self,
+//         range: impl RangeBounds<MilestoneIndex> + Send,
+//     ) -> Result<BoxStream<Result<MilestoneData, Self::Error>>, Self::Error> { Ok(Box::pin(futures::stream::iter(
+//       self.range(range).map(|(_, v)| Ok(v.milestone.clone())), )))
+//     }
 
-    async fn cone_stream(
-        &self,
-        index: MilestoneIndex,
-    ) -> Result<BoxStream<Result<BlockData, Self::Error>>, Self::Error> {
-        let cone = &self
-            .get(&index)
-            .ok_or(InMemoryInputSourceError::MissingBlockData(index))?
-            .cone;
-        Ok(Box::pin(futures::stream::iter(cone.values().map(|v| Ok(v.clone())))))
-    }
+//     async fn cone_stream(
+//         &self,
+//         index: MilestoneIndex,
+//     ) -> Result<BoxStream<Result<BlockData, Self::Error>>, Self::Error> { let cone = &self .get(&index)
+//       .ok_or(InMemoryInputSourceError::MissingBlockData(index))? .cone;
+//       Ok(Box::pin(futures::stream::iter(cone.values().map(|v| Ok(v.clone())))))
+//     }
 
-    async fn ledger_updates(&self, index: MilestoneIndex) -> Result<LedgerUpdateStore, Self::Error> {
-        Ok(self
-            .get(&index)
-            .ok_or(InMemoryInputSourceError::MissingBlockData(index))?
-            .ledger_updates
-            .clone())
-    }
-}
+//     async fn ledger_updates(&self, index: MilestoneIndex) -> Result<LedgerUpdateStore, Self::Error> {
+//         Ok(self
+//             .get(&index)
+//             .ok_or(InMemoryInputSourceError::MissingBlockData(index))?
+//             .ledger_updates
+//             .clone())
+//     }
+// }

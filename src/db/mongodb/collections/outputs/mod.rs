@@ -42,7 +42,7 @@ pub struct OutputDocument {
     details: OutputDetails,
 }
 
-/// The stardust outputs collection.
+/// The iota outputs collection.
 pub struct OutputCollection {
     db: mongodb::Database,
     collection: mongodb::Collection<OutputDocument>,
@@ -50,7 +50,7 @@ pub struct OutputCollection {
 
 #[async_trait::async_trait]
 impl MongoDbCollection for OutputCollection {
-    const NAME: &'static str = "stardust_outputs";
+    const NAME: &'static str = "iota_outputs";
     type Document = OutputDocument;
 
     fn instantiate(db: &MongoDb, collection: mongodb::Collection<Self::Document>) -> Self {

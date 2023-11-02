@@ -9,15 +9,15 @@
 
 //! The basic types and MongoDb queries for Chronicle.
 
-#[cfg(feature = "analytics")]
-pub mod analytics;
-pub mod db;
+// #[cfg(feature = "analytics")]
+// pub mod analytics;
+// pub mod db;
 #[cfg(feature = "inx")]
 pub mod inx;
-#[cfg(feature = "metrics")]
-pub mod metrics;
+// #[cfg(feature = "metrics")]
+// pub mod metrics;
 pub mod model;
-pub mod tangle;
+// pub mod tangle;
 
 #[allow(missing_docs)]
 pub const CHRONICLE_APP_NAME: &str = "Chronicle";

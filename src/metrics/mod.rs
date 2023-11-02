@@ -8,14 +8,13 @@ use influxdb::InfluxDbWriteable;
 use mongodb::bson::doc;
 use serde::{Deserialize, Serialize};
 
-use crate::{db::influxdb::InfluxDbMeasurement, model::tangle::MilestoneIndex};
+use crate::db::influxdb::InfluxDbMeasurement;
 
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize, InfluxDbWriteable)]
 #[allow(missing_docs)]
 pub struct SyncMetrics {
     pub time: DateTime<Utc>,
-    pub milestone_index: MilestoneIndex,
-    pub milestone_time: u64,
+    pub slot_index: u32,
     #[influxdb(tag)]
     pub chronicle_version: String,
 }
@@ -25,8 +24,7 @@ pub struct SyncMetrics {
 #[allow(missing_docs)]
 pub struct AnalyticsMetrics {
     pub time: DateTime<Utc>,
-    pub milestone_index: MilestoneIndex,
-    pub analytics_time: u64,
+    pub slot_index: u32,
     #[influxdb(tag)]
     pub chronicle_version: String,
 }

@@ -113,8 +113,8 @@ impl TryFromWithContext<Block> for iota::BlockDto {
     type Error = iota_sdk::types::block::Error;
 
     fn try_from_with_context(ctx: &ProtocolParameters, value: Block) -> Result<Self, Self::Error> {
-        let stardust = iota::Block::try_from_with_context(ctx, value)?;
-        Ok(Self::from(&stardust))
+        let iota = iota::Block::try_from_with_context(ctx, value)?;
+        Ok(Self::from(&iota))
     }
 }
 

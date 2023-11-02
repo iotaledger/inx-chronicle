@@ -126,7 +126,7 @@ async fn validate_proof_for_referenced_blocks(
     // Fetch public keys to verify the milestone signatures.
     let update_collection = database.collection::<ConfigurationUpdateCollection>();
     let node_configuration = update_collection
-        .get_node_configuration_for_ledger_index(milestone_index.into())
+        .get_node_configuration_for_slot_index(milestone_index.into())
         .await?
         .ok_or(MissingError::NoResults)?
         .config;
@@ -231,7 +231,7 @@ async fn validate_proof_for_applied_blocks(
     // Fetch public keys to verify the milestone signatures.
     let update_collection = database.collection::<ConfigurationUpdateCollection>();
     let node_configuration = update_collection
-        .get_node_configuration_for_ledger_index(milestone_index.into())
+        .get_node_configuration_for_slot_index(milestone_index.into())
         .await?
         .ok_or(MissingError::NoResults)?
         .config;

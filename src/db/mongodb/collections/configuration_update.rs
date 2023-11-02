@@ -1,6 +1,10 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
+use iota_sdk::types::{
+    api::core::BaseTokenResponse,
+    block::{protocol::ProtocolParameters, slot::SlotIndex},
+};
 use mongodb::{
     bson::doc,
     error::Error,
@@ -8,19 +12,16 @@ use mongodb::{
 };
 use serde::{Deserialize, Serialize};
 
-use crate::{
-    db::{
-        mongodb::{MongoDbCollection, MongoDbCollectionExt},
-        MongoDb,
-    },
-    model::{node::NodeConfiguration, tangle::MilestoneIndex},
+use crate::db::{
+    mongodb::{MongoDbCollection, MongoDbCollectionExt},
+    MongoDb,
 };
 
 /// The corresponding MongoDb document representation to store [`NodeConfiguration`]s.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct ConfigurationUpdateDocument {
     #[serde(rename = "_id")]
-    pub ledger_index: MilestoneIndex,
+    pub slot_index: SlotIndex,
     #[serde(flatten)]
     pub config: NodeConfiguration,
 }
@@ -31,7 +32,7 @@ pub struct ConfigurationUpdateCollection {
 }
 
 impl MongoDbCollection for ConfigurationUpdateCollection {
-    const NAME: &'static str = "stardust_configuration_updates";
+    const NAME: &'static str = "iota_configuration_updates";
     type Document = ConfigurationUpdateDocument;
 
     fn instantiate(_db: &MongoDb, collection: mongodb::Collection<Self::Document>) -> Self {
@@ -50,28 +51,28 @@ impl ConfigurationUpdateCollection {
             .await
     }
 
-    /// Gets the node configuration that was valid for the given ledger index.
-    pub async fn get_node_configuration_for_ledger_index(
+    /// Gets the node configuration that was valid for the given slot index.
+    pub async fn get_node_configuration_for_slot_index(
         &self,
-        ledger_index: MilestoneIndex,
+        slot_index: SlotIndex,
     ) -> Result<Option<ConfigurationUpdateDocument>, Error> {
         self.find_one(
-            doc! { "_id": { "$lte": ledger_index } },
+            doc! { "_id": { "$lte": slot_index.0 } },
             FindOneOptions::builder().sort(doc! { "_id": -1 }).build(),
         )
         .await
     }
 
-    /// Inserts or updates a node configuration for a given ledger index.
+    /// Inserts or updates a node configuration for a given slot index.
     pub async fn upsert_node_configuration(
         &self,
-        ledger_index: MilestoneIndex,
+        slot_index: SlotIndex,
         config: NodeConfiguration,
     ) -> Result<(), Error> {
-        let node_config = self.get_node_configuration_for_ledger_index(ledger_index).await?;
+        let node_config = self.get_node_configuration_for_slot_index(slot_index).await?;
         if !matches!(node_config, Some(node_config) if node_config.config == config) {
             self.update_one(
-                doc! { "_id": ledger_index },
+                doc! { "_id": slot_index.0 },
                 doc! { "$set": mongodb::bson::to_bson(&config)? },
                 UpdateOptions::builder().upsert(true).build(),
             )

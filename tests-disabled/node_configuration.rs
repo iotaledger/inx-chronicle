@@ -74,7 +74,7 @@ mod test_rand {
             .await
             .unwrap();
         let doc = node_configuration
-            .get_node_configuration_for_ledger_index(5.into())
+            .get_node_configuration_for_slot_index(5.into())
             .await
             .unwrap()
             .unwrap();
@@ -93,7 +93,7 @@ mod test_rand {
             .await
             .unwrap();
         let doc = node_configuration
-            .get_node_configuration_for_ledger_index(5.into())
+            .get_node_configuration_for_slot_index(5.into())
             .await
             .unwrap()
             .unwrap();
@@ -113,7 +113,7 @@ mod test_rand {
             .await
             .unwrap();
         let doc = node_configuration
-            .get_node_configuration_for_ledger_index(5.into())
+            .get_node_configuration_for_slot_index(5.into())
             .await
             .unwrap()
             .unwrap();
@@ -136,7 +136,7 @@ mod test_rand {
             .await
             .unwrap();
         let doc = node_configuration
-            .get_node_configuration_for_ledger_index(5.into())
+            .get_node_configuration_for_slot_index(5.into())
             .await
             .unwrap()
             .unwrap();
@@ -151,7 +151,7 @@ mod test_rand {
 
         // get older update (yields the one inserted at index 1)
         let doc = node_configuration
-            .get_node_configuration_for_ledger_index(1.into())
+            .get_node_configuration_for_slot_index(1.into())
             .await
             .unwrap()
             .unwrap();

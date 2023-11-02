@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use futures::{Stream, TryStreamExt};
+use iota_sdk::types::block::{address::Address, output::OutputId, slot::SlotIndex};
 use mongodb::{
     bson::{doc, Document},
     error::Error,
@@ -12,42 +13,27 @@ use serde::{Deserialize, Serialize};
 use tracing::instrument;
 
 use super::SortOrder;
-use crate::{
-    db::{
-        mongodb::{InsertIgnoreDuplicatesExt, MongoDbCollection, MongoDbCollectionExt},
-        MongoDb,
-    },
-    model::{
-        ledger::{LedgerOutput, LedgerSpent},
-        tangle::{MilestoneIndex, MilestoneIndexTimestamp, MilestoneTimestamp},
-        utxo::{Address, OutputId},
-    },
+use crate::db::{
+    mongodb::{InsertIgnoreDuplicatesExt, MongoDbCollection, MongoDbCollectionExt},
+    MongoDb,
 };
-
-/// The [`Id`] of a [`LedgerUpdateDocument`].
-#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
-struct Id {
-    milestone_index: MilestoneIndex,
-    output_id: OutputId,
-    is_spent: bool,
-}
 
 /// Contains all information related to an output.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct LedgerUpdateDocument {
-    _id: Id,
+    _id: LedgerUpdateByAddressRecord,
     address: Address,
-    milestone_timestamp: MilestoneTimestamp,
+    slot_timestamp: u64,
 }
 
-/// The stardust ledger updates collection.
+/// The iota ledger updates collection.
 pub struct LedgerUpdateCollection {
     collection: mongodb::Collection<LedgerUpdateDocument>,
 }
 
 #[async_trait::async_trait]
 impl MongoDbCollection for LedgerUpdateCollection {
-    const NAME: &'static str = "stardust_ledger_updates";
+    const NAME: &'static str = "iota_ledger_updates";
     type Document = LedgerUpdateDocument;
 
     fn instantiate(_db: &MongoDb, collection: mongodb::Collection<Self::Document>) -> Self {
@@ -77,28 +63,28 @@ impl MongoDbCollection for LedgerUpdateCollection {
     }
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[allow(missing_docs)]
 pub struct LedgerUpdateByAddressRecord {
-    pub at: MilestoneIndexTimestamp,
+    pub slot_index: SlotIndex,
     pub output_id: OutputId,
     pub is_spent: bool,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[allow(missing_docs)]
-pub struct LedgerUpdateByMilestoneRecord {
+pub struct LedgerUpdateBySlotRecord {
     pub address: Address,
     pub output_id: OutputId,
     pub is_spent: bool,
 }
 
 fn newest() -> Document {
-    doc! { "address": -1, "_id.milestone_index": -1, "_id.output_id": -1, "_id.is_spent": -1 }
+    doc! { "address": -1, "_id.slot_index": -1, "_id.output_id": -1, "_id.is_spent": -1 }
 }
 
 fn oldest() -> Document {
-    doc! { "address": 1, "_id.milestone_index": 1, "_id.output_id": 1, "_id.is_spent": 1 }
+    doc! { "address": 1, "_id.slot_index": 1, "_id.output_id": 1, "_id.is_spent": 1 }
 }
 
 /// Queries that are related to [`Output`](crate::model::utxo::Output)s.
@@ -215,7 +201,7 @@ impl LedgerUpdateCollection {
         milestone_index: MilestoneIndex,
         page_size: usize,
         cursor: Option<(OutputId, bool)>,
-    ) -> Result<impl Stream<Item = Result<LedgerUpdateByMilestoneRecord, Error>>, Error> {
+    ) -> Result<impl Stream<Item = Result<LedgerUpdateBySlotRecord, Error>>, Error> {
         let (cmp1, cmp2) = ("$gt", "$gte");
 
         let mut queries = vec![doc! { "_id.milestone_index": milestone_index }];
@@ -235,7 +221,7 @@ impl LedgerUpdateCollection {
                 FindOptions::builder().limit(page_size as i64).sort(oldest()).build(),
             )
             .await?
-            .map_ok(|doc| LedgerUpdateByMilestoneRecord {
+            .map_ok(|doc| LedgerUpdateBySlotRecord {
                 address: doc.address,
                 output_id: doc._id.output_id,
                 is_spent: doc._id.is_spent,

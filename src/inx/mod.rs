@@ -3,35 +3,17 @@
 
 //! Module containing convenience wrappers around the low-level [`INX`](inx) bindings.
 
-mod block;
-mod client;
+// mod block;
+/// The INX client.
+pub mod client;
+mod convert;
 mod error;
-mod id;
-mod ledger;
-mod milestone;
-mod node;
-mod protocol;
-mod raw;
+/// Types for the ledger.
+pub mod ledger;
+pub mod responses;
+// mod node;
+/// Raw message helper types;
+pub mod raw;
 mod request;
 
-pub use self::{
-    block::{BlockMessage, BlockMetadataMessage, BlockWithMetadataMessage},
-    client::Inx,
-    error::InxError,
-    ledger::{LedgerUpdateMessage, MarkerMessage, UnspentOutputMessage},
-    milestone::MilestoneAndProtocolParametersMessage,
-    node::{NodeConfigurationMessage, NodeStatusMessage},
-    protocol::RawProtocolParametersMessage,
-    raw::RawMessage,
-    request::MilestoneRangeRequest,
-};
-
-/// Tries to access the field of a protobug messages and returns an appropriate error if the field is not present.
-#[macro_export]
-macro_rules! maybe_missing {
-    ($object:ident.$field:ident) => {
-        $object
-            .$field
-            .ok_or($crate::inx::InxError::MissingField(stringify!($field)))?
-    };
-}
+pub use self::error::InxError;

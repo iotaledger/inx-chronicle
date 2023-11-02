@@ -146,11 +146,7 @@ impl InxWorker {
                 .max(node_status.tangle_pruning_index + 1)
         };
 
-        let protocol_parameters = inx
-            .read_protocol_parameters(start_index.0.into())
-            .await?
-            .params
-            .inner_unverified()?;
+        let protocol_parameters = inx.read_protocol_parameters(start_index.0.into()).await?.convert()?;
 
         let node_configuration = inx.read_node_configuration().await?;
 
@@ -167,8 +163,7 @@ impl InxWorker {
             .get_latest_protocol_parameters()
             .await?
         {
-            let protocol_parameters = chronicle::model::ProtocolParameters::from(protocol_parameters);
-            if latest.parameters.network_name != protocol_parameters.network_name {
+            if latest.parameters.network_name() != protocol_parameters.network_name() {
                 bail!(InxWorkerError::NetworkChanged {
                     old: latest.parameters.network_name,
                     new: protocol_parameters.network_name,

@@ -5,7 +5,7 @@ use std::ops::Range;
 
 use chronicle::{
     db::mongodb::collections::{
-        DistributionStat, LedgerUpdateByAddressRecord, LedgerUpdateByMilestoneRecord, MilestoneResult,
+        DistributionStat, LedgerUpdateByAddressRecord, LedgerUpdateBySlotRecord, MilestoneResult,
     },
     model::{
         tangle::{MilestoneIndex, MilestoneTimestamp},
@@ -64,8 +64,8 @@ pub struct LedgerUpdateByMilestoneDto {
     pub is_spent: bool,
 }
 
-impl From<LedgerUpdateByMilestoneRecord> for LedgerUpdateByMilestoneDto {
-    fn from(value: LedgerUpdateByMilestoneRecord) -> Self {
+impl From<LedgerUpdateBySlotRecord> for LedgerUpdateByMilestoneDto {
+    fn from(value: LedgerUpdateBySlotRecord) -> Self {
         Self {
             address: value.address,
             output_id: value.output_id.to_hex(),

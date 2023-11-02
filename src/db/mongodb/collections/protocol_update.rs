@@ -1,6 +1,7 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
+use iota_sdk::types::block::{protocol::ProtocolParameters, slot::EpochIndex};
 use mongodb::{
     bson::doc,
     error::Error,
@@ -8,29 +9,26 @@ use mongodb::{
 };
 use serde::{Deserialize, Serialize};
 
-use crate::{
-    db::{
-        mongodb::{MongoDbCollection, MongoDbCollectionExt},
-        MongoDb,
-    },
-    model::{tangle::MilestoneIndex, ProtocolParameters},
+use crate::db::{
+    mongodb::{MongoDbCollection, MongoDbCollectionExt},
+    MongoDb,
 };
 
 /// A milestone's metadata.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct ProtocolUpdateDocument {
     #[serde(rename = "_id")]
-    pub tangle_index: MilestoneIndex,
+    pub start_epoch: EpochIndex,
     pub parameters: ProtocolParameters,
 }
 
-/// The stardust protocol parameters collection.
+/// The iota protocol parameters collection.
 pub struct ProtocolUpdateCollection {
     collection: mongodb::Collection<ProtocolUpdateDocument>,
 }
 
 impl MongoDbCollection for ProtocolUpdateCollection {
-    const NAME: &'static str = "stardust_protocol_updates";
+    const NAME: &'static str = "iota_protocol_updates";
     type Document = ProtocolUpdateDocument;
 
     fn instantiate(_db: &MongoDb, collection: mongodb::Collection<Self::Document>) -> Self {
@@ -50,12 +48,12 @@ impl ProtocolUpdateCollection {
     }
 
     /// Gets the protocol parameters that are valid for the given ledger index.
-    pub async fn get_protocol_parameters_for_ledger_index(
+    pub async fn get_protocol_parameters_for_epoch_index(
         &self,
-        ledger_index: MilestoneIndex,
+        epoch_index: EpochIndex,
     ) -> Result<Option<ProtocolUpdateDocument>, Error> {
         self.find_one(
-            doc! { "_id": { "$lte": ledger_index } },
+            doc! { "_id": { "$lte": epoch_index.0 } },
             FindOneOptions::builder().sort(doc! { "_id": -1 }).build(),
         )
         .await
@@ -64,9 +62,9 @@ impl ProtocolUpdateCollection {
     /// Gets the protocol parameters for the given milestone index, if they were changed.
     pub async fn get_protocol_parameters_for_milestone_index(
         &self,
-        milestone_index: MilestoneIndex,
+        epoch_index: EpochIndex,
     ) -> Result<Option<ProtocolUpdateDocument>, Error> {
-        self.find_one(doc! { "_id": milestone_index }, None).await
+        self.find_one(doc! { "_id": epoch_index.0 }, None).await
     }
 
     /// Gets the protocol parameters for a given protocol version.
@@ -80,13 +78,13 @@ impl ProtocolUpdateCollection {
     /// Add the protocol parameters to the list if the protocol parameters have changed.
     pub async fn upsert_protocol_parameters(
         &self,
-        ledger_index: MilestoneIndex,
+        epoch_index: EpochIndex,
         parameters: ProtocolParameters,
     ) -> Result<(), Error> {
-        let params = self.get_protocol_parameters_for_ledger_index(ledger_index).await?;
+        let params = self.get_protocol_parameters_for_epoch_index(epoch_index).await?;
         if !matches!(params, Some(params) if params.parameters == parameters) {
             self.update_one(
-                doc! { "_id": ledger_index },
+                doc! { "_id": epoch_index.0 },
                 doc! { "$set": {
                     "parameters": mongodb::bson::to_bson(&parameters)?
                 } },
