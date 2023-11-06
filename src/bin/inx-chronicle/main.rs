@@ -8,10 +8,10 @@
 // mod api;
 // mod cli;
 // mod config;
-// #[cfg(feature = "inx")]
-// mod inx;
-// // mod migrations;
-// mod process;
+#[cfg(feature = "inx")]
+mod inx;
+// mod migrations;
+mod process;
 
 // use bytesize::ByteSize;
 // use chronicle::db::MongoDb;

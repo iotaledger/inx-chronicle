@@ -3,12 +3,13 @@
 
 use futures::stream::{Stream, StreamExt};
 use inx::{client::InxClient, proto};
-use iota_sdk::types::block::{output::OutputId, Block, BlockId};
+use iota_sdk::types::block::{output::OutputId, slot::SlotIndex, BlockId, SignedBlock};
 use packable::PackableExt;
 
 use super::{
     convert::TryConvertTo,
     ledger::{AcceptedTransaction, LedgerUpdate, UnspentOutput},
+    raw::Raw,
     request::SlotRangeRequest,
     responses::{self, BlockMetadata, Commitment, NodeConfiguration, NodeStatus, RootBlocks},
     InxError,
@@ -36,11 +37,13 @@ impl Inx {
     /// Stream status updates from the node.
     pub async fn get_node_status_updates(
         &mut self,
-        request: proto::NodeStatusRequest,
+        cooldown_in_milliseconds: u32,
     ) -> Result<impl Stream<Item = Result<NodeStatus, InxError>>, InxError> {
         Ok(self
             .inx
-            .listen_to_node_status(request)
+            .listen_to_node_status(proto::NodeStatusRequest {
+                cooldown_in_milliseconds,
+            })
             .await?
             .into_inner()
             .map(|msg| TryConvertTo::try_convert(msg?)))
@@ -64,9 +67,24 @@ impl Inx {
             .try_convert()?)
     }
 
-    /// Get the active root blocks of the node.
-    pub async fn get_commitment(&mut self, request: proto::CommitmentRequest) -> Result<Commitment, InxError> {
-        Ok(self.inx.read_commitment(request).await?.try_convert()?)
+    /// Get a commitment from a slot index.
+    pub async fn get_commitment(&mut self, slot_index: SlotIndex) -> Result<Commitment, InxError> {
+        Ok(self
+            .inx
+            .read_commitment(proto::CommitmentRequest {
+                commitment_slot: slot_index.0,
+                commitment_id: None,
+            })
+            .await?
+            .try_convert()?)
+    }
+
+    /// Get a stream of committed slots.
+    pub async fn get_committed_slots(
+        &mut self,
+        request: SlotRangeRequest,
+    ) -> Result<impl Stream<Item = Result<Commitment, InxError>>, InxError> {
+        Ok(futures::stream::empty())
     }
 
     // /// TODO
@@ -78,12 +96,13 @@ impl Inx {
     // }
 
     /// Get a block using a block id.
-    pub async fn get_block(&mut self, block_id: BlockId) -> Result<Block, InxError> {
+    pub async fn get_block(&mut self, block_id: BlockId) -> Result<Raw<SignedBlock>, InxError> {
         Ok(self
             .inx
             .read_block(proto::BlockId { id: block_id.to_vec() })
             .await?
-            .try_convert()?)
+            .into_inner()
+            .into())
     }
 
     /// Get a block's metadata using a block id.
@@ -127,6 +146,14 @@ impl Inx {
             .await?
             .into_inner()
             .map(|msg| TryConvertTo::try_convert(msg?)))
+    }
+
+    /// Convenience wrapper that gets confirmed blocks for a given slot.
+    pub async fn get_confirmed_blocks_for_slot(
+        &mut self,
+        slot_index: SlotIndex,
+    ) -> Result<impl Stream<Item = Result<BlockMetadata, InxError>>, InxError> {
+        Ok(futures::stream::empty())
     }
 
     /// Convenience wrapper that reads the current unspent outputs.

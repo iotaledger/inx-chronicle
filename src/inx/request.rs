@@ -7,37 +7,6 @@ use std::ops::{Bound, RangeBounds};
 
 use inx::proto;
 
-// /// A request for a milestone that can either be a [`MilestoneIndex`] or a [`MilestoneId`].
-// pub enum MilestoneRequest {
-//     /// Request milestone information by milestone index.
-//     MilestoneIndex(MilestoneIndex),
-//     /// Request milestone information by milestone id.
-//     MilestoneId(MilestoneId),
-// }
-
-// impl From<MilestoneRequest> for proto::MilestoneRequest {
-//     fn from(value: MilestoneRequest) -> Self {
-//         match value {
-//             MilestoneRequest::MilestoneIndex(MilestoneIndex(milestone_index)) => Self {
-//                 milestone_index,
-//                 milestone_id: None,
-//             },
-//             MilestoneRequest::MilestoneId(milestone_id) => Self {
-//                 milestone_index: 0,
-//                 milestone_id: Some(inx::proto::MilestoneId {
-//                     id: milestone_id.0.to_vec(),
-//                 }),
-//             },
-//         }
-//     }
-// }
-
-// impl<T: Into<u32>> From<T> for MilestoneRequest {
-//     fn from(value: T) -> Self {
-//         Self::MilestoneIndex(MilestoneIndex(value.into()))
-//     }
-// }
-
 fn to_slot_range_request<T, I>(range: T) -> proto::SlotRangeRequest
 where
     T: RangeBounds<I>,

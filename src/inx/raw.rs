@@ -4,7 +4,7 @@
 use std::marker::PhantomData;
 
 use inx::proto;
-use iota_sdk::types::block::{output::Output, payload::Payload, slot::SlotCommitment, Block};
+use iota_sdk::types::block::{output::Output, payload::Payload, slot::SlotCommitment, SignedBlock};
 use packable::{Packable, PackableExt};
 
 use super::InxError;
@@ -54,7 +54,7 @@ impl From<proto::RawOutput> for Raw<Output> {
     }
 }
 
-impl From<proto::RawBlock> for Raw<Block> {
+impl From<proto::RawBlock> for Raw<SignedBlock> {
     fn from(value: proto::RawBlock) -> Self {
         value.data.into()
     }

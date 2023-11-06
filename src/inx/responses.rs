@@ -9,7 +9,7 @@ use iota_sdk::types::{
     block::{
         semantic::TransactionFailureReason,
         slot::{EpochIndex, SlotCommitment, SlotCommitmentId, SlotIndex},
-        BlockId,
+        BlockId, SignedBlock,
     },
 };
 use packable::PackableExt;
@@ -26,10 +26,10 @@ use crate::maybe_missing;
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Block {
     pub block_id: BlockId,
-    pub block: Raw<iota_sdk::types::block::Block>,
+    pub block: Raw<SignedBlock>,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct BlockMetadata {
     pub block_id: BlockId,
     pub block_state: BlockState,
@@ -52,8 +52,8 @@ pub enum OutputPayload {
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ProtocolParameters {
-    start_epoch: EpochIndex,
-    parameters: iota_sdk::types::block::protocol::ProtocolParameters,
+    pub start_epoch: EpochIndex,
+    pub parameters: iota_sdk::types::block::protocol::ProtocolParameters,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]

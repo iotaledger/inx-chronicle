@@ -25,7 +25,9 @@ use crate::{
         mongodb::{DbError, InsertIgnoreDuplicatesExt, MongoDbCollection, MongoDbCollectionExt},
         MongoDb,
     },
+    inx::responses::BlockMetadata,
     model::SerializeToBson,
+    tangle::sources::BlockData,
 };
 
 /// Chronicle Block record.
@@ -39,31 +41,26 @@ pub struct BlockDocument {
     #[serde(with = "serde_bytes")]
     raw: Vec<u8>,
     /// The block's metadata.
-    metadata: BlockMetadataResponse,
+    metadata: BlockMetadata,
 }
 
-// impl From<BlockData> for BlockDocument {
-//     fn from(
-//         BlockData {
-//             block_id,
-//             block,
-//             raw,
-//             metadata,
-//         }: BlockData,
-//     ) -> Self { Self { block_id, block, raw, metadata, }
-//     }
-// }
-
-// impl From<(BlockId, Block, Vec<u8>, BlockMetadata)> for BlockDocument {
-//     fn from((block_id, block, raw, metadata): (BlockId, Block, Vec<u8>, BlockMetadata)) -> Self {
-//         Self {
-//             block_id,
-//             block,
-//             raw,
-//             metadata,
-//         }
-//     }
-// }
+impl From<BlockData> for BlockDocument {
+    fn from(
+        BlockData {
+            block_id,
+            block,
+            raw,
+            metadata,
+        }: BlockData,
+    ) -> Self {
+        Self {
+            block_id,
+            block: (&block).into(),
+            raw,
+            metadata,
+        }
+    }
+}
 
 /// The iota blocks collection.
 pub struct BlockCollection {

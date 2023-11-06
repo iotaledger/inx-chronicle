@@ -6,7 +6,7 @@ use iota_sdk::types::block::{
     output::{Output, OutputId},
     payload::{signed_transaction::TransactionId, Payload},
     slot::{SlotCommitment, SlotCommitmentId},
-    Block, BlockId,
+    BlockId, SignedBlock,
 };
 
 use super::{raw::Raw, InxError};
@@ -151,6 +151,6 @@ macro_rules! impl_raw_convert {
     };
 }
 impl_raw_convert!(RawOutput, Output);
-impl_raw_convert!(RawBlock, Block);
+impl_raw_convert!(RawBlock, SignedBlock);
 impl_raw_convert!(RawPayload, Payload);
 impl_raw_convert!(RawCommitment, SlotCommitment);

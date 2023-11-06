@@ -2,13 +2,15 @@
 // SPDX-License-Identifier: Apache-2.0
 
 mod application_state;
-/// Module containing the Block document model.
+/// Module containing the block collection.
 mod block;
+/// Module containing the committed slot collection.
+mod committed_slot;
 /// Module containing the node configuration collection.
 mod configuration_update;
-/// Module containing the LedgerUpdate model.
+/// Module containing the ledger update collection.
 mod ledger_update;
-/// Module containing Block outputs.
+/// Module containing the outputs collection.
 mod outputs;
 /// Module containing the protocol parameters collection.
 mod protocol_update;
@@ -23,6 +25,7 @@ use thiserror::Error;
 pub use self::{
     application_state::{ApplicationStateCollection, MigrationVersion},
     block::BlockCollection,
+    committed_slot::CommittedSlotCollection,
     configuration_update::ConfigurationUpdateCollection,
     ledger_update::{LedgerUpdateByAddressRecord, LedgerUpdateBySlotRecord, LedgerUpdateCollection},
     outputs::{
