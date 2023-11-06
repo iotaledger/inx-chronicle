@@ -2,11 +2,11 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use iota_sdk::types::block::slot::SlotIndex;
-use mongodb::{bson::doc, error::Error, options::UpdateOptions};
+use mongodb::{bson::doc, options::UpdateOptions};
 use serde::{Deserialize, Serialize};
 
 use crate::db::{
-    mongodb::{MongoDbCollection, MongoDbCollectionExt},
+    mongodb::{DbError, MongoDbCollection, MongoDbCollectionExt},
     MongoDb,
 };
 
@@ -52,7 +52,7 @@ impl MongoDbCollection for ApplicationStateCollection {
 
 impl ApplicationStateCollection {
     /// Gets the application starting milestone index.
-    pub async fn get_starting_index(&self) -> Result<Option<SlotIndex>, Error> {
+    pub async fn get_starting_index(&self) -> Result<Option<SlotIndex>, DbError> {
         Ok(self
             .find_one::<ApplicationStateDocument>(doc! {}, None)
             .await?
@@ -60,7 +60,7 @@ impl ApplicationStateCollection {
     }
 
     /// Set the starting milestone index in the singleton application state.
-    pub async fn set_starting_index(&self, starting_slot: SlotIndex) -> Result<(), Error> {
+    pub async fn set_starting_index(&self, starting_slot: SlotIndex) -> Result<(), DbError> {
         self.update_one(
             doc! {},
             doc! {
@@ -73,7 +73,7 @@ impl ApplicationStateCollection {
     }
 
     /// Gets the last migration version of the database.
-    pub async fn get_last_migration(&self) -> Result<Option<MigrationVersion>, Error> {
+    pub async fn get_last_migration(&self) -> Result<Option<MigrationVersion>, DbError> {
         Ok(self
             .find_one::<ApplicationStateDocument>(doc! {}, None)
             .await?
@@ -81,7 +81,7 @@ impl ApplicationStateCollection {
     }
 
     /// Set the current version in the singleton application state.
-    pub async fn set_last_migration(&self, last_migration: MigrationVersion) -> Result<(), Error> {
+    pub async fn set_last_migration(&self, last_migration: MigrationVersion) -> Result<(), DbError> {
         self.update_one(
             doc! {},
             doc! {

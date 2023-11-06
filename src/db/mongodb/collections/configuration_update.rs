@@ -4,14 +4,13 @@
 use iota_sdk::types::block::slot::SlotIndex;
 use mongodb::{
     bson::doc,
-    error::Error,
     options::{FindOneOptions, UpdateOptions},
 };
 use serde::{Deserialize, Serialize};
 
 use crate::{
     db::{
-        mongodb::{MongoDbCollection, MongoDbCollectionExt},
+        mongodb::{DbError, MongoDbCollection, MongoDbCollectionExt},
         MongoDb,
     },
     inx::responses::NodeConfiguration,
@@ -47,21 +46,23 @@ impl MongoDbCollection for ConfigurationUpdateCollection {
 
 impl ConfigurationUpdateCollection {
     /// Gets the latest node configuration.
-    pub async fn get_latest_node_configuration(&self) -> Result<Option<ConfigurationUpdateDocument>, Error> {
-        self.find_one(doc! {}, FindOneOptions::builder().sort(doc! { "_id": -1 }).build())
-            .await
+    pub async fn get_latest_node_configuration(&self) -> Result<Option<ConfigurationUpdateDocument>, DbError> {
+        Ok(self
+            .find_one(doc! {}, FindOneOptions::builder().sort(doc! { "_id": -1 }).build())
+            .await?)
     }
 
     /// Gets the node configuration that was valid for the given slot index.
     pub async fn get_node_configuration_for_slot_index(
         &self,
         slot_index: SlotIndex,
-    ) -> Result<Option<ConfigurationUpdateDocument>, Error> {
-        self.find_one(
-            doc! { "_id": { "$lte": slot_index.0 } },
-            FindOneOptions::builder().sort(doc! { "_id": -1 }).build(),
-        )
-        .await
+    ) -> Result<Option<ConfigurationUpdateDocument>, DbError> {
+        Ok(self
+            .find_one(
+                doc! { "_id": { "$lte": slot_index.0 } },
+                FindOneOptions::builder().sort(doc! { "_id": -1 }).build(),
+            )
+            .await?)
     }
 
     /// Inserts or updates a node configuration for a given slot index.
@@ -69,7 +70,7 @@ impl ConfigurationUpdateCollection {
         &self,
         slot_index: SlotIndex,
         config: NodeConfiguration,
-    ) -> Result<(), Error> {
+    ) -> Result<(), DbError> {
         let node_config = self.get_node_configuration_for_slot_index(slot_index).await?;
         if !matches!(node_config, Some(node_config) if node_config.config == config) {
             self.update_one(

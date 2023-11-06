@@ -4,14 +4,13 @@
 use iota_sdk::types::block::{protocol::ProtocolParameters, slot::EpochIndex};
 use mongodb::{
     bson::doc,
-    error::Error,
     options::{FindOneOptions, UpdateOptions},
 };
 use serde::{Deserialize, Serialize};
 
 use crate::{
     db::{
-        mongodb::{MongoDbCollection, MongoDbCollectionExt},
+        mongodb::{DbError, MongoDbCollection, MongoDbCollectionExt},
         MongoDb,
     },
     model::SerializeToBson,
@@ -45,37 +44,41 @@ impl MongoDbCollection for ProtocolUpdateCollection {
 
 impl ProtocolUpdateCollection {
     /// Gets the latest protocol parameters.
-    pub async fn get_latest_protocol_parameters(&self) -> Result<Option<ProtocolUpdateDocument>, Error> {
-        self.find_one(doc! {}, FindOneOptions::builder().sort(doc! { "_id": -1 }).build())
-            .await
+    pub async fn get_latest_protocol_parameters(&self) -> Result<Option<ProtocolUpdateDocument>, DbError> {
+        Ok(self
+            .find_one(doc! {}, FindOneOptions::builder().sort(doc! { "_id": -1 }).build())
+            .await?)
     }
 
     /// Gets the protocol parameters that are valid for the given ledger index.
     pub async fn get_protocol_parameters_for_epoch_index(
         &self,
         epoch_index: EpochIndex,
-    ) -> Result<Option<ProtocolUpdateDocument>, Error> {
-        self.find_one(
-            doc! { "_id": { "$lte": epoch_index.0 } },
-            FindOneOptions::builder().sort(doc! { "_id": -1 }).build(),
-        )
-        .await
+    ) -> Result<Option<ProtocolUpdateDocument>, DbError> {
+        Ok(self
+            .find_one(
+                doc! { "_id": { "$lte": epoch_index.0 } },
+                FindOneOptions::builder().sort(doc! { "_id": -1 }).build(),
+            )
+            .await?)
     }
 
     /// Gets the protocol parameters for the given milestone index, if they were changed.
     pub async fn get_protocol_parameters_for_milestone_index(
         &self,
         epoch_index: EpochIndex,
-    ) -> Result<Option<ProtocolUpdateDocument>, Error> {
-        self.find_one(doc! { "_id": epoch_index.0 }, None).await
+    ) -> Result<Option<ProtocolUpdateDocument>, DbError> {
+        Ok(self.find_one(doc! { "_id": epoch_index.0 }, None).await?)
     }
 
     /// Gets the protocol parameters for a given protocol version.
     pub async fn get_protocol_parameters_for_version(
         &self,
         version: u8,
-    ) -> Result<Option<ProtocolUpdateDocument>, Error> {
-        self.find_one(doc! { "parameters.version": version as i32 }, None).await
+    ) -> Result<Option<ProtocolUpdateDocument>, DbError> {
+        Ok(self
+            .find_one(doc! { "parameters.version": version as i32 }, None)
+            .await?)
     }
 
     /// Add the protocol parameters to the list if the protocol parameters have changed.
@@ -83,7 +86,7 @@ impl ProtocolUpdateCollection {
         &self,
         epoch_index: EpochIndex,
         parameters: ProtocolParameters,
-    ) -> Result<(), Error> {
+    ) -> Result<(), DbError> {
         let params = self.get_protocol_parameters_for_epoch_index(epoch_index).await?;
         if !matches!(params, Some(params) if params.parameters == parameters) {
             self.update_one(

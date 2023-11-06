@@ -15,7 +15,6 @@ use iota_sdk::types::block::{
 };
 use mongodb::{
     bson::{self, doc, Bson},
-    error::Error,
     options::IndexOptions,
     IndexModel,
 };
@@ -26,7 +25,7 @@ pub use self::{
 };
 use super::{OutputCollection, OutputDocument};
 use crate::{
-    db::mongodb::{collections::SortOrder, MongoDbCollectionExt},
+    db::mongodb::{collections::SortOrder, DbError, MongoDbCollectionExt},
     model::SerializeToBson,
 };
 
@@ -91,7 +90,7 @@ impl OutputCollection {
         &self,
         id: impl Into<IndexedId>,
         ledger_index: SlotIndex,
-    ) -> Result<Option<IndexedOutputResult>, Error> {
+    ) -> Result<Option<IndexedOutputResult>, DbError> {
         let id = id.into();
         let mut res = self
             .aggregate(
@@ -128,7 +127,7 @@ impl OutputCollection {
         order: SortOrder,
         include_spent: bool,
         ledger_index: SlotIndex,
-    ) -> Result<OutputsResult, Error>
+    ) -> Result<OutputsResult, DbError>
     where
         bson::Document: From<Q>,
     {
@@ -179,7 +178,7 @@ impl OutputCollection {
     }
 
     /// Creates indexer output indexes.
-    pub async fn create_indexer_indexes(&self) -> Result<(), Error> {
+    pub async fn create_indexer_indexes(&self) -> Result<(), DbError> {
         self.create_index(
             IndexModel::builder()
                 .keys(doc! { "output.kind": 1 })
