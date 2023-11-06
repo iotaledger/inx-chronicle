@@ -27,8 +27,8 @@ pub use self::{
     ledger_update::{LedgerUpdateByAddressRecord, LedgerUpdateBySlotRecord, LedgerUpdateCollection},
     outputs::{
         AddressStat, AliasOutputsQuery, BasicOutputsQuery, DistributionStat, FoundryOutputsQuery, IndexedId,
-        NftOutputsQuery, OutputCollection, OutputMetadataResult, OutputWithMetadataResult, OutputsResult,
-        UtxoChangesResult,
+        NftOutputsQuery, OutputCollection, OutputMetadata, OutputMetadataResult, OutputWithMetadataResult,
+        OutputsResult, UtxoChangesResult,
     },
     protocol_update::ProtocolUpdateCollection,
 };

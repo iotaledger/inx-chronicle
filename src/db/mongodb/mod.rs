@@ -14,7 +14,6 @@ use std::collections::{HashMap, HashSet};
 use config::MongoDbConfig;
 use mongodb::{
     bson::{doc, Document},
-    error::Error,
     options::ClientOptions,
     Client,
 };
@@ -33,7 +32,7 @@ pub struct MongoDb {
 
 impl MongoDb {
     /// Constructs a [`MongoDb`] by connecting to a MongoDB instance.
-    pub async fn connect(config: &MongoDbConfig) -> Result<Self, Error> {
+    pub async fn connect(config: &MongoDbConfig) -> Result<Self, DbError> {
         let mut client_options = ClientOptions::parse(&config.conn_str).await?;
 
         client_options.app_name = Some(crate::CHRONICLE_APP_NAME.to_string());
@@ -52,7 +51,7 @@ impl MongoDb {
     }
 
     /// Creates a collection if it does not exist.
-    pub async fn create_indexes<T: MongoDbCollection + Send + Sync>(&self) -> Result<(), Error> {
+    pub async fn create_indexes<T: MongoDbCollection + Send + Sync>(&self) -> Result<(), DbError> {
         let collection = self.collection::<T>();
         collection.create_collection(self).await?;
         collection.create_indexes().await?;
@@ -65,7 +64,7 @@ impl MongoDb {
     }
 
     /// Gets all index names by their collection.
-    pub async fn get_index_names(&self) -> Result<HashMap<String, HashSet<String>>, Error> {
+    pub async fn get_index_names(&self) -> Result<HashMap<String, HashSet<String>>, DbError> {
         let mut res = HashMap::new();
         for collection in self.db().list_collection_names(None).await? {
             let indexes = self.db().collection::<Document>(&collection).list_index_names().await?;
@@ -77,7 +76,7 @@ impl MongoDb {
     }
 
     /// Clears all the collections from the database.
-    pub async fn clear(&self) -> Result<(), Error> {
+    pub async fn clear(&self) -> Result<(), DbError> {
         let collections = self.db().list_collection_names(None).await?;
 
         for c in collections.into_iter().filter(|c| c != "system.views") {
@@ -88,12 +87,12 @@ impl MongoDb {
     }
 
     /// Drops the database.
-    pub async fn drop(self) -> Result<(), Error> {
-        self.db().drop(None).await
+    pub async fn drop(self) -> Result<(), DbError> {
+        Ok(self.db().drop(None).await?)
     }
 
     /// Returns the storage size of the database.
-    pub async fn size(&self) -> Result<u64, Error> {
+    pub async fn size(&self) -> Result<u64, DbError> {
         Ok(
             match self
                 .db()
@@ -118,8 +117,8 @@ impl MongoDb {
     }
 
     /// Returns the names of all available databases.
-    pub async fn get_databases(&self) -> Result<Vec<String>, Error> {
-        self.client.list_database_names(None, None).await
+    pub async fn get_databases(&self) -> Result<Vec<String>, DbError> {
+        Ok(self.client.list_database_names(None, None).await?)
     }
 
     /// Returns the name of the database.

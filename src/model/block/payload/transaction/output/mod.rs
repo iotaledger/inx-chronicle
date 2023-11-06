@@ -16,9 +16,7 @@ pub mod unlock_condition;
 
 use std::{borrow::Borrow, str::FromStr};
 
-use iota_sdk::types::block::{
-    output as iota, payload::signed_transaction::TransactionId, protocol::ProtocolParameters,
-};
+use iota_sdk::types::block::output::{self as iota, Output};
 use mongodb::bson::{doc, Bson};
 use serde::{Deserialize, Serialize};
 
@@ -33,39 +31,7 @@ pub use self::{
     native_token::{NativeTokenDto, TokenSchemeDto},
     nft::NftOutputDto,
 };
-
-/// An id which uniquely identifies an output.
-#[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Hash)]
-pub struct OutputIdDto {
-    /// The transaction id.
-    pub transaction_id: TransactionId,
-    /// The output index.
-    pub index: u16,
-}
-
-impl From<iota::OutputId> for OutputIdDto {
-    fn from(value: iota::OutputId) -> Self {
-        Self {
-            transaction_id: *value.transaction_id(),
-            index: value.index(),
-        }
-    }
-}
-
-impl TryFrom<OutputIdDto> for iota::OutputId {
-    type Error = iota_sdk::types::block::Error;
-
-    fn try_from(value: OutputIdDto) -> Result<Self, Self::Error> {
-        iota::OutputId::new(value.transaction_id, value.index)
-    }
-}
-
-impl From<OutputIdDto> for Bson {
-    fn from(val: OutputIdDto) -> Self {
-        // Unwrap: Cannot fail as type is well defined
-        mongodb::bson::to_bson(&val).unwrap()
-    }
-}
+use crate::model::TryFromDto;
 
 /// Represents the different output types.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -182,6 +148,30 @@ impl<T: Borrow<iota::Output>> From<T> for OutputDto {
             iota::Output::Delegation(o) => Self::Delegation(o.into()),
             iota::Output::Anchor(o) => Self::Anchor(o.into()),
         }
+    }
+}
+
+impl From<OutputDto> for iota_sdk::types::block::output::dto::OutputDto {
+    fn from(value: OutputDto) -> Self {
+        match value {
+            OutputDto::Basic(b) => Self::Basic(b.into()),
+            OutputDto::Account(_) => todo!(),
+            OutputDto::Foundry(_) => todo!(),
+            OutputDto::Nft(_) => todo!(),
+            OutputDto::Delegation(_) => todo!(),
+            OutputDto::Anchor(_) => todo!(),
+        }
+    }
+}
+
+impl TryFromDto<OutputDto> for Output {
+    type Error = iota_sdk::types::block::Error;
+
+    fn try_from_dto_with_params_inner(
+        dto: OutputDto,
+        params: iota_sdk::types::ValidationParams<'_>,
+    ) -> Result<Self, Self::Error> {
+        iota_sdk::types::TryFromDto::try_from_dto(dto.into())
     }
 }
 

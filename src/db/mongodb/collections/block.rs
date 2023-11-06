@@ -12,7 +12,6 @@ use iota_sdk::types::{
 };
 use mongodb::{
     bson::doc,
-    error::Error,
     options::{IndexOptions, InsertManyOptions},
     IndexModel,
 };
@@ -23,7 +22,7 @@ use tracing::instrument;
 use super::SortOrder;
 use crate::{
     db::{
-        mongodb::{InsertIgnoreDuplicatesExt, MongoDbCollection, MongoDbCollectionExt},
+        mongodb::{DbError, InsertIgnoreDuplicatesExt, MongoDbCollection, MongoDbCollectionExt},
         MongoDb,
     },
     model::SerializeToBson,
@@ -84,7 +83,7 @@ impl MongoDbCollection for BlockCollection {
         &self.collection
     }
 
-    async fn create_indexes(&self) -> Result<(), Error> {
+    async fn create_indexes(&self) -> Result<(), DbError> {
         self.create_index(
             IndexModel::builder()
                 .keys(doc! { "block.payload.transaction_id": 1 })
@@ -148,7 +147,7 @@ struct BlockIdResult {
 /// Implements the queries for the core API.
 impl BlockCollection {
     /// Get a [`Block`] by its [`BlockId`].
-    pub async fn get_block(&self, block_id: &BlockId) -> Result<Option<SignedBlock>, Error> {
+    pub async fn get_block(&self, block_id: &BlockId) -> Result<Option<SignedBlock>, DbError> {
         Ok(self
             .get_block_raw(block_id)
             .await?
@@ -156,7 +155,7 @@ impl BlockCollection {
     }
 
     /// Get the raw bytes of a [`Block`] by its [`BlockId`].
-    pub async fn get_block_raw(&self, block_id: &BlockId) -> Result<Option<Vec<u8>>, Error> {
+    pub async fn get_block_raw(&self, block_id: &BlockId) -> Result<Option<Vec<u8>>, DbError> {
         Ok(self
             .aggregate(
                 [
@@ -172,17 +171,18 @@ impl BlockCollection {
     }
 
     /// Get the metadata of a [`Block`] by its [`BlockId`].
-    pub async fn get_block_metadata(&self, block_id: &BlockId) -> Result<Option<BlockMetadataResponse>, Error> {
-        self.aggregate(
-            [
-                doc! { "$match": { "_id": block_id.to_bson() } },
-                doc! { "$replaceWith": "$metadata" },
-            ],
-            None,
-        )
-        .await?
-        .try_next()
-        .await
+    pub async fn get_block_metadata(&self, block_id: &BlockId) -> Result<Option<BlockMetadataResponse>, DbError> {
+        Ok(self
+            .aggregate(
+                [
+                    doc! { "$match": { "_id": block_id.to_bson() } },
+                    doc! { "$replaceWith": "$metadata" },
+                ],
+                None,
+            )
+            .await?
+            .try_next()
+            .await?)
     }
 
     // /// Get the children of a [`Block`] as a stream of [`BlockId`]s.
@@ -281,7 +281,7 @@ impl BlockCollection {
 
     /// Inserts [`Block`]s together with their associated [`BlockMetadata`].
     #[instrument(skip_all, err, level = "trace")]
-    pub async fn insert_blocks_with_metadata<I, B>(&self, blocks_with_metadata: I) -> Result<(), Error>
+    pub async fn insert_blocks_with_metadata<I, B>(&self, blocks_with_metadata: I) -> Result<(), DbError>
     where
         I: IntoIterator<Item = B>,
         I::IntoIter: Send + Sync,
@@ -302,12 +302,12 @@ impl BlockCollection {
     pub async fn get_block_for_transaction(
         &self,
         transaction_id: &TransactionId,
-    ) -> Result<Option<IncludedBlockResult>, Error> {
+    ) -> Result<Option<IncludedBlockResult>, DbError> {
         #[derive(Deserialize)]
-        pub struct IncludedBlockRes {
+        struct IncludedBlockRes {
             #[serde(rename = "_id")]
-            pub block_id: BlockId,
-            pub block: SignedBlockDto,
+            block_id: BlockId,
+            block: SignedBlockDto,
         }
 
         Ok(self
@@ -334,7 +334,7 @@ impl BlockCollection {
     pub async fn get_block_raw_for_transaction(
         &self,
         transaction_id: &TransactionId,
-    ) -> Result<Option<Vec<u8>>, Error> {
+    ) -> Result<Option<Vec<u8>>, DbError> {
         Ok(self
             .aggregate(
                 [
@@ -356,42 +356,44 @@ impl BlockCollection {
     pub async fn get_block_metadata_for_transaction(
         &self,
         transaction_id: &TransactionId,
-    ) -> Result<Option<IncludedBlockMetadataResult>, Error> {
-        self.aggregate(
-            [
-                doc! { "$match": {
-                    "metadata.block_state": BlockState::Finalized.to_bson(),
-                    "block.payload.transaction_id": transaction_id.to_bson(),
-                } },
-                doc! { "$project": {
-                    "_id": 1,
-                    "metadata": 1,
-                } },
-            ],
-            None,
-        )
-        .await?
-        .try_next()
-        .await
+    ) -> Result<Option<IncludedBlockMetadataResult>, DbError> {
+        Ok(self
+            .aggregate(
+                [
+                    doc! { "$match": {
+                        "metadata.block_state": BlockState::Finalized.to_bson(),
+                        "block.payload.transaction_id": transaction_id.to_bson(),
+                    } },
+                    doc! { "$project": {
+                        "_id": 1,
+                        "metadata": 1,
+                    } },
+                ],
+                None,
+            )
+            .await?
+            .try_next()
+            .await?)
     }
 
     /// Gets the spending transaction of an [`Output`](crate::model::utxo::Output) by [`OutputId`].
-    pub async fn get_spending_transaction(&self, output_id: &OutputId) -> Result<Option<SignedBlock>, Error> {
-        self.aggregate(
-            [
-                doc! { "$match": {
-                    "metadata.block_state": BlockState::Finalized.to_bson(),
-                    "block.payload.essence.inputs.transaction_id": output_id.transaction_id().to_bson(),
-                    "block.payload.essence.inputs.index": &(output_id.index() as i32)
-                } },
-                doc! { "$project": { "raw": 1 } },
-            ],
-            None,
-        )
-        .await?
-        .map_ok(|RawResult { raw }| SignedBlock::unpack_unverified(raw).unwrap())
-        .try_next()
-        .await
+    pub async fn get_spending_transaction(&self, output_id: &OutputId) -> Result<Option<SignedBlock>, DbError> {
+        Ok(self
+            .aggregate(
+                [
+                    doc! { "$match": {
+                        "metadata.block_state": BlockState::Finalized.to_bson(),
+                        "block.payload.essence.inputs.transaction_id": output_id.transaction_id().to_bson(),
+                        "block.payload.essence.inputs.index": &(output_id.index() as i32)
+                    } },
+                    doc! { "$project": { "raw": 1 } },
+                ],
+                None,
+            )
+            .await?
+            .map_ok(|RawResult { raw }| SignedBlock::unpack_unverified(raw).unwrap())
+            .try_next()
+            .await?)
     }
 }
 
@@ -412,7 +414,7 @@ impl BlockCollection {
         page_size: usize,
         cursor: Option<u32>,
         sort: SortOrder,
-    ) -> Result<impl Stream<Item = Result<BlocksBySlotResult, Error>>, Error> {
+    ) -> Result<impl Stream<Item = Result<BlocksBySlotResult, DbError>>, DbError> {
         let (sort, cmp) = match sort {
             SortOrder::Newest => (doc! {"block.issuing_time": -1 }, "$lte"),
             SortOrder::Oldest => (doc! {"block.issuing_time": 1 }, "$gte"),
@@ -423,19 +425,21 @@ impl BlockCollection {
             queries.push(doc! { "block.issuing_time": { cmp: issuing_time } });
         }
 
-        self.aggregate(
-            [
-                doc! { "$match": { "$and": queries } },
-                doc! { "$sort": sort },
-                doc! { "$limit": page_size as i64 },
-                doc! { "$project": {
-                    "_id": 1,
-                    "payload_kind": "$block.payload.kind",
-                    "issuing_time": "$block.issuing_time"
-                } },
-            ],
-            None,
-        )
-        .await
+        Ok(self
+            .aggregate(
+                [
+                    doc! { "$match": { "$and": queries } },
+                    doc! { "$sort": sort },
+                    doc! { "$limit": page_size as i64 },
+                    doc! { "$project": {
+                        "_id": 1,
+                        "payload_kind": "$block.payload.kind",
+                        "issuing_time": "$block.issuing_time"
+                    } },
+                ],
+                None,
+            )
+            .await?
+            .map_err(Into::into))
     }
 }

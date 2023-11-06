@@ -2,10 +2,15 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use futures::{Stream, TryStreamExt};
-use iota_sdk::types::block::{address::Address, output::OutputId, slot::SlotIndex};
+use iota_sdk::types::block::{
+    address::Address,
+    output::{Output, OutputId},
+    payload::signed_transaction::TransactionId,
+    slot::{SlotCommitmentId, SlotIndex},
+    BlockId,
+};
 use mongodb::{
     bson::{doc, Document},
-    error::Error,
     options::{FindOptions, IndexOptions, InsertManyOptions},
     IndexModel,
 };
@@ -15,18 +20,63 @@ use tracing::instrument;
 use super::SortOrder;
 use crate::{
     db::{
-        mongodb::{InsertIgnoreDuplicatesExt, MongoDbCollection, MongoDbCollectionExt},
+        mongodb::{DbError, InsertIgnoreDuplicatesExt, MongoDbCollection, MongoDbCollectionExt},
         MongoDb,
     },
     inx::ledger::{LedgerOutput, LedgerSpent},
-    model::SerializeToBson,
+    model::{
+        payload::transaction::output::{AddressDto, OutputDto},
+        SerializeToBson, TryFromDto,
+    },
 };
 
 /// Contains all information related to an output.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct LedgerUpdateDocument {
     _id: LedgerUpdateByAddressRecord,
-    address: Address,
+    address: AddressDto,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[allow(missing_docs)]
+pub struct LedgerOutputRecord {
+    pub output_id: OutputId,
+    pub block_id: BlockId,
+    pub slot_booked: SlotIndex,
+    pub commitment_id_included: SlotCommitmentId,
+    pub output: OutputDto,
+}
+
+impl From<LedgerOutputRecord> for LedgerOutput {
+    fn from(value: LedgerOutputRecord) -> Self {
+        Self {
+            output_id: value.output_id,
+            block_id: value.block_id,
+            slot_booked: value.slot_booked,
+            commitment_id_included: value.commitment_id_included,
+            output: Output::try_from_dto(value.output).unwrap(),
+        }
+    }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[allow(missing_docs)]
+pub struct LedgerSpentRecord {
+    pub output: LedgerOutputRecord,
+    pub commitment_id_spent: SlotCommitmentId,
+    pub transaction_id_spent: TransactionId,
+    pub slot_spent: SlotIndex,
+}
+
+impl From<LedgerSpentRecord> for LedgerSpent {
+    fn from(value: LedgerSpentRecord) -> Self {
+        Self {
+            output: value.output.into(),
+            commitment_id_spent: value.commitment_id_spent,
+            transaction_id_spent: value.transaction_id_spent,
+            slot_spent: value.slot_spent,
+        }
+    }
 }
 
 /// The iota ledger updates collection.
@@ -47,7 +97,7 @@ impl MongoDbCollection for LedgerUpdateCollection {
         &self.collection
     }
 
-    async fn create_indexes(&self) -> Result<(), Error> {
+    async fn create_indexes(&self) -> Result<(), DbError> {
         self.create_index(
             IndexModel::builder()
                 .keys(newest())
@@ -74,7 +124,7 @@ pub struct LedgerUpdateByAddressRecord {
     pub is_spent: bool,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug)]
 #[allow(missing_docs)]
 pub struct LedgerUpdateBySlotRecord {
     pub address: Address,
@@ -94,7 +144,7 @@ fn oldest() -> Document {
 impl LedgerUpdateCollection {
     /// Inserts [`LedgerSpent`] updates.
     #[instrument(skip_all, err, level = "trace")]
-    pub async fn insert_spent_ledger_updates<'a, I>(&self, outputs: I) -> Result<(), Error>
+    pub async fn insert_spent_ledger_updates<'a, I>(&self, outputs: I) -> Result<(), DbError>
     where
         I: IntoIterator<Item = &'a LedgerSpent>,
         I::IntoIter: Send + Sync,
@@ -107,7 +157,7 @@ impl LedgerUpdateCollection {
                     output_id: output.output_id,
                     is_spent: true,
                 },
-                address,
+                address: address.into(),
             })
         });
         self.insert_many_ignore_duplicates(ledger_updates, InsertManyOptions::builder().ordered(false).build())
@@ -118,7 +168,7 @@ impl LedgerUpdateCollection {
 
     /// Inserts unspent [`LedgerOutput`] updates.
     #[instrument(skip_all, err, level = "trace")]
-    pub async fn insert_unspent_ledger_updates<'a, I>(&self, outputs: I) -> Result<(), Error>
+    pub async fn insert_unspent_ledger_updates<'a, I>(&self, outputs: I) -> Result<(), DbError>
     where
         I: IntoIterator<Item = &'a LedgerOutput>,
         I::IntoIter: Send + Sync,
@@ -131,7 +181,7 @@ impl LedgerUpdateCollection {
                     output_id: output.output_id,
                     is_spent: false,
                 },
-                address,
+                address: address.into(),
             })
         });
         self.insert_many_ignore_duplicates(ledger_updates, InsertManyOptions::builder().ordered(false).build())
@@ -147,7 +197,7 @@ impl LedgerUpdateCollection {
         page_size: usize,
         cursor: Option<(SlotIndex, Option<(OutputId, bool)>)>,
         order: SortOrder,
-    ) -> Result<impl Stream<Item = Result<LedgerUpdateByAddressRecord, Error>>, Error> {
+    ) -> Result<impl Stream<Item = Result<LedgerUpdateByAddressRecord, DbError>>, DbError> {
         let (sort, cmp1, cmp2) = match order {
             SortOrder::Newest => (newest(), "$lt", "$lte"),
             SortOrder::Oldest => (oldest(), "$gt", "$gte"),
@@ -177,6 +227,7 @@ impl LedgerUpdateCollection {
                 FindOptions::builder().limit(page_size as i64).sort(sort).build(),
             )
             .await?
+            .map_err(Into::into)
             .map_ok(|doc| LedgerUpdateByAddressRecord {
                 slot_index: doc._id.slot_index,
                 output_id: doc._id.output_id,
@@ -190,7 +241,7 @@ impl LedgerUpdateCollection {
         slot_index: SlotIndex,
         page_size: usize,
         cursor: Option<(OutputId, bool)>,
-    ) -> Result<impl Stream<Item = Result<LedgerUpdateBySlotRecord, Error>>, Error> {
+    ) -> Result<impl Stream<Item = Result<LedgerUpdateBySlotRecord, DbError>>, DbError> {
         let (cmp1, cmp2) = ("$gt", "$gte");
 
         let mut queries = vec![doc! { "_id.slot_index": slot_index.to_bson() }];
@@ -210,8 +261,9 @@ impl LedgerUpdateCollection {
                 FindOptions::builder().limit(page_size as i64).sort(oldest()).build(),
             )
             .await?
+            .map_err(Into::into)
             .map_ok(|doc| LedgerUpdateBySlotRecord {
-                address: doc.address,
+                address: doc.address.into(),
                 output_id: doc._id.output_id,
                 is_spent: doc._id.is_spent,
             }))

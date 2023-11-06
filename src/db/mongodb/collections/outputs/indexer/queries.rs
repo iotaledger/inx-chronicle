@@ -1,13 +1,13 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-use mongodb::bson::{self, doc, Document};
+use iota_sdk::types::block::{address::Address, slot::SlotIndex};
+use mongodb::bson::{doc, Document};
 use primitive_types::U256;
 
 use crate::model::{
-    payload::transaction::output::Tag,
-    tangle::MilestoneTimestamp,
-    utxo::{Address, NativeTokenAmount},
+    payload::transaction::output::{AddressDto, Tag},
+    SerializeToBson,
 };
 
 /// Defines how a query is appended to a list of `$and` queries.
@@ -35,7 +35,7 @@ impl AppendToQuery for IssuerQuery {
                 "output.features": {
                     "$elemMatch": {
                         "kind": "issuer",
-                        "address": address
+                        "address": AddressDto::from(address)
                     }
                 }
             });
@@ -53,7 +53,7 @@ impl AppendToQuery for SenderQuery {
                 "output.features": {
                     "$elemMatch": {
                         "kind": "sender",
-                        "address": address
+                        "address": AddressDto::from(address)
                     }
                 }
             });
@@ -107,7 +107,7 @@ impl AppendToQuery for NativeTokensQuery {
                         "$not": {
                             "$elemMatch": {
                                 "amount": {
-                                    "$lt": bson::to_bson(&NativeTokenAmount::from(&min_native_token_count)).unwrap()
+                                    "$lt": min_native_token_count.to_bson()
                                 }
                             }
                         }
@@ -120,7 +120,7 @@ impl AppendToQuery for NativeTokensQuery {
                         "$not": {
                             "$elemMatch": {
                                 "amount": {
-                                    "$gt": bson::to_bson(&NativeTokenAmount::from(&max_native_token_count)).unwrap()
+                                    "$gt": max_native_token_count.to_bson()
                                 }
                             }
                         }
@@ -138,7 +138,7 @@ impl AppendToQuery for AddressQuery {
     fn append_to(self, queries: &mut Vec<Document>) {
         if let Some(address) = self.0 {
             queries.push(doc! {
-                "details.address": address
+                "details.address": AddressDto::from(address)
             });
         }
     }
@@ -151,7 +151,7 @@ impl AppendToQuery for GovernorQuery {
     fn append_to(self, queries: &mut Vec<Document>) {
         if let Some(address) = self.0 {
             queries.push(doc! {
-                "output.governor_address_unlock_condition.address": address
+                "output.governor_address_unlock_condition.address": AddressDto::from(address)
             });
         }
     }
@@ -172,7 +172,7 @@ impl AppendToQuery for StorageDepositReturnQuery {
         }
         if let Some(storage_return_address) = self.storage_return_address {
             queries.push(doc! {
-                "output.storage_deposit_return_unlock_condition.return_address": storage_return_address
+                "output.storage_deposit_return_unlock_condition.return_address": AddressDto::from(storage_return_address)
             });
         }
     }
@@ -181,8 +181,8 @@ impl AppendToQuery for StorageDepositReturnQuery {
 /// Queries for an unlock condition of type `timelock`.
 pub(super) struct TimelockQuery {
     pub(super) has_timelock_condition: Option<bool>,
-    pub(super) timelocked_before: Option<MilestoneTimestamp>,
-    pub(super) timelocked_after: Option<MilestoneTimestamp>,
+    pub(super) timelocked_before: Option<SlotIndex>,
+    pub(super) timelocked_after: Option<SlotIndex>,
 }
 
 impl AppendToQuery for TimelockQuery {
@@ -194,12 +194,12 @@ impl AppendToQuery for TimelockQuery {
         }
         if let Some(timelocked_before) = self.timelocked_before {
             queries.push(doc! {
-                "output.timelock_unlock_condition.timestamp": { "$lt": timelocked_before }
+                "output.timelock_unlock_condition.timestamp": { "$lt": timelocked_before.0 }
             });
         }
         if let Some(timelocked_after) = self.timelocked_after {
             queries.push(doc! {
-                "output.timelock_unlock_condition.timestamp": { "$gt": timelocked_after }
+                "output.timelock_unlock_condition.timestamp": { "$gt": timelocked_after.0 }
             });
         }
     }
@@ -208,8 +208,8 @@ impl AppendToQuery for TimelockQuery {
 /// Queries for an unlock condition of type `expiration`.
 pub(super) struct ExpirationQuery {
     pub(super) has_expiration_condition: Option<bool>,
-    pub(super) expires_before: Option<MilestoneTimestamp>,
-    pub(super) expires_after: Option<MilestoneTimestamp>,
+    pub(super) expires_before: Option<SlotIndex>,
+    pub(super) expires_after: Option<SlotIndex>,
     pub(super) expiration_return_address: Option<Address>,
 }
 
@@ -222,17 +222,17 @@ impl AppendToQuery for ExpirationQuery {
         }
         if let Some(expires_before) = self.expires_before {
             queries.push(doc! {
-                "output.expiration_unlock_condition.timestamp": { "$lt": expires_before }
+                "output.expiration_unlock_condition.timestamp": { "$lt": expires_before.0 }
             });
         }
         if let Some(expires_after) = self.expires_after {
             queries.push(doc! {
-                "output.expiration_unlock_condition.timestamp": { "$gt": expires_after }
+                "output.expiration_unlock_condition.timestamp": { "$gt": expires_after.0 }
             });
         }
         if let Some(expiration_return_address) = self.expiration_return_address {
             queries.push(doc! {
-                "output.expiration_unlock_condition.return_address": expiration_return_address
+                "output.expiration_unlock_condition.return_address": AddressDto::from(expiration_return_address)
             });
         }
     }
@@ -240,20 +240,20 @@ impl AppendToQuery for ExpirationQuery {
 
 /// Queries for created (booked) time.
 pub(super) struct CreatedQuery {
-    pub(super) created_before: Option<MilestoneTimestamp>,
-    pub(super) created_after: Option<MilestoneTimestamp>,
+    pub(super) created_before: Option<SlotIndex>,
+    pub(super) created_after: Option<SlotIndex>,
 }
 
 impl AppendToQuery for CreatedQuery {
     fn append_to(self, queries: &mut Vec<Document>) {
         if let Some(created_before) = self.created_before {
             queries.push(doc! {
-                "metadata.booked.milestone_timestamp": { "$lt": created_before }
+                "metadata.booked.milestone_timestamp": { "$lt": created_before.0 }
             });
         }
         if let Some(created_after) = self.created_after {
             queries.push(doc! {
-                "metadata.booked.milestone_timestamp": { "$gt": created_after }
+                "metadata.booked.milestone_timestamp": { "$gt": created_after.0 }
             });
         }
     }

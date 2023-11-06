@@ -5,7 +5,7 @@ mod indexer;
 
 use std::borrow::Borrow;
 
-use futures::{Stream, TryStreamExt};
+use futures::{Stream, StreamExt, TryStreamExt};
 use iota_sdk::types::{
     block::{
         address::Address,
@@ -18,7 +18,6 @@ use iota_sdk::types::{
 };
 use mongodb::{
     bson::{doc, to_bson, to_document},
-    error::Error,
     options::{IndexOptions, InsertManyOptions},
     IndexModel,
 };
@@ -28,9 +27,13 @@ use tracing::instrument;
 pub use self::indexer::{
     AliasOutputsQuery, BasicOutputsQuery, FoundryOutputsQuery, IndexedId, NftOutputsQuery, OutputsResult,
 };
+use super::ledger_update::{LedgerOutputRecord, LedgerSpentRecord};
 use crate::{
     db::{
-        mongodb::{DbError, InsertIgnoreDuplicatesExt, MongoDbCollection, MongoDbCollectionExt},
+        mongodb::{
+            collections::ProtocolUpdateCollection, DbError, InsertIgnoreDuplicatesExt, MongoDbCollection,
+            MongoDbCollectionExt,
+        },
         MongoDb,
     },
     inx::ledger::{LedgerOutput, LedgerSpent},
@@ -48,16 +51,20 @@ pub struct OutputDocument {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+/// Metadata for an output.
 pub struct OutputMetadata {
     /// The ID of the block in which the output was included.
     pub block_id: BlockId,
+    /// The slot in which the output was booked (created).
     pub slot_booked: SlotIndex,
     /// Commitment ID that includes the output.
     pub included_commitment_id: SlotCommitmentId,
+    /// Optional spent metadata.
     pub spent_metadata: Option<SpentMetadata>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+/// Metadata for a spent (consumed) output.
 pub struct SpentMetadata {
     // Slot where the output was spent.
     pub slot_spent: SlotIndex,
@@ -71,6 +78,7 @@ pub struct SpentMetadata {
 pub struct OutputCollection {
     db: mongodb::Database,
     collection: mongodb::Collection<OutputDocument>,
+    protocol_updates: ProtocolUpdateCollection,
 }
 
 #[async_trait::async_trait]
@@ -82,6 +90,7 @@ impl MongoDbCollection for OutputCollection {
         Self {
             db: db.db(),
             collection,
+            protocol_updates: db.collection(),
         }
     }
 
@@ -89,7 +98,7 @@ impl MongoDbCollection for OutputCollection {
         &self.collection
     }
 
-    async fn create_indexes(&self) -> Result<(), Error> {
+    async fn create_indexes(&self) -> Result<(), DbError> {
         self.create_index(
             IndexModel::builder()
                 .keys(doc! { "metadata.block_id": 1 })
@@ -225,7 +234,7 @@ impl OutputCollection {
     /// Upserts [`Outputs`](crate::model::utxo::Output) with their
     /// [`OutputMetadata`](crate::model::metadata::OutputMetadata).
     #[instrument(skip_all, err, level = "trace")]
-    pub async fn update_spent_outputs(&self, outputs: impl IntoIterator<Item = &LedgerSpent>) -> Result<(), Error> {
+    pub async fn update_spent_outputs(&self, outputs: impl IntoIterator<Item = &LedgerSpent>) -> Result<(), DbError> {
         // TODO: Replace `db.run_command` once the `BulkWrite` API lands in the Rust driver.
         let update_docs = outputs
             .into_iter()
@@ -236,14 +245,14 @@ impl OutputCollection {
                     "upsert": true,
                 })
             })
-            .collect::<Result<Vec<_>, Error>>()?;
+            .collect::<Result<Vec<_>, DbError>>()?;
 
         if !update_docs.is_empty() {
             let mut command = doc! {
                 "update": Self::NAME,
                 "updates": update_docs,
             };
-            if let Some(ref write_concern) = self.db.write_concern() {
+            if let Some(write_concern) = self.db.write_concern() {
                 command.insert("writeConcern", to_bson(write_concern)?);
             }
             let selection_criteria = self.db.selection_criteria().cloned();
@@ -256,7 +265,7 @@ impl OutputCollection {
     /// Inserts [`Outputs`](crate::model::utxo::Output) with their
     /// [`OutputMetadata`](crate::model::metadata::OutputMetadata).
     #[instrument(skip_all, err, level = "trace")]
-    pub async fn insert_unspent_outputs<I, B>(&self, outputs: I) -> Result<(), Error>
+    pub async fn insert_unspent_outputs<I, B>(&self, outputs: I) -> Result<(), DbError>
     where
         I: IntoIterator<Item = B>,
         I::IntoIter: Send + Sync,
@@ -336,179 +345,193 @@ impl OutputCollection {
         &self,
         output_id: &OutputId,
         slot_index: SlotIndex,
-    ) -> Result<Option<OutputMetadataResult>, Error> {
-        self.aggregate(
-            [
-                doc! { "$match": {
-                    "_id": output_id.to_bson(),
-                    "metadata.booked.milestone_index": { "$lte": slot_index.0 }
-                } },
-                doc! { "$project": {
-                    "output_id": "$_id",
-                    "block_id": "$metadata.block_id",
-                    "booked": "$metadata.booked",
-                    "spent_metadata": "$metadata.spent_metadata",
-                } },
-            ],
-            None,
-        )
-        .await?
-        .try_next()
-        .await
-    }
-
-    /// Stream all [`LedgerOutput`]s that were unspent at a given ledger index.
-    pub async fn get_unspent_output_stream(
-        &self,
-        ledger_index: MilestoneIndex,
-    ) -> Result<impl Stream<Item = Result<LedgerOutput, Error>>, Error> {
-        self.aggregate(
-            [
-                doc! { "$match": {
-                    "metadata.booked.milestone_index" : { "$lte": ledger_index },
-                    "metadata.spent_metadata.spent.milestone_index": { "$not": { "$lte": ledger_index } }
-                } },
-                doc! { "$project": {
-                    "output_id": "$_id",
-                    "block_id": "$metadata.block_id",
-                    "booked": "$metadata.booked",
-                    "output": "$output",
-                    "rent_structure": "$details.rent_structure",
-                } },
-            ],
-            None,
-        )
-        .await
-    }
-
-    /// Get all created [`LedgerOutput`]s for the given milestone.
-    pub async fn get_created_outputs(
-        &self,
-        index: MilestoneIndex,
-    ) -> Result<impl Stream<Item = Result<LedgerOutput, Error>>, Error> {
-        self.aggregate(
-            [
-                doc! { "$match": {
-                    "metadata.booked.milestone_index": { "$eq": index }
-                } },
-                doc! { "$project": {
-                    "output_id": "$_id",
-                    "block_id": "$metadata.block_id",
-                    "booked": "$metadata.booked",
-                    "output": "$output",
-                    "rent_structure": "$details.rent_structure",
-                } },
-            ],
-            None,
-        )
-        .await
-    }
-
-    /// Get all consumed [`LedgerSpent`]s for the given milestone.
-    pub async fn get_consumed_outputs(
-        &self,
-        index: MilestoneIndex,
-    ) -> Result<impl Stream<Item = Result<LedgerSpent, Error>>, Error> {
-        self.aggregate(
-            [
-                doc! { "$match": {
-                    "metadata.spent_metadata.spent.milestone_index": { "$eq": index }
-                } },
-                doc! { "$project": {
-                    "output": {
+    ) -> Result<Option<OutputMetadataResult>, DbError> {
+        Ok(self
+            .aggregate(
+                [
+                    doc! { "$match": {
+                        "_id": output_id.to_bson(),
+                        "metadata.slot_booked": { "$lte": slot_index.0 }
+                    } },
+                    doc! { "$project": {
                         "output_id": "$_id",
                         "block_id": "$metadata.block_id",
                         "booked": "$metadata.booked",
-                        "output": "$output",
-                        "rent_structure": "$details.rent_structure",
-                    },
-                    "spent_metadata": "$metadata.spent_metadata",
-                } },
-            ],
-            None,
-        )
-        .await
-    }
-
-    /// Get all ledger updates (i.e. consumed [`Output`]s) for the given milestone.
-    pub async fn get_ledger_update_stream(
-        &self,
-        ledger_index: MilestoneIndex,
-    ) -> Result<impl Stream<Item = Result<(OutputId, Output), Error>>, Error> {
-        #[derive(Deserialize)]
-        struct Res {
-            output_id: OutputId,
-            output: Output,
-        }
-        Ok(self
-            .aggregate::<Res>(
-                [
-                    doc! { "$match": {
-                        "metadata.spent_metadata.spent.milestone_index": { "$eq": ledger_index }
-                    } },
-                    doc! { "$project": {
-                        "output_id": "$_id",
-                        "output": "$output",
-                    } },
-                ],
-                None,
-            )
-            .await?
-            .map_ok(|res| (res.output_id, res.output)))
-    }
-
-    /// Gets the spending transaction metadata of an [`Output`] by [`OutputId`].
-    pub async fn get_spending_transaction_metadata(
-        &self,
-        output_id: &OutputId,
-    ) -> Result<Option<SpentMetadata>, Error> {
-        self.aggregate(
-            [
-                doc! { "$match": {
-                    "_id": &output_id,
-                    "metadata.spent_metadata": { "$ne": null }
-                } },
-                doc! { "$replaceWith": "$metadata.spent_metadata" },
-            ],
-            None,
-        )
-        .await?
-        .try_next()
-        .await
-    }
-
-    /// Sums the amounts of all outputs owned by the given [`Address`].
-    pub async fn get_address_balance(
-        &self,
-        address: Address,
-        ledger_index: MilestoneIndex,
-    ) -> Result<Option<BalanceResult>, Error> {
-        self
-            .aggregate(
-                [
-                    // Look at all (at ledger index o'clock) unspent output documents for the given address.
-                    doc! { "$match": {
-                        "details.address": &address,
-                        "metadata.booked.milestone_index": { "$lte": ledger_index },
-                        "metadata.spent_metadata.spent.milestone_index": { "$not": { "$lte": ledger_index } }
-                    } },
-                    doc! { "$group": {
-                        "_id": null,
-                        "total_balance": { "$sum": { "$toDecimal": "$output.amount" } },
-                        "sig_locked_balance": { "$sum": { 
-                            "$cond": [ { "$eq": [ "$details.is_trivial_unlock", true] }, { "$toDecimal": "$output.amount" }, 0 ]
-                        } },
-                    } },
-                    doc! { "$project": {
-                        "total_balance": { "$toString": "$total_balance" },
-                        "sig_locked_balance": { "$toString": "$sig_locked_balance" },
+                        "spent_metadata": "$metadata.spent_metadata",
                     } },
                 ],
                 None,
             )
             .await?
             .try_next()
-            .await
+            .await?)
+    }
+
+    /// Stream all [`LedgerOutput`]s that were unspent at a given ledger index.
+    pub async fn get_unspent_output_stream(
+        &self,
+        slot_index: SlotIndex,
+    ) -> Result<impl Stream<Item = Result<LedgerOutput, DbError>>, DbError> {
+        Ok(self
+            .aggregate::<LedgerOutputRecord>(
+                [
+                    doc! { "$match": {
+                        "metadata.slot_booked" : { "$lte": slot_index.0 },
+                        "metadata.spent_metadata.slot_spent": { "$not": { "$lte": slot_index.0 } }
+                    } },
+                    doc! { "$project": {
+                        "output_id": "$_id",
+                        "block_id": "$metadata.block_id",
+                        "booked": "$metadata.booked",
+                        "output": "$output",
+                        "rent_structure": "$details.rent_structure",
+                    } },
+                ],
+                None,
+            )
+            .await?
+            .map_err(Into::into)
+            .map_ok(Into::into))
+    }
+
+    /// Get all created [`LedgerOutput`]s for the given milestone.
+    pub async fn get_created_outputs(
+        &self,
+        slot_index: SlotIndex,
+    ) -> Result<impl Stream<Item = Result<LedgerOutput, DbError>>, DbError> {
+        Ok(self
+            .aggregate::<LedgerOutputRecord>(
+                [
+                    doc! { "$match": {
+                        "metadata.slot_booked": { "$eq": slot_index.0 }
+                    } },
+                    doc! { "$project": {
+                        "output_id": "$_id",
+                        "block_id": "$metadata.block_id",
+                        "booked": "$metadata.booked",
+                        "output": "$output",
+                        "rent_structure": "$details.rent_structure",
+                    } },
+                ],
+                None,
+            )
+            .await?
+            .map_err(Into::into)
+            .map_ok(Into::into))
+    }
+
+    /// Get all consumed [`LedgerSpent`]s for the given milestone.
+    pub async fn get_consumed_outputs(
+        &self,
+        slot_index: SlotIndex,
+    ) -> Result<impl Stream<Item = Result<LedgerSpent, DbError>>, DbError> {
+        Ok(self
+            .aggregate::<LedgerSpentRecord>(
+                [
+                    doc! { "$match": {
+                        "metadata.spent_metadata.slot_spent": { "$eq": slot_index.0 }
+                    } },
+                    doc! { "$project": {
+                        "output": {
+                            "output_id": "$_id",
+                            "block_id": "$metadata.block_id",
+                            "booked": "$metadata.booked",
+                            "output": "$output",
+                            "rent_structure": "$details.rent_structure",
+                        },
+                        "spent_metadata": "$metadata.spent_metadata",
+                    } },
+                ],
+                None,
+            )
+            .await?
+            .map_err(Into::into)
+            .map_ok(Into::into))
+    }
+
+    /// Get all ledger updates (i.e. consumed [`Output`]s) for the given milestone.
+    pub async fn get_ledger_update_stream(
+        &self,
+        slot_index: SlotIndex,
+    ) -> Result<impl Stream<Item = Result<(OutputId, Output), DbError>>, DbError> {
+        #[derive(Deserialize)]
+        struct Res {
+            output_id: OutputId,
+            output: OutputDto,
+        }
+        Ok(self
+            .aggregate::<Res>(
+                [
+                    doc! { "$match": {
+                        "metadata.spent_metadata.slot_spent": { "$eq": slot_index.0 }
+                    } },
+                    doc! { "$project": {
+                        "output_id": "$_id",
+                        "output": "$output",
+                    } },
+                ],
+                None,
+            )
+            .await?
+            .then(|res| async move {
+                let res = res?;
+                Ok((res.output_id, Output::try_from_dto(res.output)?))
+            }))
+    }
+
+    /// Gets the spending transaction metadata of an [`Output`] by [`OutputId`].
+    pub async fn get_spending_transaction_metadata(
+        &self,
+        output_id: &OutputId,
+    ) -> Result<Option<SpentMetadata>, DbError> {
+        Ok(self
+            .aggregate(
+                [
+                    doc! { "$match": {
+                        "_id": output_id.to_bson(),
+                        "metadata.spent_metadata": { "$ne": null }
+                    } },
+                    doc! { "$replaceWith": "$metadata.spent_metadata" },
+                ],
+                None,
+            )
+            .await?
+            .try_next()
+            .await?)
+    }
+
+    /// Sums the amounts of all outputs owned by the given [`Address`].
+    pub async fn get_address_balance(
+        &self,
+        address: Address,
+        slot_index: SlotIndex,
+    ) -> Result<Option<BalanceResult>, DbError> {
+        Ok(self
+                .aggregate(
+                    [
+                        // Look at all (at slot index o'clock) unspent output documents for the given address.
+                        doc! { "$match": {
+                            "details.address": address.to_bson(),
+                            "metadata.slot_booked": { "$lte": slot_index.0 },
+                            "metadata.spent_metadata.slot_spent": { "$not": { "$lte": slot_index.0 } }
+                        } },
+                        doc! { "$group": {
+                            "_id": null,
+                            "total_balance": { "$sum": { "$toDecimal": "$output.amount" } },
+                            "sig_locked_balance": { "$sum": { 
+                                "$cond": [ { "$eq": [ "$details.is_trivial_unlock", true] }, { "$toDecimal": "$output.amount" }, 0 ]
+                            } },
+                        } },
+                        doc! { "$project": {
+                            "total_balance": { "$toString": "$total_balance" },
+                            "sig_locked_balance": { "$toString": "$sig_locked_balance" },
+                        } },
+                    ],
+                    None,
+                )
+                .await?
+                .try_next()
+                .await?)
     }
 
     /// Returns the changes to the UTXO ledger (as consumed and created output ids) that were applied at the given
@@ -516,10 +539,10 @@ impl OutputCollection {
     /// the associated milestone did not perform any changes to the ledger, the returned `Vec`s will be empty.
     pub async fn get_utxo_changes(
         &self,
-        index: MilestoneIndex,
-        ledger_index: MilestoneIndex,
-    ) -> Result<Option<UtxoChangesResult>, Error> {
-        if index > ledger_index {
+        slot_index: SlotIndex,
+        ledger_index: SlotIndex,
+    ) -> Result<Option<UtxoChangesResult>, DbError> {
+        if slot_index > ledger_index {
             Ok(None)
         } else {
             Ok(Some(
@@ -527,17 +550,17 @@ impl OutputCollection {
                     [
                         doc! { "$match":
                            { "$or": [
-                               { "metadata.booked.milestone_index": index  },
-                               { "metadata.spent_metadata.spent.milestone_index": index },
+                               { "metadata.slot_booked": slot_index.0  },
+                               { "metadata.spent_metadata.slot_spent": slot_index.0 },
                            ] }
                         },
                         doc! { "$facet": {
                             "created_outputs": [
-                                { "$match": { "metadata.booked.milestone_index": index  } },
+                                { "$match": { "metadata.slot_booked": slot_index.0  } },
                                 { "$replaceWith": "$_id" },
                             ],
                             "consumed_outputs": [
-                                { "$match": { "metadata.spent_metadata.spent.milestone_index": index } },
+                                { "$match": { "metadata.spent_metadata.slot_spent": slot_index.0 } },
                                 { "$replaceWith": "$_id" },
                             ],
                         } },
@@ -557,15 +580,23 @@ impl OutputCollection {
         &self,
         start_date: time::Date,
         end_date: time::Date,
-    ) -> Result<usize, Error> {
+    ) -> Result<usize, DbError> {
         #[derive(Deserialize)]
         struct Res {
             count: usize,
         }
 
-        let (start_timestamp, end_timestamp) = (
-            MilestoneTimestamp::from(start_date.midnight().assume_utc()),
-            MilestoneTimestamp::from(end_date.midnight().assume_utc()),
+        // TODO: handle missing params
+        let protocol_params = self
+            .protocol_updates
+            .get_latest_protocol_parameters()
+            .await?
+            .expect("missing protocol parameters")
+            .parameters;
+
+        let (start_slot, end_slot) = (
+            protocol_params.slot_index(start_date.midnight().assume_utc().unix_timestamp() as _),
+            protocol_params.slot_index(end_date.midnight().assume_utc().unix_timestamp() as _),
         );
 
         Ok(self
@@ -573,12 +604,12 @@ impl OutputCollection {
                 [
                     doc! { "$match": { "$or": [
                         { "metadata.booked.milestone_timestamp": {
-                            "$gte": start_timestamp,
-                            "$lt": end_timestamp
+                            "$gte": start_slot.0,
+                            "$lt": end_slot.0
                         } },
                         { "metadata.spent_metadata.spent.milestone_timestamp": {
-                            "$gte": start_timestamp,
-                            "$lt": end_timestamp
+                            "$gte": start_slot.0,
+                            "$lt": end_slot.0
                         } },
                     ] } },
                     doc! { "$group": {
@@ -631,15 +662,15 @@ impl OutputCollection {
     /// Create richest address statistics.
     pub async fn get_richest_addresses(
         &self,
-        ledger_index: MilestoneIndex,
+        ledger_index: SlotIndex,
         top: usize,
-    ) -> Result<RichestAddresses, Error> {
+    ) -> Result<RichestAddresses, DbError> {
         let top = self
             .aggregate(
                 [
                     doc! { "$match": {
-                        "metadata.booked.milestone_index": { "$lte": ledger_index },
-                        "metadata.spent_metadata.spent.milestone_index": { "$not": { "$lte": ledger_index } }
+                        "metadata.slot_booked": { "$lte": ledger_index.0 },
+                        "metadata.spent_metadata.slot_spent": { "$not": { "$lte": ledger_index.0 } }
                     } },
                     doc! { "$group" : {
                         "_id": "$details.address",
@@ -662,13 +693,13 @@ impl OutputCollection {
     }
 
     /// Create token distribution statistics.
-    pub async fn get_token_distribution(&self, ledger_index: MilestoneIndex) -> Result<TokenDistribution, Error> {
+    pub async fn get_token_distribution(&self, ledger_index: SlotIndex) -> Result<TokenDistribution, DbError> {
         let distribution = self
             .aggregate(
                 [
                     doc! { "$match": {
-                        "metadata.booked.milestone_index": { "$lte": ledger_index },
-                        "metadata.spent_metadata.spent.milestone_index": { "$not": { "$lte": ledger_index } }
+                        "metadata.slot_booked": { "$lte": ledger_index.0 },
+                        "metadata.spent_metadata.slot_spent": { "$not": { "$lte": ledger_index.0 } }
                     } },
                     doc! { "$group" : {
                         "_id": "$details.address",

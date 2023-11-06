@@ -10,10 +10,7 @@ mod queries;
 use derive_more::From;
 use futures::TryStreamExt;
 use iota_sdk::types::block::{
-    output::{
-        AccountId, AccountOutput, AnchorId, DelegationId, FoundryId, FoundryOutput, NftId, NftOutput, OutputId,
-        OutputMetadata,
-    },
+    output::{AccountId, AnchorId, DelegationId, FoundryId, NftId, OutputId},
     slot::SlotIndex,
 };
 use mongodb::{
@@ -93,7 +90,7 @@ impl OutputCollection {
     pub async fn get_indexed_output_by_id(
         &self,
         id: impl Into<IndexedId>,
-        slot_index: SlotIndex,
+        ledger_index: SlotIndex,
     ) -> Result<Option<IndexedOutputResult>, Error> {
         let id = id.into();
         let mut res = self
@@ -102,10 +99,10 @@ impl OutputCollection {
                     doc! { "$match": {
                         "output.kind": id.kind(),
                         "details.indexed_id": id,
-                        "metadata.booked.milestone_index": { "$lte": ledger_index },
-                        "metadata.spent_metadata.spent.milestone_index": { "$not": { "$lte": ledger_index } }
+                        "metadata.slot_booked": { "$lte": ledger_index.0 },
+                        "metadata.spent_metadata.slot_spent": { "$not": { "$lte": ledger_index.0 } }
                     } },
-                    doc! { "$sort": { "metadata.booked.milestone_index": -1 } },
+                    doc! { "$sort": { "metadata.slot_booked": -1 } },
                 ],
                 None,
             )
@@ -113,7 +110,7 @@ impl OutputCollection {
             .try_next()
             .await?;
         if let Some(OutputDocument { metadata, .. }) = res.as_mut() {
-            if metadata.is_spent() {
+            if metadata.spent_metadata.is_some() {
                 // TODO: record that we got an output that is spent past the slot index to metrics
             }
         }
@@ -127,32 +124,32 @@ impl OutputCollection {
         &self,
         query: Q,
         page_size: usize,
-        cursor: Option<(MilestoneIndex, OutputId)>,
+        cursor: Option<(SlotIndex, OutputId)>,
         order: SortOrder,
         include_spent: bool,
-        ledger_index: MilestoneIndex,
+        ledger_index: SlotIndex,
     ) -> Result<OutputsResult, Error>
     where
         bson::Document: From<Q>,
     {
         let (sort, cmp1, cmp2) = match order {
-            SortOrder::Newest => (doc! { "metadata.booked.milestone_index": -1, "_id": -1 }, "$lt", "$lte"),
-            SortOrder::Oldest => (doc! { "metadata.booked.milestone_index": 1, "_id": 1 }, "$gt", "$gte"),
+            SortOrder::Newest => (doc! { "metadata.slot_booked": -1, "_id": -1 }, "$lt", "$lte"),
+            SortOrder::Oldest => (doc! { "metadata.slot_booked": 1, "_id": 1 }, "$gt", "$gte"),
         };
 
         let query_doc = bson::Document::from(query);
-        let mut additional_queries = vec![doc! { "metadata.booked.milestone_index": { "$lte": ledger_index } }];
+        let mut additional_queries = vec![doc! { "metadata.slot_booked": { "$lte": ledger_index.0 } }];
         if !include_spent {
             additional_queries.push(doc! {
-                "metadata.spent_metadata.spent.milestone_index": { "$not": { "$lte": ledger_index } }
+                "metadata.spent_metadata.slot_spent": { "$not": { "$lte": ledger_index.0 } }
             });
         }
-        if let Some((start_ms, start_output_id)) = cursor {
+        if let Some((start_slot, start_output_id)) = cursor {
             additional_queries.push(doc! { "$or": [
-                doc! { "metadata.booked.milestone_index": { cmp1: start_ms } },
+                doc! { "metadata.slot_booked": { cmp1: start_slot.0 } },
                 doc! {
-                    "metadata.booked.milestone_index": start_ms,
-                    "_id": { cmp2: start_output_id }
+                    "metadata.slot_booked": start_slot.0,
+                    "_id": { cmp2: start_output_id.to_bson() }
                 },
             ] });
         }
@@ -170,7 +167,7 @@ impl OutputCollection {
                     doc! { "$limit": page_size as i64 },
                     doc! { "$replaceWith": {
                         "output_id": "$_id",
-                        "booked_index": "$metadata.booked.milestone_index"
+                        "booked_index": "$metadata.slot_booked"
                     } },
                 ],
                 None,
@@ -328,12 +325,8 @@ impl OutputCollection {
 
         self.create_index(
             IndexModel::builder()
-                .keys(doc! { "metadata.booked.milestone_index": -1 })
-                .options(
-                    IndexOptions::builder()
-                        .name("output_booked_milestone_index".to_string())
-                        .build(),
-                )
+                .keys(doc! { "metadata.slot_booked": -1 })
+                .options(IndexOptions::builder().name("output_booked_slot".to_string()).build())
                 .build(),
             None,
         )
@@ -342,37 +335,11 @@ impl OutputCollection {
         self.create_index(
             IndexModel::builder()
                 .keys(
-                    doc! { "metadata.spent_metadata.spent.milestone_index": -1, "metadata.booked.milestone_index": 1,  "details.address": 1 },
+                    doc! { "metadata.spent_metadata.slot_spent": -1, "metadata.slot_booked": 1,  "details.address": 1 },
                 )
                 .options(
                     IndexOptions::builder()
-                        .name("output_spent_milestone_index_comp".to_string())
-                        .build(),
-                )
-                .build(),
-            None,
-        )
-        .await?;
-
-        self.create_index(
-            IndexModel::builder()
-                .keys(doc! { "metadata.booked.milestone_timestamp": -1 })
-                .options(
-                    IndexOptions::builder()
-                        .name("output_booked_milestone_timestamp".to_string())
-                        .build(),
-                )
-                .build(),
-            None,
-        )
-        .await?;
-
-        self.create_index(
-            IndexModel::builder()
-                .keys(doc! { "metadata.spent_metadata.spent.milestone_timestamp": -1 })
-                .options(
-                    IndexOptions::builder()
-                        .name("output_spent_milestone_timestamp".to_string())
+                        .name("output_spent_slot_comp".to_string())
                         .build(),
                 )
                 .build(),

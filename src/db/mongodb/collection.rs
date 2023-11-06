@@ -17,7 +17,7 @@ use mongodb::{
 };
 use serde::{de::DeserializeOwned, Serialize};
 
-use super::MongoDb;
+use super::{DbError, MongoDb};
 
 const DUPLICATE_KEY_CODE: i32 = 11000;
 const INDEX_NOT_FOUND_CODE: i32 = 27;
@@ -43,13 +43,13 @@ pub trait MongoDbCollection {
     }
 
     /// Creates the collection.
-    async fn create_collection(&self, db: &MongoDb) -> Result<(), Error> {
+    async fn create_collection(&self, db: &MongoDb) -> Result<(), DbError> {
         db.db().create_collection(Self::NAME, None).await.ok();
         Ok(())
     }
 
     /// Creates the collection indexes.
-    async fn create_indexes(&self) -> Result<(), Error> {
+    async fn create_indexes(&self) -> Result<(), DbError> {
         Ok(())
     }
 }

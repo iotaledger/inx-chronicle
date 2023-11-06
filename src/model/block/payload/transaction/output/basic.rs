@@ -63,6 +63,19 @@ impl<T: Borrow<iota::BasicOutput>> From<T> for BasicOutputDto {
     }
 }
 
+impl From<BasicOutputDto> for iota_sdk::types::block::output::dto::BasicOutputDto {
+    fn from(value: BasicOutputDto) -> Self {
+        Self {
+            kind: iota_sdk::types::block::output::BasicOutput::KIND,
+            amount: value.amount,
+            mana: value.mana,
+            native_tokens: todo!(),
+            unlock_conditions: todo!(),
+            features: todo!(),
+        }
+    }
+}
+
 // #[cfg(all(test, feature = "rand"))]
 // mod test {
 //     use mongodb::bson::{from_bson, to_bson};

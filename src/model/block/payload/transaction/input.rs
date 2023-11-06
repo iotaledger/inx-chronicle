@@ -3,23 +3,23 @@
 
 //! Module containing the [`Input`] type.
 
-use iota_sdk::types::block::input as iota;
+use iota_sdk::types::block::{input as iota, output::OutputId};
 use serde::{Deserialize, Serialize};
-
-use super::output::OutputIdDto;
 
 /// The type for [`Inputs`](Input) in the UTXO model.
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", tag = "kind")]
 pub enum InputDto {
     /// The id of the corresponding output.
-    Utxo(OutputIdDto),
+    Utxo { output_id: OutputId },
 }
 
 impl From<&iota::Input> for InputDto {
     fn from(value: &iota::Input) -> Self {
         match value {
-            iota::Input::Utxo(i) => Self::Utxo((*i.output_id()).into()),
+            iota::Input::Utxo(i) => Self::Utxo {
+                output_id: *i.output_id(),
+            },
         }
     }
 }
