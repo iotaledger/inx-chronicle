@@ -3,15 +3,21 @@
 
 use std::collections::HashSet;
 
+use iota_sdk::types::block::{
+    address::Address,
+    output::{AccountId, AnchorId, DelegationId},
+};
+
 use super::*;
-use crate::model::utxo::{Address, AliasId, NftId};
 
 /// Nft activity statistics.
 #[derive(Copy, Clone, Debug, Default, PartialEq)]
 pub(crate) struct OutputActivityMeasurement {
     pub(crate) nft: NftActivityMeasurement,
-    pub(crate) alias: AliasActivityMeasurement,
+    pub(crate) account: AccountActivityMeasurement,
     pub(crate) foundry: FoundryActivityMeasurement,
+    pub(crate) anchor: AnchorActivityMeasurement,
+    pub(crate) delegation: DelegationActivityMeasurement,
 }
 
 impl Analytics for OutputActivityMeasurement {
@@ -19,8 +25,9 @@ impl Analytics for OutputActivityMeasurement {
 
     fn handle_transaction(&mut self, consumed: &[LedgerSpent], created: &[LedgerOutput], _ctx: &dyn AnalyticsContext) {
         self.nft.handle_transaction(consumed, created);
-        self.alias.handle_transaction(consumed, created);
+        self.account.handle_transaction(consumed, created);
         self.foundry.handle_transaction(consumed, created);
+        self.anchor.handle_transaction(consumed, created);
     }
 
     fn take_measurement(&mut self, _ctx: &dyn AnalyticsContext) -> Self::Measurement {
@@ -38,37 +45,20 @@ pub(crate) struct NftActivityMeasurement {
 
 impl NftActivityMeasurement {
     fn handle_transaction(&mut self, consumed: &[LedgerSpent], created: &[LedgerOutput]) {
+        let map = |ledger_output: &LedgerOutput| {
+            ledger_output
+                .output
+                .as_nft_opt()
+                .map(|output| output.nft_id_non_null(&ledger_output.output_id))
+        };
+
         let nft_inputs = consumed
             .iter()
-            .filter_map(|ledger_spent| {
-                if let Output::Nft(nft_output) = &ledger_spent.output.output {
-                    if nft_output.nft_id == NftId::implicit() {
-                        // Convert implicit ids to explicit ids to make all nfts comparable
-                        Some(NftId::from(ledger_spent.output.output_id))
-                    } else {
-                        Some(nft_output.nft_id)
-                    }
-                } else {
-                    None
-                }
-            })
+            .map(|o| &o.output)
+            .filter_map(map)
             .collect::<HashSet<_>>();
 
-        let nft_outputs = created
-            .iter()
-            .filter_map(|ledger_output| {
-                if let Output::Nft(nft_output) = &ledger_output.output {
-                    if nft_output.nft_id == NftId::implicit() {
-                        // Convert implicit ids to explicit ids to make all nfts comparable
-                        Some(NftId::from(ledger_output.output_id))
-                    } else {
-                        Some(nft_output.nft_id)
-                    }
-                } else {
-                    None
-                }
-            })
-            .collect::<HashSet<_>>();
+        let nft_outputs = created.iter().filter_map(map).collect::<HashSet<_>>();
 
         self.created_count += nft_outputs.difference(&nft_inputs).count();
         self.transferred_count += nft_outputs.intersection(&nft_inputs).count();
@@ -76,92 +66,111 @@ impl NftActivityMeasurement {
     }
 }
 
-/// Alias activity statistics.
+/// Account activity statistics.
 #[derive(Copy, Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
-pub(crate) struct AliasActivityMeasurement {
+pub(crate) struct AccountActivityMeasurement {
+    pub(crate) created_count: usize,
+    pub(crate) destroyed_count: usize,
+}
+
+struct AccountData {
+    account_id: AccountId,
+}
+
+impl std::cmp::PartialEq for AccountData {
+    fn eq(&self, other: &Self) -> bool {
+        self.account_id == other.account_id
+    }
+}
+
+impl std::cmp::Eq for AccountData {}
+
+impl std::hash::Hash for AccountData {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.account_id.hash(state);
+    }
+}
+
+impl AccountActivityMeasurement {
+    fn handle_transaction(&mut self, consumed: &[LedgerSpent], created: &[LedgerOutput]) {
+        let map = |ledger_output: &LedgerOutput| {
+            ledger_output.output.as_account_opt().map(|output| AccountData {
+                account_id: output.account_id_non_null(&ledger_output.output_id),
+            })
+        };
+
+        let account_inputs = consumed
+            .iter()
+            .map(|o| &o.output)
+            .filter_map(map)
+            .collect::<HashSet<_>>();
+
+        let account_outputs = created.iter().filter_map(map).collect::<HashSet<_>>();
+
+        self.created_count += account_outputs.difference(&account_inputs).count();
+        self.destroyed_count += account_inputs.difference(&account_outputs).count();
+    }
+}
+
+/// Anchor activity statistics.
+#[derive(Copy, Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+pub(crate) struct AnchorActivityMeasurement {
     pub(crate) created_count: usize,
     pub(crate) governor_changed_count: usize,
     pub(crate) state_changed_count: usize,
     pub(crate) destroyed_count: usize,
 }
 
-struct AliasData {
-    alias_id: AliasId,
+struct AnchorData {
+    anchor_id: AnchorId,
     governor_address: Address,
     state_index: u32,
 }
 
-impl std::cmp::PartialEq for AliasData {
+impl std::cmp::PartialEq for AnchorData {
     fn eq(&self, other: &Self) -> bool {
-        self.alias_id == other.alias_id
+        self.anchor_id == other.anchor_id
     }
 }
 
-impl std::cmp::Eq for AliasData {}
+impl std::cmp::Eq for AnchorData {}
 
-impl std::hash::Hash for AliasData {
+impl std::hash::Hash for AnchorData {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        self.alias_id.hash(state);
+        self.anchor_id.hash(state);
     }
 }
 
-impl AliasActivityMeasurement {
+impl AnchorActivityMeasurement {
     fn handle_transaction(&mut self, consumed: &[LedgerSpent], created: &[LedgerOutput]) {
-        let alias_inputs = consumed
-            .iter()
-            .filter_map(|ledger_spent| {
-                if let Output::Alias(alias_output) = &ledger_spent.output.output {
-                    let alias_id = if alias_output.alias_id == AliasId::implicit() {
-                        // Convert implicit ids to explicit ids to make all aliases comparable
-                        AliasId::from(ledger_spent.output.output_id)
-                    } else {
-                        alias_output.alias_id
-                    };
-                    Some(AliasData {
-                        alias_id,
-                        governor_address: alias_output.governor_address_unlock_condition.address,
-                        state_index: alias_output.state_index,
-                    })
-                } else {
-                    None
-                }
+        let map = |ledger_output: &LedgerOutput| {
+            ledger_output.output.as_anchor_opt().map(|output| AnchorData {
+                anchor_id: output.anchor_id_non_null(&ledger_output.output_id),
+                governor_address: output.governor_address().clone(),
+                state_index: output.state_index(),
             })
+        };
+
+        let anchor_inputs = consumed
+            .iter()
+            .map(|o| &o.output)
+            .filter_map(map)
             .collect::<HashSet<_>>();
 
-        let alias_outputs = created
-            .iter()
-            .filter_map(|ledger_output| {
-                if let Output::Alias(alias_output) = &ledger_output.output {
-                    let alias_id = if alias_output.alias_id == AliasId::implicit() {
-                        // Convert implicit ids to explicit ids to make all aliases comparable
-                        AliasId::from(ledger_output.output_id)
-                    } else {
-                        alias_output.alias_id
-                    };
+        let anchor_outputs = created.iter().filter_map(map).collect::<HashSet<_>>();
 
-                    Some(AliasData {
-                        alias_id,
-                        governor_address: alias_output.governor_address_unlock_condition.address,
-                        state_index: alias_output.state_index,
-                    })
-                } else {
-                    None
-                }
-            })
-            .collect::<HashSet<_>>();
+        self.created_count += anchor_outputs.difference(&anchor_inputs).count();
+        self.destroyed_count += anchor_inputs.difference(&anchor_outputs).count();
 
-        self.created_count += alias_outputs.difference(&alias_inputs).count();
-        self.destroyed_count += alias_inputs.difference(&alias_outputs).count();
-
-        for alias_data in alias_outputs.intersection(&alias_inputs) {
+        for anchor_data in anchor_outputs.intersection(&anchor_inputs) {
             // Unwraps: cannot fail because we iterate the intersection so those elements must exist
-            let input_state_index = alias_inputs.get(alias_data).unwrap().state_index;
-            let output_state_index = alias_outputs.get(alias_data).unwrap().state_index;
+            let input_state_index = anchor_inputs.get(anchor_data).unwrap().state_index;
+            let output_state_index = anchor_outputs.get(anchor_data).unwrap().state_index;
             if output_state_index != input_state_index {
                 self.state_changed_count += 1;
             }
-            let input_governor_address = alias_inputs.get(alias_data).unwrap().governor_address;
-            let output_governor_address = alias_outputs.get(alias_data).unwrap().governor_address;
+            let input_governor_address = &anchor_inputs.get(anchor_data).unwrap().governor_address;
+            let output_governor_address = &anchor_outputs.get(anchor_data).unwrap().governor_address;
             if output_governor_address != input_governor_address {
                 self.governor_changed_count += 1;
             }
@@ -179,30 +188,63 @@ pub(crate) struct FoundryActivityMeasurement {
 
 impl FoundryActivityMeasurement {
     fn handle_transaction(&mut self, consumed: &[LedgerSpent], created: &[LedgerOutput]) {
+        let map = |ledger_output: &LedgerOutput| ledger_output.output.as_foundry_opt().map(|output| output.id());
+
         let foundry_inputs = consumed
             .iter()
-            .filter_map(|ledger_spent| {
-                if let Output::Foundry(foundry_output) = &ledger_spent.output.output {
-                    Some(foundry_output.foundry_id)
-                } else {
-                    None
-                }
-            })
+            .map(|o| &o.output)
+            .filter_map(map)
             .collect::<HashSet<_>>();
 
-        let foundry_outputs = created
-            .iter()
-            .filter_map(|ledger_output| {
-                if let Output::Foundry(foundry_output) = &ledger_output.output {
-                    Some(foundry_output.foundry_id)
-                } else {
-                    None
-                }
-            })
-            .collect::<HashSet<_>>();
+        let foundry_outputs = created.iter().filter_map(map).collect::<HashSet<_>>();
 
         self.created_count += foundry_outputs.difference(&foundry_inputs).count();
         self.transferred_count += foundry_outputs.intersection(&foundry_inputs).count();
         self.destroyed_count += foundry_inputs.difference(&foundry_outputs).count();
+    }
+}
+
+/// Delegation activity statistics.
+#[derive(Copy, Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+pub(crate) struct DelegationActivityMeasurement {
+    pub(crate) created_count: usize,
+    pub(crate) destroyed_count: usize,
+}
+
+struct DelegationData {
+    delegation_id: DelegationId,
+}
+
+impl std::cmp::PartialEq for DelegationData {
+    fn eq(&self, other: &Self) -> bool {
+        self.delegation_id == other.delegation_id
+    }
+}
+
+impl std::cmp::Eq for DelegationData {}
+
+impl std::hash::Hash for DelegationData {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.delegation_id.hash(state);
+    }
+}
+
+impl DelegationActivityMeasurement {
+    fn handle_transaction(&mut self, consumed: &[LedgerSpent], created: &[LedgerOutput]) {
+        let map = |ledger_output: &LedgerOutput| {
+            ledger_output.output.as_delegation_opt().map(|output| DelegationData {
+                delegation_id: output.delegation_id_non_null(&ledger_output.output_id),
+            })
+        };
+        let delegation_inputs = consumed
+            .iter()
+            .map(|o| &o.output)
+            .filter_map(map)
+            .collect::<HashSet<_>>();
+
+        let delegation_outputs = created.iter().filter_map(map).collect::<HashSet<_>>();
+
+        self.created_count += delegation_outputs.difference(&delegation_inputs).count();
+        self.destroyed_count += delegation_inputs.difference(&delegation_outputs).count();
     }
 }

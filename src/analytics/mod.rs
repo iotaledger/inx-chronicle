@@ -4,6 +4,10 @@
 //! Various analytics that give insight into the usage of the tangle.
 
 use futures::TryStreamExt;
+use iota_sdk::types::{
+    api::core::BlockState,
+    block::{output::OutputId, protocol::ProtocolParameters, slot::SlotIndex, BlockId, SignedBlock},
+};
 use thiserror::Error;
 
 use self::{
@@ -20,15 +24,11 @@ use crate::{
         influxdb::{config::IntervalAnalyticsChoice, AnalyticsChoice, InfluxDb},
         MongoDb,
     },
-    // model::{
-    //     ledger::{LedgerOutput, LedgerSpent},
-    //     metadata::LedgerInclusionState,
-    //     payload::{Payload, TransactionEssence},
-    //     protocol::ProtocolParameters,
-    //     tangle::{MilestoneIndex, MilestoneIndexTimestamp},
-    //     utxo::Input,
-    // },
-    tangle::{BlockData, InputSource, Milestone},
+    inx::{
+        ledger::{LedgerOutput, LedgerSpent},
+        responses::BlockMetadata,
+    },
+    tangle::{sources::BlockData, InputSource, Slot},
 };
 
 mod influx;
@@ -40,16 +40,16 @@ mod tangle;
 pub trait AnalyticsContext: Send + Sync {
     fn protocol_params(&self) -> &ProtocolParameters;
 
-    fn at(&self) -> &MilestoneIndexTimestamp;
+    fn slot_index(&self) -> SlotIndex;
 }
 
-impl<'a, I: InputSource> AnalyticsContext for Milestone<'a, I> {
+impl<'a, I: InputSource> AnalyticsContext for Slot<'a, I> {
     fn protocol_params(&self) -> &ProtocolParameters {
-        &self.protocol_params
+        &self.protocol_params.parameters
     }
 
-    fn at(&self) -> &MilestoneIndexTimestamp {
-        &self.at
+    fn slot_index(&self) -> SlotIndex {
+        self.index()
     }
 }
 
@@ -66,7 +66,14 @@ pub trait Analytics {
     ) {
     }
     /// Handle a block.
-    fn handle_block(&mut self, _block_data: &BlockData, _ctx: &dyn AnalyticsContext) {}
+    fn handle_block(
+        &mut self,
+        _block_id: BlockId,
+        _block: &SignedBlock,
+        _metadata: &BlockMetadata,
+        _ctx: &dyn AnalyticsContext,
+    ) {
+    }
     /// Take the measurement from the analytic. This should prepare the analytic for the next milestone.
     fn take_measurement(&mut self, ctx: &dyn AnalyticsContext) -> Self::Measurement;
 }
@@ -74,25 +81,37 @@ pub trait Analytics {
 // This trait allows using the above implementation dynamically
 trait DynAnalytics: Send {
     fn handle_transaction(&mut self, consumed: &[LedgerSpent], created: &[LedgerOutput], ctx: &dyn AnalyticsContext);
-    fn handle_block(&mut self, block_data: &BlockData, ctx: &dyn AnalyticsContext);
+    fn handle_block(
+        &mut self,
+        block_id: BlockId,
+        block: &SignedBlock,
+        metadata: &BlockMetadata,
+        ctx: &dyn AnalyticsContext,
+    );
     fn take_measurement(&mut self, ctx: &dyn AnalyticsContext) -> Box<dyn PrepareQuery>;
 }
 
 impl<T: Analytics + Send> DynAnalytics for T
 where
-    PerMilestone<T::Measurement>: 'static + PrepareQuery,
+    PerSlot<T::Measurement>: 'static + PrepareQuery,
 {
     fn handle_transaction(&mut self, consumed: &[LedgerSpent], created: &[LedgerOutput], ctx: &dyn AnalyticsContext) {
         Analytics::handle_transaction(self, consumed, created, ctx)
     }
 
-    fn handle_block(&mut self, block_data: &BlockData, ctx: &dyn AnalyticsContext) {
-        Analytics::handle_block(self, block_data, ctx)
+    fn handle_block(
+        &mut self,
+        block_id: BlockId,
+        block: &SignedBlock,
+        metadata: &BlockMetadata,
+        ctx: &dyn AnalyticsContext,
+    ) {
+        Analytics::handle_block(self, block_id, block, metadata, ctx)
     }
 
     fn take_measurement(&mut self, ctx: &dyn AnalyticsContext) -> Box<dyn PrepareQuery> {
-        Box::new(PerMilestone {
-            at: *ctx.at(),
+        Box::new(PerSlot {
+            slot_index: ctx.slot_index(),
             inner: Analytics::take_measurement(self, ctx),
         }) as _
     }
@@ -154,7 +173,9 @@ impl Analytic {
         unspent_outputs: impl IntoIterator<Item = &'a LedgerOutput>,
     ) -> Self {
         Self(match choice {
-            AnalyticsChoice::AddressBalance => Box::new(AddressBalancesAnalytics::init(unspent_outputs)) as _,
+            AnalyticsChoice::AddressBalance => {
+                Box::new(AddressBalancesAnalytics::init(unspent_outputs, &protocol_params)) as _
+            }
             AnalyticsChoice::BaseTokenActivity => Box::<BaseTokenActivityMeasurement>::default() as _,
             AnalyticsChoice::BlockActivity => Box::<BlockActivityMeasurement>::default() as _,
             AnalyticsChoice::ActiveAddresses => Box::<AddressActivityAnalytics>::default() as _,
@@ -175,9 +196,15 @@ impl Analytic {
 impl<T: AsMut<[Analytic]>> Analytics for T {
     type Measurement = Vec<Box<dyn PrepareQuery>>;
 
-    fn handle_block(&mut self, block_data: &BlockData, ctx: &dyn AnalyticsContext) {
+    fn handle_block(
+        &mut self,
+        block_id: BlockId,
+        block: &SignedBlock,
+        metadata: &BlockMetadata,
+        ctx: &dyn AnalyticsContext,
+    ) {
         for analytic in self.as_mut().iter_mut() {
-            analytic.0.handle_block(block_data, ctx);
+            analytic.0.handle_block(block_id, block, metadata, ctx);
         }
     }
 
@@ -210,19 +237,13 @@ impl IntervalAnalytic {
 #[allow(missing_docs)]
 #[derive(Debug, Error)]
 pub enum AnalyticsError {
-    #[error("missing created output ({output_id}) in milestone {milestone_index}")]
-    MissingLedgerOutput {
-        output_id: String,
-        milestone_index: MilestoneIndex,
-    },
-    #[error("missing consumed output ({output_id}) in milestone {milestone_index}")]
-    MissingLedgerSpent {
-        output_id: String,
-        milestone_index: MilestoneIndex,
-    },
+    #[error("missing created output ({output_id}) in slot {slot_index}")]
+    MissingLedgerOutput { output_id: OutputId, slot_index: SlotIndex },
+    #[error("missing consumed output ({output_id}) in slot {slot_index}")]
+    MissingLedgerSpent { output_id: OutputId, slot_index: SlotIndex },
 }
 
-impl<'a, I: InputSource> Milestone<'a, I> {
+impl<'a, I: InputSource> Slot<'a, I> {
     /// Update a list of analytics with this milestone
     pub async fn update_analytics<A: Analytics + Send>(
         &self,
@@ -230,11 +251,11 @@ impl<'a, I: InputSource> Milestone<'a, I> {
         influxdb: &InfluxDb,
     ) -> eyre::Result<()>
     where
-        PerMilestone<A::Measurement>: 'static + PrepareQuery,
+        PerSlot<A::Measurement>: 'static + PrepareQuery,
     {
-        let mut cone_stream = self.cone_stream().await?;
+        let mut block_stream = self.confirmed_block_stream().await?;
 
-        while let Some(block_data) = cone_stream.try_next().await? {
+        while let Some(block_data) = block_stream.try_next().await? {
             self.handle_block(analytics, &block_data)?;
         }
 
@@ -246,37 +267,43 @@ impl<'a, I: InputSource> Milestone<'a, I> {
     }
 
     fn handle_block<A: Analytics + Send>(&self, analytics: &mut A, block_data: &BlockData) -> eyre::Result<()> {
-        if block_data.metadata.inclusion_state == LedgerInclusionState::Included {
-            if let Some(Payload::Transaction(payload)) = &block_data.block.payload {
-                let TransactionEssence::Regular { inputs, outputs, .. } = &payload.essence;
-                let consumed = inputs
+        let block = block_data.block.clone().inner_unverified().unwrap();
+        if block_data.metadata.block_state == BlockState::Confirmed {
+            if let Some(payload) = block
+                .block()
+                .as_basic_opt()
+                .and_then(|b| b.payload())
+                .and_then(|p| p.as_signed_transaction_opt())
+            {
+                let consumed = payload
+                    .transaction()
+                    .inputs()
                     .iter()
-                    .filter_map(|input| match input {
-                        Input::Utxo(output_id) => Some(output_id),
-                        _ => None,
-                    })
+                    .map(|input| input.as_utxo().output_id())
                     .map(|output_id| {
                         Ok(self
                             .ledger_updates()
                             .get_consumed(output_id)
                             .ok_or(AnalyticsError::MissingLedgerSpent {
-                                output_id: output_id.to_hex(),
-                                milestone_index: block_data.metadata.referenced_by_milestone_index,
+                                output_id: *output_id,
+                                slot_index: block.slot_commitment_id().slot_index(),
                             })?
                             .clone())
                     })
                     .collect::<eyre::Result<Vec<_>>>()?;
-                let created = outputs
+                let created = payload
+                    .transaction()
+                    .outputs()
                     .iter()
                     .enumerate()
                     .map(|(index, _)| {
-                        let output_id = (payload.transaction_id, index as _).into();
+                        let output_id = payload.transaction().id().into_output_id(index as _).unwrap();
                         Ok(self
                             .ledger_updates()
                             .get_created(&output_id)
                             .ok_or(AnalyticsError::MissingLedgerOutput {
-                                output_id: output_id.to_hex(),
-                                milestone_index: block_data.metadata.referenced_by_milestone_index,
+                                output_id,
+                                slot_index: block.slot_commitment_id().slot_index(),
                             })?
                             .clone())
                     })
@@ -284,7 +311,7 @@ impl<'a, I: InputSource> Milestone<'a, I> {
                 analytics.handle_transaction(&consumed, &created, self)
             }
         }
-        analytics.handle_block(block_data, self);
+        analytics.handle_block(block_data.block_id, &block, &block_data.metadata, self);
         Ok(())
     }
 }
@@ -352,8 +379,8 @@ impl std::fmt::Display for AnalyticsInterval {
 
 #[derive(Clone, Debug)]
 #[allow(missing_docs)]
-pub struct PerMilestone<M> {
-    at: MilestoneIndexTimestamp,
+pub struct PerSlot<M> {
+    slot_index: SlotIndex,
     inner: M,
 }
 
@@ -374,37 +401,39 @@ mod test {
     };
 
     use futures::TryStreamExt;
-    use packable::PackableExt;
-    use pretty_assertions::assert_eq;
+    use iota_sdk::types::block::{
+        output::{Output, OutputId},
+        payload::signed_transaction::TransactionId,
+        protocol::ProtocolParameters,
+        slot::{SlotCommitment, SlotCommitmentId, SlotIndex},
+        BlockId, SignedBlock,
+    };
     use serde::{de::DeserializeOwned, Deserialize, Serialize};
 
     use super::{
         ledger::{
-            AddressActivityAnalytics, AddressActivityMeasurement, AddressBalanceMeasurement,
-            BaseTokenActivityMeasurement, LedgerSizeMeasurement, OutputActivityMeasurement, TransactionSizeMeasurement,
+            AddressActivityAnalytics, AddressActivityMeasurement, AddressBalanceMeasurement, AddressBalancesAnalytics,
+            BaseTokenActivityMeasurement, LedgerOutputMeasurement, LedgerSizeAnalytics, LedgerSizeMeasurement,
+            OutputActivityMeasurement, TransactionSizeMeasurement, UnclaimedTokenMeasurement,
+            UnlockConditionMeasurement,
         },
         tangle::{BlockActivityMeasurement, MilestoneSizeMeasurement},
         Analytics, AnalyticsContext,
     };
     use crate::{
-        analytics::ledger::{
-            AddressBalancesAnalytics, LedgerOutputMeasurement, LedgerSizeAnalytics, UnclaimedTokenMeasurement,
-            UnlockConditionMeasurement,
+        inx::{
+            ledger::{LedgerOutput, LedgerSpent, LedgerUpdateStore},
+            responses::{BlockMetadata, Commitment, NodeConfiguration},
         },
-        model::{
-            block::BlockId,
-            ledger::{LedgerOutput, LedgerSpent},
-            metadata::BlockMetadata,
-            node::NodeConfiguration,
-            payload::{MilestoneId, MilestonePayload},
-            protocol::ProtocolParameters,
-            tangle::{MilestoneIndex, MilestoneIndexTimestamp},
+        model::{payload::transaction::output::OutputDto, raw::Raw, TryFromDto},
+        tangle::{
+            sources::{memory::InMemoryData, BlockData, SlotData},
+            Tangle,
         },
-        tangle::{sources::memory::InMemoryData, BlockData, LedgerUpdateStore, MilestoneData, Tangle},
     };
 
     pub(crate) struct TestContext {
-        pub(crate) at: MilestoneIndexTimestamp,
+        pub(crate) slot_index: SlotIndex,
         pub(crate) params: ProtocolParameters,
     }
 
@@ -413,8 +442,8 @@ mod test {
             &self.params
         }
 
-        fn at(&self) -> &MilestoneIndexTimestamp {
-            &self.at
+        fn slot_index(&self) -> SlotIndex {
+            self.slot_index
         }
     }
 
@@ -447,7 +476,7 @@ mod test {
         ) -> Self {
             Self {
                 active_addresses: Default::default(),
-                address_balance: AddressBalancesAnalytics::init(unspent_outputs),
+                address_balance: AddressBalancesAnalytics::init(unspent_outputs, &protocol_params),
                 base_tokens: Default::default(),
                 ledger_outputs: LedgerOutputMeasurement::init(unspent_outputs),
                 ledger_size: LedgerSizeAnalytics::init(protocol_params, unspent_outputs),
@@ -479,18 +508,24 @@ mod test {
     impl Analytics for TestAnalytics {
         type Measurement = TestMeasurements;
 
-        fn handle_block(&mut self, block_data: &BlockData, ctx: &dyn AnalyticsContext) {
-            self.active_addresses.handle_block(block_data, ctx);
-            self.address_balance.handle_block(block_data, ctx);
-            self.base_tokens.handle_block(block_data, ctx);
-            self.ledger_outputs.handle_block(block_data, ctx);
-            self.ledger_size.handle_block(block_data, ctx);
-            self.output_activity.handle_block(block_data, ctx);
-            self.transaction_size.handle_block(block_data, ctx);
-            self.unclaimed_tokens.handle_block(block_data, ctx);
-            self.unlock_conditions.handle_block(block_data, ctx);
-            self.block_activity.handle_block(block_data, ctx);
-            self.milestone_size.handle_block(block_data, ctx);
+        fn handle_block(
+            &mut self,
+            block_id: BlockId,
+            block: &SignedBlock,
+            metadata: &BlockMetadata,
+            ctx: &dyn AnalyticsContext,
+        ) {
+            self.active_addresses.handle_block(block_id, block, metadata, ctx);
+            self.address_balance.handle_block(block_id, block, metadata, ctx);
+            self.base_tokens.handle_block(block_id, block, metadata, ctx);
+            self.ledger_outputs.handle_block(block_id, block, metadata, ctx);
+            self.ledger_size.handle_block(block_id, block, metadata, ctx);
+            self.output_activity.handle_block(block_id, block, metadata, ctx);
+            self.transaction_size.handle_block(block_id, block, metadata, ctx);
+            self.unclaimed_tokens.handle_block(block_id, block, metadata, ctx);
+            self.unlock_conditions.handle_block(block_id, block, metadata, ctx);
+            self.block_activity.handle_block(block_id, block, metadata, ctx);
+            self.milestone_size.handle_block(block_id, block, metadata, ctx);
         }
 
         fn handle_transaction(
@@ -532,7 +567,7 @@ mod test {
     #[tokio::test]
     async fn test_in_memory_analytics() {
         let analytics_map = gather_in_memory_analytics().await.unwrap();
-        let expected: HashMap<MilestoneIndex, HashMap<String, usize>> =
+        let expected: HashMap<SlotIndex, HashMap<String, usize>> =
             ron::de::from_reader(File::open("tests/data/measurements.ron").unwrap()).unwrap();
         for (milestone, analytics) in analytics_map {
             let expected = &expected[&milestone];
@@ -546,32 +581,40 @@ mod test {
 
             assert_expected!(analytics.address_balance.address_with_balance_count);
 
-            assert_expected!(analytics.base_tokens.booked_amount.0);
-            assert_expected!(analytics.base_tokens.transferred_amount.0);
+            assert_expected!(analytics.base_tokens.booked_amount);
+            assert_expected!(analytics.base_tokens.transferred_amount);
 
             assert_expected!(analytics.ledger_outputs.basic.count);
-            assert_expected!(analytics.ledger_outputs.basic.amount.0);
-            assert_expected!(analytics.ledger_outputs.alias.count);
-            assert_expected!(analytics.ledger_outputs.alias.amount.0);
+            assert_expected!(analytics.ledger_outputs.basic.amount);
+            assert_expected!(analytics.ledger_outputs.account.count);
+            assert_expected!(analytics.ledger_outputs.account.amount);
+            assert_expected!(analytics.ledger_outputs.anchor.count);
+            assert_expected!(analytics.ledger_outputs.anchor.amount);
             assert_expected!(analytics.ledger_outputs.nft.count);
-            assert_expected!(analytics.ledger_outputs.nft.amount.0);
+            assert_expected!(analytics.ledger_outputs.nft.amount);
             assert_expected!(analytics.ledger_outputs.foundry.count);
-            assert_expected!(analytics.ledger_outputs.foundry.amount.0);
+            assert_expected!(analytics.ledger_outputs.foundry.amount);
+            assert_expected!(analytics.ledger_outputs.delegation.count);
+            assert_expected!(analytics.ledger_outputs.delegation.amount);
 
             assert_expected!(analytics.ledger_size.total_key_bytes);
             assert_expected!(analytics.ledger_size.total_data_bytes);
-            assert_expected!(analytics.ledger_size.total_storage_deposit_amount.0);
+            assert_expected!(analytics.ledger_size.total_storage_deposit_amount);
 
             assert_expected!(analytics.output_activity.nft.created_count);
             assert_expected!(analytics.output_activity.nft.transferred_count);
             assert_expected!(analytics.output_activity.nft.destroyed_count);
-            assert_expected!(analytics.output_activity.alias.created_count);
-            assert_expected!(analytics.output_activity.alias.governor_changed_count);
-            assert_expected!(analytics.output_activity.alias.state_changed_count);
-            assert_expected!(analytics.output_activity.alias.destroyed_count);
+            assert_expected!(analytics.output_activity.account.created_count);
+            assert_expected!(analytics.output_activity.account.destroyed_count);
+            assert_expected!(analytics.output_activity.anchor.created_count);
+            assert_expected!(analytics.output_activity.anchor.governor_changed_count);
+            assert_expected!(analytics.output_activity.anchor.state_changed_count);
+            assert_expected!(analytics.output_activity.anchor.destroyed_count);
             assert_expected!(analytics.output_activity.foundry.created_count);
             assert_expected!(analytics.output_activity.foundry.transferred_count);
             assert_expected!(analytics.output_activity.foundry.destroyed_count);
+            assert_expected!(analytics.output_activity.delegation.created_count);
+            assert_expected!(analytics.output_activity.delegation.destroyed_count);
 
             assert_expected!(analytics.transaction_size.input_buckets.single(1));
             assert_expected!(analytics.transaction_size.input_buckets.single(2));
@@ -597,68 +640,66 @@ mod test {
             assert_expected!(analytics.transaction_size.output_buckets.huge);
 
             assert_expected!(analytics.unclaimed_tokens.unclaimed_count);
-            assert_expected!(analytics.unclaimed_tokens.unclaimed_amount.0);
+            assert_expected!(analytics.unclaimed_tokens.unclaimed_amount);
 
             assert_expected!(analytics.unlock_conditions.expiration.count);
-            assert_expected!(analytics.unlock_conditions.expiration.amount.0);
+            assert_expected!(analytics.unlock_conditions.expiration.amount);
             assert_expected!(analytics.unlock_conditions.timelock.count);
-            assert_expected!(analytics.unlock_conditions.timelock.amount.0);
+            assert_expected!(analytics.unlock_conditions.timelock.amount);
             assert_expected!(analytics.unlock_conditions.storage_deposit_return.count);
-            assert_expected!(analytics.unlock_conditions.storage_deposit_return.amount.0);
+            assert_expected!(analytics.unlock_conditions.storage_deposit_return.amount);
             assert_expected!(analytics.unlock_conditions.storage_deposit_return_inner_amount);
 
-            assert_expected!(analytics.block_activity.milestone_count);
             assert_expected!(analytics.block_activity.no_payload_count);
             assert_expected!(analytics.block_activity.tagged_data_count);
             assert_expected!(analytics.block_activity.transaction_count);
-            assert_expected!(analytics.block_activity.treasury_transaction_count);
+            assert_expected!(analytics.block_activity.candidacy_announcement_count);
+            assert_expected!(analytics.block_activity.pending_count);
             assert_expected!(analytics.block_activity.confirmed_count);
-            assert_expected!(analytics.block_activity.conflicting_count);
-            assert_expected!(analytics.block_activity.no_transaction_count);
+            assert_expected!(analytics.block_activity.finalized_count);
+            assert_expected!(analytics.block_activity.rejected_count);
+            assert_expected!(analytics.block_activity.failed_count);
 
-            assert_expected!(analytics.milestone_size.total_milestone_payload_bytes);
             assert_expected!(analytics.milestone_size.total_tagged_data_payload_bytes);
             assert_expected!(analytics.milestone_size.total_transaction_payload_bytes);
-            assert_expected!(analytics.milestone_size.total_treasury_transaction_payload_bytes);
-            assert_expected!(analytics.milestone_size.total_milestone_bytes);
+            assert_expected!(analytics.milestone_size.total_candidacy_announcement_payload_bytes);
+            assert_expected!(analytics.milestone_size.total_slot_bytes);
         }
     }
 
-    async fn gather_in_memory_analytics() -> eyre::Result<BTreeMap<MilestoneIndex, TestMeasurements>> {
+    async fn gather_in_memory_analytics() -> eyre::Result<BTreeMap<SlotIndex, TestMeasurements>> {
         let mut analytics = decode_file::<TestAnalytics>("tests/data/ms_17338_analytics_compressed")?;
         let data = get_in_memory_data();
-        let mut stream = data.milestone_stream(..).await?;
+        let mut stream = data.slot_stream(..).await?;
         let mut res = BTreeMap::new();
-        while let Some(milestone) = stream.try_next().await? {
-            let mut cone_stream = milestone.cone_stream().await?;
+        while let Some(slot) = stream.try_next().await? {
+            let mut blocks_stream = slot.confirmed_block_stream().await?;
 
-            while let Some(block_data) = cone_stream.try_next().await? {
-                milestone.handle_block(&mut analytics, &block_data)?;
+            while let Some(block_data) = blocks_stream.try_next().await? {
+                slot.handle_block(&mut analytics, &block_data)?;
             }
 
-            res.insert(milestone.at().milestone_index, analytics.take_measurement(&milestone));
+            res.insert(slot.slot_index(), analytics.take_measurement(&slot));
         }
 
         Ok(res)
     }
 
-    fn get_in_memory_data() -> Tangle<BTreeMap<MilestoneIndex, InMemoryData>> {
+    fn get_in_memory_data() -> Tangle<BTreeMap<SlotIndex, InMemoryData>> {
         #[derive(Deserialize)]
-        struct BsonMilestoneData {
-            milestone_id: MilestoneId,
-            at: MilestoneIndexTimestamp,
-            payload: MilestonePayload,
-            protocol_params: ProtocolParameters,
+        struct BsonSlotData {
+            commitment_id: SlotCommitmentId,
+            commitment: Raw<SlotCommitment>,
             node_config: NodeConfiguration,
         }
 
-        impl From<BsonMilestoneData> for MilestoneData {
-            fn from(value: BsonMilestoneData) -> Self {
+        impl From<BsonSlotData> for SlotData {
+            fn from(value: BsonSlotData) -> Self {
                 Self {
-                    milestone_id: value.milestone_id,
-                    at: value.at,
-                    payload: value.payload,
-                    protocol_params: value.protocol_params,
+                    commitment: Commitment {
+                        commitment_id: value.commitment_id,
+                        commitment: value.commitment,
+                    },
                     node_config: value.node_config,
                 }
             }
@@ -667,8 +708,7 @@ mod test {
         #[derive(Deserialize)]
         struct BsonBlockData {
             block_id: BlockId,
-            #[serde(with = "serde_bytes")]
-            raw: Vec<u8>,
+            block: Raw<SignedBlock>,
             metadata: BlockMetadata,
         }
 
@@ -676,33 +716,73 @@ mod test {
             fn from(value: BsonBlockData) -> Self {
                 Self {
                     block_id: value.block_id,
-                    block: iota_sdk::types::block::Block::unpack_unverified(value.raw.clone())
-                        .unwrap()
-                        .into(),
-                    raw: value.raw,
+                    block: value.block,
                     metadata: value.metadata,
                 }
             }
         }
 
         #[derive(Deserialize)]
+        pub struct BsonLedgerOutput {
+            pub output_id: OutputId,
+            pub block_id: BlockId,
+            pub slot_booked: SlotIndex,
+            pub commitment_id_included: SlotCommitmentId,
+            pub output: OutputDto,
+        }
+
+        impl From<BsonLedgerOutput> for LedgerOutput {
+            fn from(value: BsonLedgerOutput) -> Self {
+                Self {
+                    output_id: value.output_id,
+                    block_id: value.block_id,
+                    slot_booked: value.slot_booked,
+                    commitment_id_included: value.commitment_id_included,
+                    output: Output::try_from_dto(value.output).unwrap(),
+                }
+            }
+        }
+
+        #[derive(Deserialize)]
+        pub struct BsonLedgerSpent {
+            pub output: BsonLedgerOutput,
+            pub commitment_id_spent: SlotCommitmentId,
+            pub transaction_id_spent: TransactionId,
+            pub slot_spent: SlotIndex,
+        }
+
+        impl From<BsonLedgerSpent> for LedgerSpent {
+            fn from(value: BsonLedgerSpent) -> Self {
+                Self {
+                    output: value.output.into(),
+                    commitment_id_spent: value.commitment_id_spent,
+                    transaction_id_spent: value.transaction_id_spent,
+                    slot_spent: value.slot_spent,
+                }
+            }
+        }
+
+        #[derive(Deserialize)]
         struct InMemoryBsonData {
-            milestone_data: BsonMilestoneData,
-            cone: BTreeMap<String, BsonBlockData>,
-            created: Vec<LedgerOutput>,
-            consumed: Vec<LedgerSpent>,
+            slot_data: BsonSlotData,
+            confirmed_blocks: BTreeMap<BlockId, BsonBlockData>,
+            created: Vec<BsonLedgerOutput>,
+            consumed: Vec<BsonLedgerSpent>,
         }
 
         impl From<InMemoryBsonData> for InMemoryData {
             fn from(value: InMemoryBsonData) -> Self {
                 Self {
-                    milestone: value.milestone_data.into(),
-                    cone: value
-                        .cone
+                    slot_data: value.slot_data.into(),
+                    confirmed_blocks: value
+                        .confirmed_blocks
                         .into_iter()
-                        .map(|(idx, data)| (idx.parse().unwrap(), data.into()))
+                        .map(|(block_id, data)| (block_id, data.into()))
                         .collect(),
-                    ledger_updates: LedgerUpdateStore::init(value.consumed, value.created),
+                    ledger_updates: LedgerUpdateStore::init(
+                        value.consumed.into_iter().map(Into::into).collect(),
+                        value.created.into_iter().map(Into::into).collect(),
+                    ),
                 }
             }
         }

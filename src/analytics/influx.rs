@@ -4,6 +4,7 @@
 //! Influx Measurement implementations
 
 use influxdb::{InfluxDbWriteable, WriteQuery};
+use iota_sdk::types::block::protocol::ProtocolParameters;
 
 use super::{
     ledger::{
@@ -12,9 +13,9 @@ use super::{
         UnlockConditionMeasurement,
     },
     tangle::{BlockActivityMeasurement, MilestoneSizeMeasurement},
-    AnalyticsInterval, PerInterval, PerMilestone,
+    AnalyticsInterval, PerInterval, PerSlot,
 };
-use crate::{db::influxdb::InfluxDb, model::ProtocolParameters};
+use crate::db::influxdb::InfluxDb;
 
 /// A trait that defines an InfluxDb measurement.
 trait Measurement {
@@ -56,34 +57,41 @@ impl<T: PrepareQuery + ?Sized> PrepareQuery for Box<T> {
     }
 }
 
-impl<M: Send + Sync> PrepareQuery for PerMilestone<M>
+impl<M: Send + Sync> PrepareQuery for PerSlot<M>
 where
     M: Measurement,
 {
     fn prepare_query(&self) -> Vec<WriteQuery> {
-        vec![
-            influxdb::Timestamp::from(self.at.milestone_timestamp)
-                .into_query(M::NAME)
-                .add_field("milestone_index", self.at.milestone_index)
-                .add_fields(&self.inner),
-        ]
+        todo!()
+        // vec![
+        //     influxdb::Timestamp::from(self.slot_index)
+        //         .into_query(M::NAME)
+        //         .add_field("slot_index", self.slot_index.0)
+        //         .add_fields(&self.inner),
+        // ]
     }
 }
 
-impl<T: PrepareQuery> PrepareQuery for PerMilestone<Vec<T>> {
+impl<T: PrepareQuery> PrepareQuery for PerSlot<Vec<T>> {
     fn prepare_query(&self) -> Vec<WriteQuery> {
         self.inner.iter().flat_map(|inner| inner.prepare_query()).collect()
     }
 }
 
-impl<M: Send + Sync> PrepareQuery for PerMilestone<Option<M>>
+impl<M: Send + Sync> PrepareQuery for PerSlot<Option<M>>
 where
     M: Measurement,
 {
     fn prepare_query(&self) -> Vec<WriteQuery> {
         self.inner
             .iter()
-            .flat_map(|inner| PerMilestone { at: self.at, inner }.prepare_query())
+            .flat_map(|inner| {
+                PerSlot {
+                    slot_index: self.slot_index,
+                    inner,
+                }
+                .prepare_query()
+            })
             .collect()
     }
 }
@@ -109,7 +117,7 @@ impl Measurement for AddressBalanceMeasurement {
         for (index, stat) in self.token_distribution.iter().enumerate() {
             query = query
                 .add_field(format!("address_count_{index}"), stat.address_count)
-                .add_field(format!("total_amount_{index}"), stat.total_amount.0);
+                .add_field(format!("total_amount_{index}"), stat.total_amount);
         }
         query
     }
@@ -120,8 +128,8 @@ impl Measurement for BaseTokenActivityMeasurement {
 
     fn add_fields(&self, query: WriteQuery) -> WriteQuery {
         query
-            .add_field("booked_amount", self.booked_amount.0)
-            .add_field("transferred_amount", self.transferred_amount.0)
+            .add_field("booked_amount", self.booked_amount)
+            .add_field("transferred_amount", self.transferred_amount)
     }
 }
 
@@ -131,13 +139,14 @@ impl Measurement for BlockActivityMeasurement {
     fn add_fields(&self, query: WriteQuery) -> WriteQuery {
         query
             .add_field("transaction_count", self.transaction_count as u64)
-            .add_field("treasury_transaction_count", self.treasury_transaction_count as u64)
-            .add_field("milestone_count", self.milestone_count as u64)
             .add_field("tagged_data_count", self.tagged_data_count as u64)
+            .add_field("candidacy_announcement_count", self.candidacy_announcement_count as u64)
             .add_field("no_payload_count", self.no_payload_count as u64)
+            .add_field("confirmed_count", self.pending_count as u64)
             .add_field("confirmed_count", self.confirmed_count as u64)
-            .add_field("conflicting_count", self.conflicting_count as u64)
-            .add_field("no_transaction_count", self.no_transaction_count as u64)
+            .add_field("finalized_count", self.finalized_count as u64)
+            .add_field("rejected_count", self.rejected_count as u64)
+            .add_field("failed_count", self.failed_count as u64)
     }
 }
 
@@ -185,15 +194,17 @@ impl Measurement for LedgerOutputMeasurement {
     fn add_fields(&self, query: WriteQuery) -> WriteQuery {
         query
             .add_field("basic_count", self.basic.count as u64)
-            .add_field("basic_amount", self.basic.amount.0)
-            .add_field("alias_count", self.alias.count as u64)
-            .add_field("alias_amount", self.alias.amount.0)
+            .add_field("basic_amount", self.basic.amount)
+            .add_field("alias_count", self.account.count as u64)
+            .add_field("alias_amount", self.account.amount)
+            .add_field("alias_count", self.anchor.count as u64)
+            .add_field("alias_amount", self.anchor.amount)
             .add_field("foundry_count", self.foundry.count as u64)
-            .add_field("foundry_amount", self.foundry.amount.0)
+            .add_field("foundry_amount", self.foundry.amount)
             .add_field("nft_count", self.nft.count as u64)
-            .add_field("nft_amount", self.nft.amount.0)
-            .add_field("treasury_count", self.treasury.count as u64)
-            .add_field("treasury_amount", self.treasury.amount.0)
+            .add_field("nft_amount", self.nft.amount)
+            .add_field("alias_count", self.delegation.count as u64)
+            .add_field("alias_amount", self.delegation.amount)
     }
 }
 
@@ -204,7 +215,7 @@ impl Measurement for LedgerSizeMeasurement {
         query
             .add_field("total_key_bytes", self.total_key_bytes)
             .add_field("total_data_bytes", self.total_data_bytes)
-            .add_field("total_storage_deposit_amount", self.total_storage_deposit_amount.0)
+            .add_field("total_storage_deposit_amount", self.total_storage_deposit_amount)
     }
 }
 
@@ -214,10 +225,6 @@ impl Measurement for MilestoneSizeMeasurement {
     fn add_fields(&self, query: WriteQuery) -> WriteQuery {
         query
             .add_field(
-                "total_milestone_payload_bytes",
-                self.total_milestone_payload_bytes as u64,
-            )
-            .add_field(
                 "total_tagged_data_payload_bytes",
                 self.total_tagged_data_payload_bytes as u64,
             )
@@ -226,10 +233,10 @@ impl Measurement for MilestoneSizeMeasurement {
                 self.total_transaction_payload_bytes as u64,
             )
             .add_field(
-                "total_treasury_transaction_payload_bytes",
-                self.total_treasury_transaction_payload_bytes as u64,
+                "total_candidacy_announcement_payload_bytes",
+                self.total_candidacy_announcement_payload_bytes as u64,
             )
-            .add_field("total_milestone_bytes", self.total_milestone_bytes as u64)
+            .add_field("total_slot_bytes", self.total_slot_bytes as u64)
     }
 }
 
@@ -238,16 +245,23 @@ impl Measurement for OutputActivityMeasurement {
 
     fn add_fields(&self, query: WriteQuery) -> WriteQuery {
         query
-            .add_field("alias_created_count", self.alias.created_count as u64)
-            .add_field("alias_state_changed_count", self.alias.state_changed_count as u64)
-            .add_field("alias_governor_changed_count", self.alias.governor_changed_count as u64)
-            .add_field("alias_destroyed_count", self.alias.destroyed_count as u64)
+            .add_field("account_created_count", self.account.created_count as u64)
+            .add_field("account_destroyed_count", self.account.destroyed_count as u64)
+            .add_field("anchor_created_count", self.anchor.created_count as u64)
+            .add_field("anchor_state_changed_count", self.anchor.state_changed_count as u64)
+            .add_field(
+                "anchor_governor_changed_count",
+                self.anchor.governor_changed_count as u64,
+            )
+            .add_field("anchor_destroyed_count", self.anchor.destroyed_count as u64)
             .add_field("nft_created_count", self.nft.created_count as u64)
             .add_field("nft_transferred_count", self.nft.transferred_count as u64)
             .add_field("nft_destroyed_count", self.nft.destroyed_count as u64)
             .add_field("foundry_created_count", self.foundry.created_count as u64)
             .add_field("foundry_transferred_count", self.foundry.transferred_count as u64)
             .add_field("foundry_destroyed_count", self.foundry.destroyed_count as u64)
+            .add_field("delegation_created_count", self.delegation.created_count as u64)
+            .add_field("delegation_destroyed_count", self.delegation.destroyed_count as u64)
     }
 }
 
@@ -255,13 +269,8 @@ impl Measurement for ProtocolParameters {
     const NAME: &'static str = "iota_protocol_params";
 
     fn add_fields(&self, query: WriteQuery) -> WriteQuery {
-        query
-            .add_field("token_supply", self.token_supply)
-            .add_field("min_pow_score", self.min_pow_score)
-            .add_field("below_max_depth", self.below_max_depth)
-            .add_field("v_byte_cost", self.rent_structure.v_byte_cost)
-            .add_field("v_byte_factor_key", self.rent_structure.v_byte_factor_key)
-            .add_field("v_byte_factor_data", self.rent_structure.v_byte_factor_data)
+        // TODO
+        query.add_field("token_supply", self.token_supply())
     }
 }
 
@@ -271,7 +280,7 @@ impl Measurement for UnclaimedTokenMeasurement {
     fn add_fields(&self, query: WriteQuery) -> WriteQuery {
         query
             .add_field("unclaimed_count", self.unclaimed_count as u64)
-            .add_field("unclaimed_amount", self.unclaimed_amount.0)
+            .add_field("unclaimed_amount", self.unclaimed_amount)
     }
 }
 
@@ -281,11 +290,11 @@ impl Measurement for UnlockConditionMeasurement {
     fn add_fields(&self, query: WriteQuery) -> WriteQuery {
         query
             .add_field("expiration_count", self.expiration.count as u64)
-            .add_field("expiration_amount", self.expiration.amount.0)
+            .add_field("expiration_amount", self.expiration.amount)
             .add_field("timelock_count", self.timelock.count as u64)
-            .add_field("timelock_amount", self.timelock.amount.0)
+            .add_field("timelock_amount", self.timelock.amount)
             .add_field("storage_deposit_return_count", self.storage_deposit_return.count as u64)
-            .add_field("storage_deposit_return_amount", self.storage_deposit_return.amount.0)
+            .add_field("storage_deposit_return_amount", self.storage_deposit_return.amount)
             .add_field(
                 "storage_deposit_return_inner_amount",
                 self.storage_deposit_return_inner_amount,

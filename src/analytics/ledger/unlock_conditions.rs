@@ -1,6 +1,8 @@
 // Copyright 2023 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
+use iota_sdk::types::block::output::Output;
+
 use super::*;
 
 #[derive(Copy, Clone, Debug, Default, Serialize, Deserialize)]
@@ -36,33 +38,31 @@ impl UnlockConditionMeasurement {
         let mut measurement = Self::default();
         for output in unspent_outputs {
             match &output.output {
-                Output::Alias(_) => {}
                 Output::Basic(basic) => {
-                    if basic.timelock_unlock_condition.is_some() {
+                    if basic.unlock_conditions().timelock().is_some() {
                         measurement.timelock.add_output(output);
                     }
-                    if basic.expiration_unlock_condition.is_some() {
+                    if basic.unlock_conditions().expiration().is_some() {
                         measurement.expiration.add_output(output);
                     }
-                    if let Some(storage) = basic.storage_deposit_return_unlock_condition {
+                    if let Some(storage) = basic.unlock_conditions().storage_deposit_return() {
                         measurement.storage_deposit_return.add_output(output);
-                        measurement.storage_deposit_return_inner_amount += storage.amount.0;
+                        measurement.storage_deposit_return_inner_amount += storage.amount();
                     }
                 }
                 Output::Nft(nft) => {
-                    if nft.timelock_unlock_condition.is_some() {
+                    if nft.unlock_conditions().timelock().is_some() {
                         measurement.timelock.add_output(output);
                     }
-                    if nft.expiration_unlock_condition.is_some() {
+                    if nft.unlock_conditions().expiration().is_some() {
                         measurement.expiration.add_output(output);
                     }
-                    if let Some(storage) = nft.storage_deposit_return_unlock_condition {
+                    if let Some(storage) = nft.unlock_conditions().storage_deposit_return() {
                         measurement.storage_deposit_return.add_output(output);
-                        measurement.storage_deposit_return_inner_amount += storage.amount.0;
+                        measurement.storage_deposit_return_inner_amount += storage.amount();
                     }
                 }
-                Output::Foundry(_) => {}
-                Output::Treasury(_) => {}
+                _ => {}
             }
         }
         measurement

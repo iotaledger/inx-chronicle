@@ -111,7 +111,7 @@ impl ClArgs {
                 Subcommands::Migrate => {
                     tracing::info!("Connecting to database using hosts: `{}`.", config.mongodb.hosts_str()?);
                     let db = chronicle::db::MongoDb::connect(&config.mongodb).await?;
-                    crate::migrations::migrate(&db).await?;
+                    // crate::migrations::migrate(&db).await?;
                     tracing::info!("Migration completed successfully.");
                 }
                 _ => (),

@@ -9,7 +9,7 @@ pub(crate) struct UnclaimedTokenMeasurement {
     /// The number of outputs that are still unclaimed.
     pub(crate) unclaimed_count: usize,
     /// The remaining number of unclaimed tokens.
-    pub(crate) unclaimed_amount: TokenAmount,
+    pub(crate) unclaimed_amount: u64,
 }
 
 impl UnclaimedTokenMeasurement {
@@ -17,7 +17,7 @@ impl UnclaimedTokenMeasurement {
     pub(crate) fn init<'a>(unspent_outputs: impl IntoIterator<Item = &'a LedgerOutput>) -> Self {
         let mut measurement = Self::default();
         for output in unspent_outputs {
-            if output.booked.milestone_index == 0 {
+            if output.slot_booked == 0 {
                 measurement.unclaimed_count += 1;
                 measurement.unclaimed_amount += output.amount();
             }
@@ -31,7 +31,7 @@ impl Analytics for UnclaimedTokenMeasurement {
 
     fn handle_transaction(&mut self, inputs: &[LedgerSpent], _: &[LedgerOutput], _ctx: &dyn AnalyticsContext) {
         for input in inputs {
-            if input.output.booked.milestone_index == 0 {
+            if input.output.slot_booked == 0 {
                 self.unclaimed_count -= 1;
                 self.unclaimed_amount -= input.amount();
             }

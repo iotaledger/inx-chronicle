@@ -3,11 +3,12 @@
 
 use std::collections::HashSet;
 
+use iota_sdk::types::block::address::{Bech32Address, ToBech32Ext};
+
 use super::*;
 use crate::{
     analytics::{AnalyticsInterval, IntervalAnalytics},
     db::{mongodb::collections::OutputCollection, MongoDb},
-    model::utxo::Address,
 };
 
 #[derive(Debug, Default)]
@@ -19,7 +20,7 @@ pub(crate) struct AddressActivityMeasurement {
 #[allow(missing_docs)]
 #[derive(Debug, Default)]
 pub(crate) struct AddressActivityAnalytics {
-    addresses: HashSet<Address>,
+    addresses: HashSet<Bech32Address>,
 }
 
 #[async_trait::async_trait]
@@ -43,16 +44,17 @@ impl IntervalAnalytics for AddressActivityMeasurement {
 impl Analytics for AddressActivityAnalytics {
     type Measurement = AddressActivityMeasurement;
 
-    fn handle_transaction(&mut self, consumed: &[LedgerSpent], created: &[LedgerOutput], _ctx: &dyn AnalyticsContext) {
+    fn handle_transaction(&mut self, consumed: &[LedgerSpent], created: &[LedgerOutput], ctx: &dyn AnalyticsContext) {
+        let hrp = ctx.protocol_params().bech32_hrp();
         for output in consumed {
             if let Some(a) = output.owning_address() {
-                self.addresses.insert(*a);
+                self.addresses.insert(a.to_bech32(hrp));
             }
         }
 
         for output in created {
             if let Some(a) = output.owning_address() {
-                self.addresses.insert(*a);
+                self.addresses.insert(a.to_bech32(hrp));
             }
         }
     }

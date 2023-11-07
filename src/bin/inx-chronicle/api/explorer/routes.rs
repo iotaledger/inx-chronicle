@@ -14,7 +14,7 @@ use chronicle::{
 };
 use futures::{StreamExt, TryStreamExt};
 use iota_sdk::types::block::{
-    address::{Address, Bech32Address, ToBech32Ext},
+    address::{Bech32Address, ToBech32Ext},
     slot::{SlotCommitmentId, SlotIndex},
 };
 
