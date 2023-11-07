@@ -1,4 +1,4 @@
-// Copyright 2022 IOTA Stiftung
+// Copyright 2023 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
 use std::{fmt::Display, str::FromStr};
@@ -8,13 +8,8 @@ use axum::{
     extract::{FromRequest, Query},
     Extension,
 };
-use chronicle::{
-    db::mongodb::collections::SortOrder,
-    model::{
-        tangle::{MilestoneIndex, MilestoneTimestamp},
-        utxo::OutputId,
-    },
-};
+use chronicle::{self, db::mongodb::collections::SortOrder};
+use iota_sdk::types::block::{output::OutputId, slot::SlotIndex, BlockId};
 use serde::Deserialize;
 
 use crate::api::{config::ApiConfigData, error::RequestError, ApiError, DEFAULT_PAGE_SIZE};
@@ -23,7 +18,7 @@ use crate::api::{config::ApiConfigData, error::RequestError, ApiError, DEFAULT_P
 pub struct LedgerUpdatesByAddressPagination {
     pub page_size: usize,
     pub sort: SortOrder,
-    pub cursor: Option<(MilestoneIndex, Option<(OutputId, bool)>)>,
+    pub cursor: Option<(SlotIndex, Option<(OutputId, bool)>)>,
 }
 
 #[derive(Clone, Deserialize, Default)]
@@ -31,13 +26,13 @@ pub struct LedgerUpdatesByAddressPagination {
 pub struct LedgerUpdatesByAddressPaginationQuery {
     pub page_size: Option<usize>,
     pub sort: Option<String>,
-    pub start_milestone_index: Option<MilestoneIndex>,
+    pub start_slot: Option<SlotIndex>,
     pub cursor: Option<String>,
 }
 
 #[derive(Clone)]
 pub struct LedgerUpdatesByAddressCursor {
-    pub milestone_index: MilestoneIndex,
+    pub slot_index: SlotIndex,
     pub output_id: OutputId,
     pub is_spent: bool,
     pub page_size: usize,
@@ -50,7 +45,7 @@ impl FromStr for LedgerUpdatesByAddressCursor {
         let parts: Vec<_> = s.split('.').collect();
         Ok(match parts[..] {
             [ms, o, sp, ps] => LedgerUpdatesByAddressCursor {
-                milestone_index: ms.parse().map_err(RequestError::from)?,
+                slot_index: ms.parse().map_err(RequestError::from)?,
                 output_id: o.parse().map_err(RequestError::from)?,
                 is_spent: sp.parse().map_err(RequestError::from)?,
                 page_size: ps.parse().map_err(RequestError::from)?,
@@ -65,10 +60,7 @@ impl Display for LedgerUpdatesByAddressCursor {
         write!(
             f,
             "{}.{}.{}.{}",
-            self.milestone_index,
-            self.output_id.to_hex(),
-            self.is_spent,
-            self.page_size
+            self.slot_index, self.output_id, self.is_spent, self.page_size
         )
     }
 }
@@ -93,12 +85,12 @@ impl<B: Send> FromRequest<B> for LedgerUpdatesByAddressPagination {
             let cursor: LedgerUpdatesByAddressCursor = cursor.parse()?;
             (
                 cursor.page_size,
-                Some((cursor.milestone_index, Some((cursor.output_id, cursor.is_spent)))),
+                Some((cursor.slot_index, Some((cursor.output_id, cursor.is_spent)))),
             )
         } else {
             (
                 query.page_size.unwrap_or(DEFAULT_PAGE_SIZE),
-                query.start_milestone_index.map(|i| (i, None)),
+                query.start_slot.map(|i| (i, None)),
             )
         };
 
@@ -111,7 +103,7 @@ impl<B: Send> FromRequest<B> for LedgerUpdatesByAddressPagination {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct LedgerUpdatesByMilestonePagination {
+pub struct LedgerUpdatesBySlotPagination {
     pub page_size: usize,
     pub cursor: Option<(OutputId, bool)>,
 }
@@ -148,12 +140,12 @@ impl FromStr for LedgerUpdatesByMilestoneCursor {
 
 impl Display for LedgerUpdatesByMilestoneCursor {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}.{}.{}", self.output_id.to_hex(), self.is_spent, self.page_size)
+        write!(f, "{}.{}.{}", self.output_id, self.is_spent, self.page_size)
     }
 }
 
 #[async_trait]
-impl<B: Send> FromRequest<B> for LedgerUpdatesByMilestonePagination {
+impl<B: Send> FromRequest<B> for LedgerUpdatesBySlotPagination {
     type Rejection = ApiError;
 
     async fn from_request(req: &mut axum::extract::RequestParts<B>) -> Result<Self, Self::Rejection> {
@@ -169,45 +161,45 @@ impl<B: Send> FromRequest<B> for LedgerUpdatesByMilestonePagination {
             (query.page_size.unwrap_or(DEFAULT_PAGE_SIZE), None)
         };
 
-        Ok(LedgerUpdatesByMilestonePagination {
+        Ok(LedgerUpdatesBySlotPagination {
             page_size: page_size.min(config.max_page_size),
             cursor,
         })
     }
 }
 
-pub struct MilestonesPagination {
-    pub start_timestamp: Option<MilestoneTimestamp>,
-    pub end_timestamp: Option<MilestoneTimestamp>,
+pub struct SlotsPagination {
+    pub start_index: Option<SlotIndex>,
+    pub end_index: Option<SlotIndex>,
     pub sort: SortOrder,
     pub page_size: usize,
-    pub cursor: Option<MilestoneIndex>,
+    pub cursor: Option<SlotIndex>,
 }
 
 #[derive(Clone, Deserialize, Default)]
 #[serde(default, deny_unknown_fields, rename_all = "camelCase")]
-pub struct MilestonesPaginationQuery {
-    pub start_timestamp: Option<u32>,
-    pub end_timestamp: Option<u32>,
+pub struct SlotsPaginationQuery {
+    pub start_index: Option<SlotIndex>,
+    pub end_index: Option<SlotIndex>,
     pub sort: Option<String>,
     pub page_size: Option<usize>,
     pub cursor: Option<String>,
 }
 
 #[derive(Clone)]
-pub struct MilestonesCursor {
-    pub milestone_index: MilestoneIndex,
+pub struct SlotsCursor {
+    pub slot_index: SlotIndex,
     pub page_size: usize,
 }
 
-impl FromStr for MilestonesCursor {
+impl FromStr for SlotsCursor {
     type Err = ApiError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let parts: Vec<_> = s.split('.').collect();
         Ok(match parts[..] {
-            [m, ps] => MilestonesCursor {
-                milestone_index: m.parse().map_err(RequestError::from)?,
+            [m, ps] => SlotsCursor {
+                slot_index: m.parse().map_err(RequestError::from)?,
                 page_size: ps.parse().map_err(RequestError::from)?,
             },
             _ => return Err(ApiError::from(RequestError::BadPagingState)),
@@ -215,23 +207,23 @@ impl FromStr for MilestonesCursor {
     }
 }
 
-impl Display for MilestonesCursor {
+impl Display for SlotsCursor {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}.{}", self.milestone_index, self.page_size)
+        write!(f, "{}.{}", self.slot_index, self.page_size)
     }
 }
 
 #[async_trait]
-impl<B: Send> FromRequest<B> for MilestonesPagination {
+impl<B: Send> FromRequest<B> for SlotsPagination {
     type Rejection = ApiError;
 
     async fn from_request(req: &mut axum::extract::RequestParts<B>) -> Result<Self, Self::Rejection> {
-        let Query(query) = Query::<MilestonesPaginationQuery>::from_request(req)
+        let Query(query) = Query::<SlotsPaginationQuery>::from_request(req)
             .await
             .map_err(RequestError::from)?;
         let Extension(config) = Extension::<ApiConfigData>::from_request(req).await?;
 
-        if matches!((query.start_timestamp, query.end_timestamp), (Some(start), Some(end)) if end < start) {
+        if matches!((query.start_index, query.end_index), (Some(start), Some(end)) if end < start) {
             return Err(ApiError::from(RequestError::BadTimeRange));
         }
 
@@ -242,15 +234,15 @@ impl<B: Send> FromRequest<B> for MilestonesPagination {
             .map_err(RequestError::SortOrder)?;
 
         let (page_size, cursor) = if let Some(cursor) = query.cursor {
-            let cursor: MilestonesCursor = cursor.parse()?;
-            (cursor.page_size, Some(cursor.milestone_index))
+            let cursor: SlotsCursor = cursor.parse()?;
+            (cursor.page_size, Some(cursor.slot_index))
         } else {
             (query.page_size.unwrap_or(DEFAULT_PAGE_SIZE), None)
         };
 
-        Ok(MilestonesPagination {
-            start_timestamp: query.start_timestamp.map(Into::into),
-            end_timestamp: query.end_timestamp.map(Into::into),
+        Ok(SlotsPagination {
+            start_index: query.start_index,
+            end_index: query.end_index,
             sort,
             page_size: page_size.min(config.max_page_size),
             cursor,
@@ -264,7 +256,7 @@ const DEFAULT_TOP_RICHLIST: usize = 100;
 #[serde(default, deny_unknown_fields)]
 pub struct RichestAddressesQuery {
     pub top: usize,
-    pub ledger_index: Option<MilestoneIndex>,
+    pub ledger_index: Option<SlotIndex>,
 }
 
 impl Default for RichestAddressesQuery {
@@ -293,7 +285,7 @@ impl<B: Send> FromRequest<B> for RichestAddressesQuery {
 #[derive(Copy, Clone, Deserialize, Default)]
 #[serde(default, deny_unknown_fields, rename_all = "camelCase")]
 pub struct LedgerIndex {
-    pub ledger_index: Option<MilestoneIndex>,
+    pub ledger_index: Option<SlotIndex>,
 }
 
 #[async_trait]
@@ -310,54 +302,54 @@ impl<B: Send> FromRequest<B> for LedgerIndex {
 
 #[derive(Copy, Clone, Deserialize, Default)]
 #[serde(default, deny_unknown_fields, rename_all = "camelCase")]
-pub struct MilestoneRange {
-    pub start_index: Option<MilestoneIndex>,
-    pub end_index: Option<MilestoneIndex>,
+pub struct SlotRange {
+    pub start_index: Option<SlotIndex>,
+    pub end_index: Option<SlotIndex>,
 }
 
 #[async_trait]
-impl<B: Send> FromRequest<B> for MilestoneRange {
+impl<B: Send> FromRequest<B> for SlotRange {
     type Rejection = ApiError;
 
     async fn from_request(req: &mut axum::extract::RequestParts<B>) -> Result<Self, Self::Rejection> {
-        let Query(MilestoneRange { start_index, end_index }) = Query::<MilestoneRange>::from_request(req)
+        let Query(SlotRange { start_index, end_index }) = Query::<SlotRange>::from_request(req)
             .await
             .map_err(RequestError::from)?;
         if matches!((start_index, end_index), (Some(start), Some(end)) if end < start) {
             return Err(ApiError::from(RequestError::BadTimeRange));
         }
-        Ok(MilestoneRange { start_index, end_index })
+        Ok(SlotRange { start_index, end_index })
     }
 }
 
-pub struct BlocksByMilestoneIndexPagination {
+pub struct BlocksBySlotIndexPagination {
     pub sort: SortOrder,
     pub page_size: usize,
-    pub cursor: Option<u32>,
+    pub cursor: Option<BlockId>,
 }
 
 #[derive(Clone, Deserialize, Default)]
 #[serde(default, deny_unknown_fields, rename_all = "camelCase")]
-pub struct BlocksByMilestoneIndexPaginationQuery {
+pub struct BlocksBySlotIndexPaginationQuery {
     pub sort: Option<String>,
     pub page_size: Option<usize>,
     pub cursor: Option<String>,
 }
 
 #[derive(Clone)]
-pub struct BlocksByMilestoneCursor {
-    pub white_flag_index: u32,
+pub struct BlocksBySlotCursor {
+    pub block_id: BlockId,
     pub page_size: usize,
 }
 
-impl FromStr for BlocksByMilestoneCursor {
+impl FromStr for BlocksBySlotCursor {
     type Err = ApiError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let parts: Vec<_> = s.split('.').collect();
         Ok(match parts[..] {
-            [wfi, ps] => BlocksByMilestoneCursor {
-                white_flag_index: wfi.parse().map_err(RequestError::from)?,
+            [wfi, ps] => BlocksBySlotCursor {
+                block_id: wfi.parse().map_err(RequestError::from)?,
                 page_size: ps.parse().map_err(RequestError::from)?,
             },
             _ => return Err(ApiError::from(RequestError::BadPagingState)),
@@ -365,18 +357,18 @@ impl FromStr for BlocksByMilestoneCursor {
     }
 }
 
-impl Display for BlocksByMilestoneCursor {
+impl Display for BlocksBySlotCursor {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}.{}", self.white_flag_index, self.page_size)
+        write!(f, "{}.{}", self.block_id, self.page_size)
     }
 }
 
 #[async_trait]
-impl<B: Send> FromRequest<B> for BlocksByMilestoneIndexPagination {
+impl<B: Send> FromRequest<B> for BlocksBySlotIndexPagination {
     type Rejection = ApiError;
 
     async fn from_request(req: &mut axum::extract::RequestParts<B>) -> Result<Self, Self::Rejection> {
-        let Query(query) = Query::<BlocksByMilestoneIndexPaginationQuery>::from_request(req)
+        let Query(query) = Query::<BlocksBySlotIndexPaginationQuery>::from_request(req)
             .await
             .map_err(RequestError::from)?;
         let Extension(config) = Extension::<ApiConfigData>::from_request(req).await?;
@@ -388,13 +380,13 @@ impl<B: Send> FromRequest<B> for BlocksByMilestoneIndexPagination {
             .map_err(RequestError::SortOrder)?;
 
         let (page_size, cursor) = if let Some(cursor) = query.cursor {
-            let cursor: BlocksByMilestoneCursor = cursor.parse()?;
-            (cursor.page_size, Some(cursor.white_flag_index))
+            let cursor: BlocksBySlotCursor = cursor.parse()?;
+            (cursor.page_size, Some(cursor.block_id))
         } else {
             (query.page_size.unwrap_or(DEFAULT_PAGE_SIZE), None)
         };
 
-        Ok(BlocksByMilestoneIndexPagination {
+        Ok(BlocksBySlotIndexPagination {
             sort,
             page_size: page_size.min(config.max_page_size),
             cursor,
@@ -405,7 +397,7 @@ impl<B: Send> FromRequest<B> for BlocksByMilestoneIndexPagination {
 pub struct BlocksByMilestoneIdPagination {
     pub sort: SortOrder,
     pub page_size: usize,
-    pub cursor: Option<u32>,
+    pub cursor: Option<BlockId>,
 }
 
 #[derive(Clone, Deserialize, Default)]
@@ -433,8 +425,8 @@ impl<B: Send> FromRequest<B> for BlocksByMilestoneIdPagination {
             .map_err(RequestError::SortOrder)?;
 
         let (page_size, cursor) = if let Some(cursor) = query.cursor {
-            let cursor: BlocksByMilestoneCursor = cursor.parse()?;
-            (cursor.page_size, Some(cursor.white_flag_index))
+            let cursor: BlocksBySlotCursor = cursor.parse()?;
+            (cursor.page_size, Some(cursor.block_id))
         } else {
             (query.page_size.unwrap_or(DEFAULT_PAGE_SIZE), None)
         };
@@ -457,18 +449,18 @@ mod test {
 
     #[test]
     fn ledger_updates_by_address_cursor_from_to_str() {
-        let milestone_index = 164338324u32;
+        let slot_index = 164338324u32;
         let output_id_str = "0xfa0de75d225cca2799395e5fc340702fc7eac821d2bdd79911126f131ae097a20100";
         let is_spent_str = "false";
         let page_size_str = "1337";
 
-        let cursor = format!("{milestone_index}.{output_id_str}.{is_spent_str}.{page_size_str}",);
+        let cursor = format!("{slot_index}.{output_id_str}.{is_spent_str}.{page_size_str}",);
         let parsed: LedgerUpdatesByAddressCursor = cursor.parse().unwrap();
         assert_eq!(parsed.to_string(), cursor);
     }
 
     #[test]
-    fn ledger_updates_by_milestone_cursor_from_to_str() {
+    fn ledger_updates_by_slot_cursor_from_to_str() {
         let output_id_str = "0xfa0de75d225cca2799395e5fc340702fc7eac821d2bdd79911126f131ae097a20100";
         let is_spent_str = "false";
         let page_size_str = "1337";
@@ -500,16 +492,14 @@ mod test {
         let mut req = RequestParts::new(
             Request::builder()
                 .method("GET")
-                .uri("/ledger/updates/by-milestone/0?pageSize=9999999")
+                .uri("/ledger/updates/by-slot-index/0?pageSize=9999999")
                 .extension(ApiConfigData::try_from(ApiConfig::default()).unwrap())
                 .body(())
                 .unwrap(),
         );
         assert_eq!(
-            LedgerUpdatesByMilestonePagination::from_request(&mut req)
-                .await
-                .unwrap(),
-            LedgerUpdatesByMilestonePagination {
+            LedgerUpdatesBySlotPagination::from_request(&mut req).await.unwrap(),
+            LedgerUpdatesBySlotPagination {
                 page_size: 1000,
                 cursor: Default::default()
             }

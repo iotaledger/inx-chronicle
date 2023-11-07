@@ -1,4 +1,4 @@
-// Copyright 2022 IOTA Stiftung
+// Copyright 2023 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
 mod indexer;
@@ -203,23 +203,22 @@ impl From<&LedgerSpent> for OutputDocument {
 #[allow(missing_docs)]
 pub struct OutputMetadataResult {
     pub output_id: OutputId,
-    pub block_id: BlockId,
-    pub booked: SlotIndex,
-    pub spent_metadata: Option<SpentMetadata>,
+    pub metadata: OutputMetadata,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 #[allow(missing_docs)]
 pub struct OutputWithMetadataResult {
+    pub output_id: OutputId,
     pub output: Output,
-    pub metadata: OutputMetadataResult,
+    pub metadata: OutputMetadata,
 }
 
-#[derive(Clone, Debug, Deserialize)]
+#[derive(Clone, Debug)]
 #[allow(missing_docs)]
 pub struct BalanceResult {
-    pub total_balance: String,
-    pub sig_locked_balance: String,
+    pub total_balance: u64,
+    pub sig_locked_balance: u64,
 }
 
 #[derive(Clone, Debug, Default, Deserialize)]
@@ -305,8 +304,10 @@ impl OutputCollection {
     ) -> Result<Option<OutputWithMetadataResult>, DbError> {
         #[derive(Deserialize)]
         struct OutputWithMetadataRes {
+            #[serde(rename = "_id")]
+            output_id: OutputId,
             output: OutputDto,
-            metadata: OutputMetadataResult,
+            metadata: OutputMetadata,
         }
 
         Ok(self
@@ -331,12 +332,19 @@ impl OutputCollection {
             .await?
             .try_next()
             .await?
-            .map(|OutputWithMetadataRes { output, metadata }| {
-                Result::<_, DbError>::Ok(OutputWithMetadataResult {
-                    output: Output::try_from_dto(output)?,
-                    metadata,
-                })
-            })
+            .map(
+                |OutputWithMetadataRes {
+                     output_id,
+                     output,
+                     metadata,
+                 }| {
+                    Result::<_, DbError>::Ok(OutputWithMetadataResult {
+                        output_id,
+                        output: Output::try_from_dto(output)?,
+                        metadata,
+                    })
+                },
+            )
             .transpose()?)
     }
 
@@ -355,9 +363,7 @@ impl OutputCollection {
                     } },
                     doc! { "$project": {
                         "output_id": "$_id",
-                        "block_id": "$metadata.block_id",
-                        "booked": "$metadata.booked",
-                        "spent_metadata": "$metadata.spent_metadata",
+                        "metadata": 1,
                     } },
                 ],
                 None,
@@ -506,8 +512,14 @@ impl OutputCollection {
         address: Address,
         slot_index: SlotIndex,
     ) -> Result<Option<BalanceResult>, DbError> {
+        #[derive(Deserialize)]
+        struct BalanceRes {
+            total_balance: String,
+            sig_locked_balance: String,
+        }
+
         Ok(self
-                .aggregate(
+                .aggregate::<BalanceRes>(
                     [
                         // Look at all (at slot index o'clock) unspent output documents for the given address.
                         doc! { "$match": {
@@ -531,7 +543,13 @@ impl OutputCollection {
                 )
                 .await?
                 .try_next()
-                .await?)
+                .await?
+                .map(|res| 
+                    BalanceResult { 
+                        total_balance: res.total_balance.parse().unwrap(), 
+                        sig_locked_balance: res.sig_locked_balance.parse().unwrap() 
+                    }
+                ))
     }
 
     /// Returns the changes to the UTXO ledger (as consumed and created output ids) that were applied at the given
@@ -639,7 +657,7 @@ pub struct RichestAddresses {
 #[allow(missing_docs)]
 pub struct AddressStat {
     pub address: Address,
-    pub balance: String,
+    pub balance: u64,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -655,7 +673,7 @@ pub struct DistributionStat {
     /// The number of unique addresses in this range
     pub address_count: u64,
     /// The total balance of the addresses in this range
-    pub total_balance: String,
+    pub total_balance: u64,
 }
 
 impl OutputCollection {

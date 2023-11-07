@@ -1,4 +1,4 @@
-// Copyright 2022 IOTA Stiftung
+// Copyright 2023 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
 use std::{num::ParseIntError, str::ParseBoolError};
@@ -62,6 +62,8 @@ macro_rules! impl_internal_error {
 
 impl_internal_error!(
     mongodb::error::Error,
+    chronicle::db::mongodb::DbError,
+    chronicle::model::raw::InvalidRawBytesError,
     axum::extract::rejection::ExtensionRejection,
     auth_helper::jwt::Error,
     argon2::Error,

@@ -1,4 +1,4 @@
-// Copyright 2022 IOTA Stiftung
+// Copyright 2023 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
 use std::{fmt::Display, str::FromStr};
@@ -10,11 +10,9 @@ use axum::{
 };
 use chronicle::{
     db::mongodb::collections::{AliasOutputsQuery, BasicOutputsQuery, FoundryOutputsQuery, NftOutputsQuery, SortOrder},
-    model::{
-        tangle::MilestoneIndex,
-        utxo::{Address, OutputId, Tag},
-    },
+    model::utxo::Tag,
 };
+use iota_sdk::types::block::{address::Bech32Address, output::OutputId, slot::SlotIndex};
 use mongodb::bson;
 use primitive_types::U256;
 use serde::Deserialize;
@@ -28,14 +26,14 @@ where
 {
     pub query: Q,
     pub page_size: usize,
-    pub cursor: Option<(MilestoneIndex, OutputId)>,
+    pub cursor: Option<(SlotIndex, OutputId)>,
     pub sort: SortOrder,
     pub include_spent: bool,
 }
 
 #[derive(Clone)]
 pub struct IndexedOutputsCursor {
-    pub milestone_index: MilestoneIndex,
+    pub milestone_index: SlotIndex,
     pub output_id: OutputId,
     pub page_size: usize,
 }
@@ -58,13 +56,7 @@ impl FromStr for IndexedOutputsCursor {
 
 impl Display for IndexedOutputsCursor {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "{}.{}.{}",
-            self.milestone_index,
-            self.output_id.to_hex(),
-            self.page_size
-        )
+        write!(f, "{}.{}.{}", self.milestone_index, self.output_id, self.page_size)
     }
 }
 
@@ -121,9 +113,10 @@ impl<B: Send> FromRequest<B> for IndexedOutputsPagination<BasicOutputsQuery> {
             query: BasicOutputsQuery {
                 address: query
                     .address
-                    .map(|address| Address::from_str(&address))
+                    .map(|address| Bech32Address::from_str(&address))
                     .transpose()
-                    .map_err(RequestError::from)?,
+                    .map_err(RequestError::from)?
+                    .map(Bech32Address::into_inner),
                 has_native_tokens: query.has_native_tokens,
                 min_native_token_count: query
                     .min_native_token_count
@@ -138,9 +131,10 @@ impl<B: Send> FromRequest<B> for IndexedOutputsPagination<BasicOutputsQuery> {
                 has_storage_deposit_return: query.has_storage_deposit_return,
                 storage_deposit_return_address: query
                     .storage_deposit_return_address
-                    .map(|address| Address::from_str(&address))
+                    .map(|address| Bech32Address::from_str(&address))
                     .transpose()
-                    .map_err(RequestError::from)?,
+                    .map_err(RequestError::from)?
+                    .map(Bech32Address::into_inner),
                 has_timelock: query.has_timelock,
                 timelocked_before: query.timelocked_before.map(Into::into),
                 timelocked_after: query.timelocked_after.map(Into::into),
@@ -149,14 +143,16 @@ impl<B: Send> FromRequest<B> for IndexedOutputsPagination<BasicOutputsQuery> {
                 expires_after: query.expires_after.map(Into::into),
                 expiration_return_address: query
                     .expiration_return_address
-                    .map(|address| Address::from_str(&address))
+                    .map(|address| Bech32Address::from_str(&address))
                     .transpose()
-                    .map_err(RequestError::from)?,
+                    .map_err(RequestError::from)?
+                    .map(Bech32Address::into_inner),
                 sender: query
                     .sender
-                    .map(|address| Address::from_str(&address))
+                    .map(|address| Bech32Address::from_str(&address))
                     .transpose()
-                    .map_err(RequestError::from)?,
+                    .map_err(RequestError::from)?
+                    .map(Bech32Address::into_inner),
                 tag: query
                     .tag
                     .map(|tag| Tag::from_str(&tag))
@@ -218,24 +214,28 @@ impl<B: Send> FromRequest<B> for IndexedOutputsPagination<AliasOutputsQuery> {
             query: AliasOutputsQuery {
                 state_controller: query
                     .state_controller
-                    .map(|address| Address::from_str(&address))
+                    .map(|address| Bech32Address::from_str(&address))
                     .transpose()
-                    .map_err(RequestError::from)?,
+                    .map_err(RequestError::from)?
+                    .map(Bech32Address::into_inner),
                 governor: query
                     .governor
-                    .map(|address| Address::from_str(&address))
+                    .map(|address| Bech32Address::from_str(&address))
                     .transpose()
-                    .map_err(RequestError::from)?,
+                    .map_err(RequestError::from)?
+                    .map(Bech32Address::into_inner),
                 issuer: query
                     .issuer
-                    .map(|address| Address::from_str(&address))
+                    .map(|address| Bech32Address::from_str(&address))
                     .transpose()
-                    .map_err(RequestError::from)?,
+                    .map_err(RequestError::from)?
+                    .map(Bech32Address::into_inner),
                 sender: query
                     .sender
-                    .map(|address| Address::from_str(&address))
+                    .map(|address| Bech32Address::from_str(&address))
                     .transpose()
-                    .map_err(RequestError::from)?,
+                    .map_err(RequestError::from)?
+                    .map(Bech32Address::into_inner),
                 has_native_tokens: query.has_native_tokens,
                 min_native_token_count: query
                     .min_native_token_count
@@ -300,9 +300,10 @@ impl<B: Send> FromRequest<B> for IndexedOutputsPagination<FoundryOutputsQuery> {
             query: FoundryOutputsQuery {
                 alias_address: query
                     .alias_address
-                    .map(|address| Address::from_str(&address))
+                    .map(|address| Bech32Address::from_str(&address))
                     .transpose()
-                    .map_err(RequestError::from)?,
+                    .map_err(RequestError::from)?
+                    .map(Bech32Address::into_inner),
                 has_native_tokens: query.has_native_tokens,
                 min_native_token_count: query
                     .min_native_token_count
@@ -379,19 +380,22 @@ impl<B: Send> FromRequest<B> for IndexedOutputsPagination<NftOutputsQuery> {
             query: NftOutputsQuery {
                 address: query
                     .address
-                    .map(|address| Address::from_str(&address))
+                    .map(|address| Bech32Address::from_str(&address))
                     .transpose()
-                    .map_err(RequestError::from)?,
+                    .map_err(RequestError::from)?
+                    .map(Bech32Address::into_inner),
                 issuer: query
                     .issuer
-                    .map(|address| Address::from_str(&address))
+                    .map(|address| Bech32Address::from_str(&address))
                     .transpose()
-                    .map_err(RequestError::from)?,
+                    .map_err(RequestError::from)?
+                    .map(Bech32Address::into_inner),
                 sender: query
                     .sender
-                    .map(|address| Address::from_str(&address))
+                    .map(|address| Bech32Address::from_str(&address))
                     .transpose()
-                    .map_err(RequestError::from)?,
+                    .map_err(RequestError::from)?
+                    .map(Bech32Address::into_inner),
                 has_native_tokens: query.has_native_tokens,
                 min_native_token_count: query
                     .min_native_token_count
@@ -406,9 +410,10 @@ impl<B: Send> FromRequest<B> for IndexedOutputsPagination<NftOutputsQuery> {
                 has_storage_deposit_return: query.has_storage_deposit_return,
                 storage_deposit_return_address: query
                     .storage_deposit_return_address
-                    .map(|address| Address::from_str(&address))
+                    .map(|address| Bech32Address::from_str(&address))
                     .transpose()
-                    .map_err(RequestError::from)?,
+                    .map_err(RequestError::from)?
+                    .map(Bech32Address::into_inner),
                 has_timelock: query.has_timelock,
                 timelocked_before: query.timelocked_before.map(Into::into),
                 timelocked_after: query.timelocked_after.map(Into::into),
@@ -417,9 +422,10 @@ impl<B: Send> FromRequest<B> for IndexedOutputsPagination<NftOutputsQuery> {
                 expires_after: query.expires_after.map(Into::into),
                 expiration_return_address: query
                     .expiration_return_address
-                    .map(|address| Address::from_str(&address))
+                    .map(|address| Bech32Address::from_str(&address))
                     .transpose()
-                    .map_err(RequestError::from)?,
+                    .map_err(RequestError::from)?
+                    .map(Bech32Address::into_inner),
                 tag: query
                     .tag
                     .map(|tag| Tag::from_str(&tag))

@@ -12,9 +12,12 @@ use async_trait::async_trait;
 use futures::stream::BoxStream;
 use iota_sdk::types::block::{slot::SlotIndex, BlockId, SignedBlock};
 
-use crate::inx::{
-    ledger::LedgerUpdateStore,
-    responses::{BlockMetadata, Commitment, NodeConfiguration},
+use crate::{
+    inx::{
+        ledger::LedgerUpdateStore,
+        responses::{BlockMetadata, Commitment, NodeConfiguration},
+    },
+    model::raw::Raw,
 };
 
 #[derive(Clone, Debug)]
@@ -29,8 +32,7 @@ pub struct SlotData {
 #[allow(missing_docs)]
 pub struct BlockData {
     pub block_id: BlockId,
-    pub block: SignedBlock,
-    pub raw: Vec<u8>,
+    pub block: Raw<SignedBlock>,
     pub metadata: BlockMetadata,
 }
 

@@ -1,4 +1,4 @@
-// Copyright 2022 IOTA Stiftung
+// Copyright 2023 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
 use async_trait::async_trait;
@@ -6,7 +6,6 @@ use axum::{
     extract::{FromRequest, Query},
     Extension,
 };
-use chronicle::model::tangle::MilestoneTimestamp;
 use serde::Deserialize;
 
 use super::{
@@ -66,14 +65,14 @@ impl<B: Send> FromRequest<B> for ListRoutesQuery {
 #[derive(Copy, Clone, Default, Deserialize)]
 #[serde(default, deny_unknown_fields, rename_all = "camelCase")]
 pub struct TimeRangeQuery {
-    start_timestamp: Option<u32>,
-    end_timestamp: Option<u32>,
+    start_timestamp: Option<u64>,
+    end_timestamp: Option<u64>,
 }
 
 #[derive(Copy, Clone)]
 pub struct TimeRange {
-    pub start_timestamp: Option<MilestoneTimestamp>,
-    pub end_timestamp: Option<MilestoneTimestamp>,
+    pub start_timestamp: Option<u64>,
+    pub end_timestamp: Option<u64>,
 }
 
 #[async_trait]

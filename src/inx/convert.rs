@@ -9,7 +9,8 @@ use iota_sdk::types::block::{
     BlockId, SignedBlock,
 };
 
-use super::{raw::Raw, InxError};
+use super::InxError;
+use crate::model::raw::{InvalidRawBytesError, Raw};
 
 /// Tries to access the field of a protobug messages and returns an appropriate error if the field is not present.
 #[macro_export]
@@ -88,18 +89,15 @@ impl<R: TryConvertTo<U>, U> TryConvertFrom<inx::tonic::Response<R>> for U {
 macro_rules! impl_id_convert {
     ($type:ident) => {
         impl TryConvertFrom<proto::$type> for $type {
-            type Error = InxError;
+            type Error = InvalidRawBytesError;
 
             fn try_convert_from(proto: proto::$type) -> Result<Self, Self::Error>
             where
                 Self: Sized,
             {
-                Ok(Self::new(
-                    proto
-                        .id
-                        .try_into()
-                        .map_err(|e| InxError::InvalidRawBytes(format!("{e:?}")))?,
-                ))
+                Ok(Self::new(proto.id.try_into().map_err(|e| {
+                    InvalidRawBytesError(format!("{}", hex::encode(e)))
+                })?))
             }
         }
     };
@@ -108,7 +106,7 @@ impl_id_convert!(BlockId);
 impl_id_convert!(TransactionId);
 
 impl TryConvertFrom<proto::CommitmentId> for SlotCommitmentId {
-    type Error = InxError;
+    type Error = InvalidRawBytesError;
 
     fn try_convert_from(proto: proto::CommitmentId) -> Result<Self, Self::Error>
     where
@@ -118,7 +116,7 @@ impl TryConvertFrom<proto::CommitmentId> for SlotCommitmentId {
             proto
                 .id
                 .try_into()
-                .map_err(|e| InxError::InvalidRawBytes(format!("{e:?}")))?,
+                .map_err(|e| InvalidRawBytesError(format!("{}", hex::encode(e))))?,
         ))
     }
 }
@@ -131,7 +129,8 @@ impl TryConvertFrom<proto::OutputId> for OutputId {
         Self: Sized,
     {
         Ok(Self::try_from(
-            <[u8; Self::LENGTH]>::try_from(proto.id).map_err(|e| InxError::InvalidRawBytes(format!("{e:?}")))?,
+            <[u8; Self::LENGTH]>::try_from(proto.id)
+                .map_err(|e| InvalidRawBytesError(format!("{}", hex::encode(e))))?,
         )?)
     }
 }
@@ -139,7 +138,7 @@ impl TryConvertFrom<proto::OutputId> for OutputId {
 macro_rules! impl_raw_convert {
     ($raw:ident, $type:ident) => {
         impl TryConvertFrom<proto::$raw> for $type {
-            type Error = InxError;
+            type Error = InvalidRawBytesError;
 
             fn try_convert_from(proto: proto::$raw) -> Result<Self, Self::Error>
             where

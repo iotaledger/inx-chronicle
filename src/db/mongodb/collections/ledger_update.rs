@@ -1,9 +1,9 @@
-// Copyright 2022 IOTA Stiftung
+// Copyright 2023 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
 use futures::{Stream, TryStreamExt};
 use iota_sdk::types::block::{
-    address::Address,
+    address::{Address, Bech32Address},
     output::{Output, OutputId},
     payload::signed_transaction::TransactionId,
     slot::{SlotCommitmentId, SlotIndex},
@@ -127,7 +127,7 @@ pub struct LedgerUpdateByAddressRecord {
 #[derive(Clone, Debug)]
 #[allow(missing_docs)]
 pub struct LedgerUpdateBySlotRecord {
-    pub address: Address,
+    pub address: AddressDto,
     pub output_id: OutputId,
     pub is_spent: bool,
 }
@@ -236,7 +236,7 @@ impl LedgerUpdateCollection {
     }
 
     /// Streams updates to the ledger for a given milestone index (sorted by [`OutputId`]).
-    pub async fn get_ledger_updates_by_milestone(
+    pub async fn get_ledger_updates_by_slot(
         &self,
         slot_index: SlotIndex,
         page_size: usize,

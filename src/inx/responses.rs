@@ -1,4 +1,4 @@
-// Copyright 2022 IOTA Stiftung
+// Copyright 2023 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
 #![allow(missing_docs)]
@@ -18,10 +18,12 @@ use serde::{Deserialize, Serialize};
 use super::{
     convert::{ConvertTo, TryConvertFrom, TryConvertTo},
     ledger::{LedgerOutput, LedgerSpent},
-    raw::Raw,
     InxError,
 };
-use crate::maybe_missing;
+use crate::{
+    maybe_missing,
+    model::raw::{InvalidRawBytesError, Raw},
+};
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Block {
@@ -114,7 +116,7 @@ impl TryConvertFrom<proto::RawProtocolParameters> for ProtocolParameters {
         Ok(Self {
             start_epoch: proto.start_epoch.into(),
             parameters: PackableExt::unpack_unverified(proto.params)
-                .map_err(|e| InxError::InvalidRawBytes(format!("{e:?}")))?,
+                .map_err(|e| InvalidRawBytesError(format!("{e:?}")))?,
         })
     }
 }

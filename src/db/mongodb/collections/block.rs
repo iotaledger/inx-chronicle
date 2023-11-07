@@ -1,9 +1,9 @@
-// Copyright 2022 IOTA Stiftung
+// Copyright 2023 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
 use futures::{Stream, TryStreamExt};
 use iota_sdk::types::{
-    api::core::{BlockMetadataResponse, BlockState},
+    api::core::BlockState,
     block::{
         output::OutputId, payload::signed_transaction::TransactionId, slot::SlotIndex, BlockId, SignedBlock,
         SignedBlockDto,
@@ -15,7 +15,6 @@ use mongodb::{
     options::{IndexOptions, InsertManyOptions},
     IndexModel,
 };
-use packable::PackableExt;
 use serde::{Deserialize, Serialize};
 use tracing::instrument;
 
@@ -26,7 +25,7 @@ use crate::{
         MongoDb,
     },
     inx::responses::BlockMetadata,
-    model::SerializeToBson,
+    model::{payload::transaction::input::InputDto, raw::Raw, SerializeToBson},
     tangle::sources::BlockData,
 };
 
@@ -36,12 +35,13 @@ pub struct BlockDocument {
     #[serde(rename = "_id")]
     block_id: BlockId,
     /// The block.
-    block: SignedBlockDto,
-    /// The raw bytes of the block.
-    #[serde(with = "serde_bytes")]
-    raw: Vec<u8>,
+    block: Raw<SignedBlock>,
     /// The block's metadata.
     metadata: BlockMetadata,
+    /// The index of the slot to which this block commits.
+    slot_index: SlotIndex,
+    /// Metadata about the possible transaction payload.
+    transaction: Option<TransactionMetadata>,
 }
 
 impl From<BlockData> for BlockDocument {
@@ -49,17 +49,33 @@ impl From<BlockData> for BlockDocument {
         BlockData {
             block_id,
             block,
-            raw,
             metadata,
         }: BlockData,
     ) -> Self {
+        let signed_block = block.clone().inner_unverified().unwrap();
+        let transaction = signed_block
+            .block()
+            .as_basic_opt()
+            .and_then(|b| b.payload())
+            .and_then(|p| p.as_signed_transaction_opt())
+            .map(|txn| TransactionMetadata {
+                transaction_id: txn.transaction().id(),
+                inputs: txn.transaction().inputs().iter().map(Into::into).collect(),
+            });
         Self {
             block_id,
-            block: (&block).into(),
-            raw,
+            slot_index: signed_block.slot_commitment_id().slot_index(),
+            block,
             metadata,
+            transaction,
         }
     }
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+struct TransactionMetadata {
+    transaction_id: TransactionId,
+    inputs: Vec<InputDto>,
 }
 
 /// The iota blocks collection.
@@ -83,13 +99,13 @@ impl MongoDbCollection for BlockCollection {
     async fn create_indexes(&self) -> Result<(), DbError> {
         self.create_index(
             IndexModel::builder()
-                .keys(doc! { "block.payload.transaction_id": 1 })
+                .keys(doc! { "transaction.transaction_id": 1 })
                 .options(
                     IndexOptions::builder()
                         .unique(true)
                         .name("transaction_id_index".to_string())
                         .partial_filter_expression(doc! {
-                            "block.payload.transaction_id": { "$exists": true },
+                            "transaction.transaction_id": { "$exists": true },
                             "metadata.block_state": { "$eq": BlockState::Finalized.to_bson() },
                         })
                         .build(),
@@ -101,10 +117,10 @@ impl MongoDbCollection for BlockCollection {
 
         self.create_index(
             IndexModel::builder()
-                .keys(doc! { "metadata.referenced_by_milestone_index": -1, "metadata.white_flag_index": 1, "metadata.inclusion_state": 1 })
+                .keys(doc! { "slot_index": -1, "metadata.inclusion_state": 1 })
                 .options(
                     IndexOptions::builder()
-                        .name("block_referenced_index_comp".to_string())
+                        .name("block_slot_index_comp".to_string())
                         .build(),
                 )
                 .build(),
@@ -126,13 +142,12 @@ pub struct IncludedBlockResult {
 pub struct IncludedBlockMetadataResult {
     #[serde(rename = "_id")]
     pub block_id: BlockId,
-    pub metadata: BlockMetadataResponse,
+    pub metadata: BlockMetadata,
 }
 
 #[derive(Deserialize)]
 struct RawResult {
-    #[serde(with = "serde_bytes")]
-    raw: Vec<u8>,
+    block: Raw<SignedBlock>,
 }
 
 #[derive(Deserialize)]
@@ -148,27 +163,27 @@ impl BlockCollection {
         Ok(self
             .get_block_raw(block_id)
             .await?
-            .map(|raw| SignedBlock::unpack_unverified(raw).unwrap()))
+            .map(|raw| raw.inner_unverified().unwrap()))
     }
 
     /// Get the raw bytes of a [`Block`] by its [`BlockId`].
-    pub async fn get_block_raw(&self, block_id: &BlockId) -> Result<Option<Vec<u8>>, DbError> {
+    pub async fn get_block_raw(&self, block_id: &BlockId) -> Result<Option<Raw<SignedBlock>>, DbError> {
         Ok(self
             .aggregate(
                 [
                     doc! { "$match": { "_id": block_id.to_bson() } },
-                    doc! { "$project": { "raw": 1 } },
+                    doc! { "$project": { "block": 1 } },
                 ],
                 None,
             )
             .await?
             .try_next()
             .await?
-            .map(|RawResult { raw }| raw))
+            .map(|RawResult { block }| block))
     }
 
     /// Get the metadata of a [`Block`] by its [`BlockId`].
-    pub async fn get_block_metadata(&self, block_id: &BlockId) -> Result<Option<BlockMetadataResponse>, DbError> {
+    pub async fn get_block_metadata(&self, block_id: &BlockId) -> Result<Option<BlockMetadata>, DbError> {
         Ok(self
             .aggregate(
                 [
@@ -312,7 +327,7 @@ impl BlockCollection {
                 [
                     doc! { "$match": {
                         "metadata.block_state": BlockState::Finalized.to_bson(),
-                        "block.payload.transaction_id": transaction_id.to_bson(),
+                        "transaction.transaction_id": transaction_id.to_bson(),
                     } },
                     doc! { "$project": { "block_id": "$_id", "block": 1 } },
                 ],
@@ -331,22 +346,22 @@ impl BlockCollection {
     pub async fn get_block_raw_for_transaction(
         &self,
         transaction_id: &TransactionId,
-    ) -> Result<Option<Vec<u8>>, DbError> {
+    ) -> Result<Option<Raw<SignedBlock>>, DbError> {
         Ok(self
             .aggregate(
                 [
                     doc! { "$match": {
                         "metadata.block_state": BlockState::Finalized.to_bson(),
-                        "block.payload.transaction_id": transaction_id.to_bson(),
+                        "transaction.transaction_id": transaction_id.to_bson(),
                     } },
-                    doc! { "$project": { "raw": 1 } },
+                    doc! { "$project": { "block": 1 } },
                 ],
                 None,
             )
             .await?
             .try_next()
             .await?
-            .map(|RawResult { raw }| raw))
+            .map(|RawResult { block }| block))
     }
 
     /// Finds the block metadata that included a transaction by [`TransactionId`].
@@ -359,7 +374,7 @@ impl BlockCollection {
                 [
                     doc! { "$match": {
                         "metadata.block_state": BlockState::Finalized.to_bson(),
-                        "block.payload.transaction_id": transaction_id.to_bson(),
+                        "transaction.transaction_id": transaction_id.to_bson(),
                     } },
                     doc! { "$project": {
                         "_id": 1,
@@ -380,15 +395,14 @@ impl BlockCollection {
                 [
                     doc! { "$match": {
                         "metadata.block_state": BlockState::Finalized.to_bson(),
-                        "block.payload.essence.inputs.transaction_id": output_id.transaction_id().to_bson(),
-                        "block.payload.essence.inputs.index": &(output_id.index() as i32)
+                        "inputs.output_id": output_id.to_bson(),
                     } },
-                    doc! { "$project": { "raw": 1 } },
+                    doc! { "$project": { "block": 1 } },
                 ],
                 None,
             )
             .await?
-            .map_ok(|RawResult { raw }| SignedBlock::unpack_unverified(raw).unwrap())
+            .map_ok(|RawResult { block }| block.inner_unverified().unwrap())
             .try_next()
             .await?)
     }
@@ -409,17 +423,17 @@ impl BlockCollection {
         &self,
         slot_index: SlotIndex,
         page_size: usize,
-        cursor: Option<u32>,
+        cursor: Option<BlockId>,
         sort: SortOrder,
     ) -> Result<impl Stream<Item = Result<BlocksBySlotResult, DbError>>, DbError> {
         let (sort, cmp) = match sort {
-            SortOrder::Newest => (doc! {"block.issuing_time": -1 }, "$lte"),
-            SortOrder::Oldest => (doc! {"block.issuing_time": 1 }, "$gte"),
+            SortOrder::Newest => (doc! {"slot_index": -1 }, "$lte"),
+            SortOrder::Oldest => (doc! {"slot_index": 1 }, "$gte"),
         };
 
-        let mut queries = vec![doc! { "block.latest_finalized_slot": slot_index.0 }];
-        if let Some(issuing_time) = cursor {
-            queries.push(doc! { "block.issuing_time": { cmp: issuing_time } });
+        let mut queries = vec![doc! { "slot_index": slot_index.0 }];
+        if let Some(block_id) = cursor {
+            queries.push(doc! { "_id": { cmp: block_id.to_bson() } });
         }
 
         Ok(self

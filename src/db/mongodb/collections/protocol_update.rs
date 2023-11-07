@@ -1,10 +1,11 @@
-// Copyright 2022 IOTA Stiftung
+// Copyright 2023 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
+use futures::{Stream, TryStreamExt};
 use iota_sdk::types::block::{protocol::ProtocolParameters, slot::EpochIndex};
 use mongodb::{
     bson::doc,
-    options::{FindOneOptions, UpdateOptions},
+    options::{FindOneOptions, FindOptions, UpdateOptions},
 };
 use serde::{Deserialize, Serialize};
 
@@ -63,14 +64,6 @@ impl ProtocolUpdateCollection {
             .await?)
     }
 
-    /// Gets the protocol parameters for the given milestone index, if they were changed.
-    pub async fn get_protocol_parameters_for_milestone_index(
-        &self,
-        epoch_index: EpochIndex,
-    ) -> Result<Option<ProtocolUpdateDocument>, DbError> {
-        Ok(self.find_one(doc! { "_id": epoch_index.0 }, None).await?)
-    }
-
     /// Gets the protocol parameters for a given protocol version.
     pub async fn get_protocol_parameters_for_version(
         &self,
@@ -79,6 +72,16 @@ impl ProtocolUpdateCollection {
         Ok(self
             .find_one(doc! { "parameters.version": version as i32 }, None)
             .await?)
+    }
+
+    /// Gets all protocol parameters by their start epoch.
+    pub async fn get_all_protocol_parameters(
+        &self,
+    ) -> Result<impl Stream<Item = Result<ProtocolUpdateDocument, DbError>>, DbError> {
+        Ok(self
+            .find(None, FindOptions::builder().sort(doc! { "_id": -1 }).build())
+            .await?
+            .map_err(Into::into))
     }
 
     /// Add the protocol parameters to the list if the protocol parameters have changed.

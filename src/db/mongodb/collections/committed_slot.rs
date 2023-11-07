@@ -1,19 +1,21 @@
-// Copyright 2022 IOTA Stiftung
+// Copyright 2023 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-use iota_sdk::types::block::slot::{SlotCommitmentId, SlotIndex};
+use futures::{Stream, TryStreamExt};
+use iota_sdk::types::block::slot::{SlotCommitment, SlotCommitmentId, SlotIndex};
 use mongodb::{
     bson::doc,
     options::{FindOneOptions, UpdateOptions},
 };
 use serde::{Deserialize, Serialize};
 
+use super::SortOrder;
 use crate::{
     db::{
         mongodb::{DbError, MongoDbCollection, MongoDbCollectionExt},
         MongoDb,
     },
-    model::SerializeToBson,
+    model::{raw::Raw, SerializeToBson},
 };
 
 /// The corresponding MongoDb document representation to store committed slots.
@@ -22,6 +24,7 @@ pub struct CommittedSlotDocument {
     #[serde(rename = "_id")]
     pub slot_index: SlotIndex,
     pub commitment_id: SlotCommitmentId,
+    pub raw: Raw<SlotCommitment>,
 }
 
 /// A collection to store committed slots.
@@ -58,16 +61,63 @@ impl CommittedSlotCollection {
             .map(|doc| doc.commitment_id))
     }
 
+    /// Gets the committed slot for the given slot index.
+    pub async fn get_commitment(&self, index: SlotIndex) -> Result<Option<CommittedSlotDocument>, DbError> {
+        Ok(self
+            .find_one::<CommittedSlotDocument>(doc! { "_id": index.0 }, None)
+            .await?)
+    }
+
+    /// Gets the paged committed slots for the given slot index range.
+    pub async fn get_commitments(
+        &self,
+        start_index: Option<SlotIndex>,
+        end_index: Option<SlotIndex>,
+        sort: SortOrder,
+        page_size: usize,
+        cursor: Option<SlotIndex>,
+    ) -> Result<impl Stream<Item = Result<CommittedSlotDocument, DbError>>, DbError> {
+        let (sort, cmp) = match sort {
+            SortOrder::Newest => (doc! {"_id": -1 }, "$lte"),
+            SortOrder::Oldest => (doc! {"_id": 1 }, "$gte"),
+        };
+
+        let mut queries = Vec::new();
+        if let Some(start_index) = start_index {
+            queries.push(doc! { "_id": { "$gte": start_index.0 } });
+        }
+        if let Some(end_index) = end_index {
+            queries.push(doc! { "_id": { "$lte": end_index.0 } });
+        }
+        if let Some(index) = cursor {
+            queries.push(doc! { "_id": { cmp: index.0 } });
+        }
+
+        Ok(self
+            .aggregate(
+                [
+                    doc! { "$match": { "$and": queries } },
+                    doc! { "$sort": sort },
+                    doc! { "$limit": page_size as i64 },
+                ],
+                None,
+            )
+            .await?
+            .map_err(Into::into))
+    }
+
     /// Inserts or updates a committed slot.
     pub async fn upsert_committed_slot(
         &self,
         slot_index: SlotIndex,
         commitment_id: SlotCommitmentId,
+        commitment: Raw<SlotCommitment>,
     ) -> Result<(), DbError> {
         self.update_one(
             doc! { "_id": slot_index.0 },
             doc! { "$set": {
-                    "commitment_id": commitment_id.to_bson()
+                    "commitment_id": commitment_id.to_bson(),
+                    "commitment": commitment.to_bson()
                 }
             },
             UpdateOptions::builder().upsert(true).build(),

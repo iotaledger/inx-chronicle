@@ -1,4 +1,4 @@
-// Copyright 2022 IOTA Stiftung
+// Copyright 2023 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
 use futures::stream::{Stream, StreamExt};
@@ -9,11 +9,11 @@ use packable::PackableExt;
 use super::{
     convert::TryConvertTo,
     ledger::{AcceptedTransaction, LedgerUpdate, UnspentOutput},
-    raw::Raw,
     request::SlotRangeRequest,
     responses::{self, BlockMetadata, Commitment, NodeConfiguration, NodeStatus, RootBlocks},
     InxError,
 };
+use crate::model::raw::Raw;
 
 /// An INX client connection.
 #[derive(Clone, Debug)]

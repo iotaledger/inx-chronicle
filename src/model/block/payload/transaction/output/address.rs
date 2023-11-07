@@ -1,16 +1,16 @@
-// Copyright 2022 IOTA Stiftung
+// Copyright 2023 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
 //! Module containing the [`Address`] types.
 
 use core::borrow::Borrow;
 
-use iota_sdk::{
-    types::block::{
-        address::{self as iota, Ed25519Address, ImplicitAccountCreationAddress, RestrictedAddress},
-        output::{AccountId, AnchorId, NftId},
+use iota_sdk::types::block::{
+    address::{
+        self as iota, AddressCapabilities, Ed25519Address, ImplicitAccountCreationAddress, MultiAddress,
+        RestrictedAddress,
     },
-    utils::serde::prefix_hex_bytes,
+    output::{AccountId, AnchorId, NftId},
 };
 use mongodb::bson::{doc, Bson};
 use serde::{Deserialize, Serialize};
@@ -31,17 +31,19 @@ pub enum AddressDto {
     ImplicitAccountCreation(ImplicitAccountCreationAddress),
     /// An address with restricted capabilities.
     Restricted {
-        address: RestrictedAddressDto,
-        // TODO: Use the real type
-        #[serde(with = "prefix_hex_bytes")]
-        allowed_capabilities: Box<[u8]>,
+        /// The inner address.
+        address: CoreAddressDto,
+        /// The allowed capabilities bit flags.
+        allowed_capabilities: AddressCapabilities,
     },
+    /// Multiple addresses with weights.
+    Multi(MultiAddressDto),
 }
 
 /// The different [`Address`] types supported by restricted addresses.
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Hash)]
 #[serde(rename_all = "snake_case")]
-pub enum RestrictedAddressDto {
+pub enum CoreAddressDto {
     /// An Ed25519 address.
     Ed25519(Ed25519Address),
     /// An account address.
@@ -50,6 +52,24 @@ pub enum RestrictedAddressDto {
     Nft(NftId),
     /// An anchor address.
     Anchor(AnchorId),
+}
+
+/// An address with an assigned weight.
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Hash)]
+pub struct WeightedAddressDto {
+    /// The unlocked address.
+    address: CoreAddressDto,
+    /// The weight of the unlocked address.
+    weight: u8,
+}
+
+/// An address that consists of addresses with weights and a threshold value.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Hash)]
+pub struct MultiAddressDto {
+    /// The weighted unlocked addresses.
+    addresses: Vec<WeightedAddressDto>,
+    /// The threshold that needs to be reached by the unlocked addresses in order to unlock the multi address.
+    threshold: u16,
 }
 
 impl<T: Borrow<iota::Address>> From<T> for AddressDto {
@@ -62,14 +82,31 @@ impl<T: Borrow<iota::Address>> From<T> for AddressDto {
             iota::Address::ImplicitAccountCreation(a) => Self::ImplicitAccountCreation(a.clone()),
             iota::Address::Restricted(a) => Self::Restricted {
                 address: match a.address() {
-                    iota::Address::Ed25519(a) => RestrictedAddressDto::Ed25519(a.clone()),
-                    iota::Address::Account(a) => RestrictedAddressDto::Account(a.into_account_id()),
-                    iota::Address::Nft(a) => RestrictedAddressDto::Nft(a.into_nft_id()),
-                    iota::Address::Anchor(a) => RestrictedAddressDto::Anchor(a.into_anchor_id()),
+                    iota::Address::Ed25519(a) => CoreAddressDto::Ed25519(a.clone()),
+                    iota::Address::Account(a) => CoreAddressDto::Account(a.into_account_id()),
+                    iota::Address::Nft(a) => CoreAddressDto::Nft(a.into_nft_id()),
+                    iota::Address::Anchor(a) => CoreAddressDto::Anchor(a.into_anchor_id()),
                     _ => unreachable!(),
                 },
-                allowed_capabilities: a.allowed_capabilities().iter().copied().collect(),
+                allowed_capabilities: a.allowed_capabilities().clone(),
             },
+            iota::Address::Multi(a) => Self::Multi(MultiAddressDto {
+                addresses: a
+                    .addresses()
+                    .iter()
+                    .map(|a| WeightedAddressDto {
+                        address: match a.address() {
+                            iota::Address::Ed25519(a) => CoreAddressDto::Ed25519(a.clone()),
+                            iota::Address::Account(a) => CoreAddressDto::Account(a.into_account_id()),
+                            iota::Address::Nft(a) => CoreAddressDto::Nft(a.into_nft_id()),
+                            iota::Address::Anchor(a) => CoreAddressDto::Anchor(a.into_anchor_id()),
+                            _ => unreachable!(),
+                        },
+                        weight: a.weight(),
+                    })
+                    .collect(),
+                threshold: a.threshold(),
+            }),
         }
     }
 }
@@ -86,15 +123,33 @@ impl From<AddressDto> for iota::Address {
                 address,
                 allowed_capabilities,
             } => Self::Restricted(Box::new(
-                // TODO: address capabilities
                 RestrictedAddress::new(match address {
-                    RestrictedAddressDto::Ed25519(a) => Self::Ed25519(a),
-                    RestrictedAddressDto::Account(a) => Self::Account(a.into()),
-                    RestrictedAddressDto::Nft(a) => Self::Nft(a.into()),
-                    RestrictedAddressDto::Anchor(a) => Self::Anchor(a.into()),
+                    CoreAddressDto::Ed25519(a) => Self::Ed25519(a),
+                    CoreAddressDto::Account(a) => Self::Account(a.into()),
+                    CoreAddressDto::Nft(a) => Self::Nft(a.into()),
+                    CoreAddressDto::Anchor(a) => Self::Anchor(a.into()),
                 })
-                .unwrap(),
+                .unwrap()
+                .with_allowed_capabilities(allowed_capabilities),
             )),
+            AddressDto::Multi(a) => Self::Multi(
+                MultiAddress::new(
+                    a.addresses.into_iter().map(|a| {
+                        todo!()
+                        // WeightedAddress::new(
+                        //     match address {
+                        //         CoreAddressDto::Ed25519(a) => Self::Ed25519(a),
+                        //         CoreAddressDto::Account(a) => Self::Account(a.into()),
+                        //         CoreAddressDto::Nft(a) => Self::Nft(a.into()),
+                        //         CoreAddressDto::Anchor(a) => Self::Anchor(a.into()),
+                        //     },
+                        //     a.weight,
+                        // )
+                    }),
+                    a.threshold,
+                )
+                .unwrap(),
+            ),
         }
     }
 }

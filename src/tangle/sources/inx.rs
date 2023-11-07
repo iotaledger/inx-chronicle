@@ -66,8 +66,7 @@ impl InputSource for Inx {
                 .and_then(|(block, metadata)| async move {
                     Ok(BlockData {
                         block_id: metadata.block_id,
-                        block: block.clone().inner_unverified()?.into(),
-                        raw: block.data(),
+                        block,
                         metadata: metadata,
                     })
                 }),

@@ -7,12 +7,15 @@ use std::{
 };
 
 use futures::{stream::BoxStream, Stream};
-use iota_sdk::types::block::slot::{SlotCommitmentId, SlotIndex};
+use iota_sdk::types::block::slot::{SlotCommitment, SlotCommitmentId, SlotIndex};
 
 use super::{sources::BlockData, InputSource};
-use crate::inx::{
-    ledger::LedgerUpdateStore,
-    responses::{Commitment, NodeConfiguration, ProtocolParameters},
+use crate::{
+    inx::{
+        ledger::LedgerUpdateStore,
+        responses::{Commitment, NodeConfiguration, ProtocolParameters},
+    },
+    model::raw::Raw,
 };
 
 #[allow(missing_docs)]
@@ -33,6 +36,11 @@ impl<'a, I: InputSource> Slot<'a, I> {
     /// Get the slot's commitment id.
     pub fn commitment_id(&self) -> SlotCommitmentId {
         self.commitment.commitment_id
+    }
+
+    /// Get the slot's raw commitment.
+    pub fn commitment(&self) -> &Raw<SlotCommitment> {
+        &self.commitment.commitment
     }
 }
 

@@ -1,19 +1,17 @@
-// Copyright 2022 IOTA Stiftung
+// Copyright 2023 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
 use std::str::FromStr;
 
 use axum::{extract::Path, routing::get, Extension};
-use chronicle::{
-    db::{
-        mongodb::collections::{
-            AliasOutputsQuery, BasicOutputsQuery, FoundryOutputsQuery, IndexedId, MilestoneCollection, NftOutputsQuery,
-            OutputCollection,
-        },
-        MongoDb,
+use chronicle::db::{
+    mongodb::collections::{
+        AliasOutputsQuery, BasicOutputsQuery, CommittedSlotCollection, FoundryOutputsQuery, IndexedId, NftOutputsQuery,
+        OutputCollection,
     },
-    model::utxo::{AliasId, FoundryId, NftId},
+    MongoDb,
 };
+use iota_sdk::types::block::output::{AccountId, FoundryId, NftId};
 use mongodb::bson;
 
 use super::{extractors::IndexedOutputsPagination, responses::IndexerOutputsResponse};
@@ -33,7 +31,7 @@ pub fn routes() -> Router {
                 "/alias",
                 Router::new()
                     .route("/", get(indexed_outputs::<AliasOutputsQuery>))
-                    .route("/:alias_id", get(indexed_output_by_id::<AliasId>)),
+                    .route("/:alias_id", get(indexed_output_by_id::<AccountId>)),
             )
             .nest(
                 "/foundry",
@@ -59,10 +57,11 @@ where
     RequestError: From<ID::Err>,
 {
     let ledger_index = database
-        .collection::<MilestoneCollection>()
-        .get_ledger_index()
+        .collection::<CommittedSlotCollection>()
+        .get_latest_committed_slot()
         .await?
-        .ok_or(MissingError::NoResults)?;
+        .ok_or(MissingError::NoResults)?
+        .slot_index;
     let id = ID::from_str(&id).map_err(RequestError::from)?;
     let res = database
         .collection::<OutputCollection>()
@@ -71,7 +70,7 @@ where
         .ok_or(MissingError::NoResults)?;
     Ok(IndexerOutputsResponse {
         ledger_index,
-        items: vec![res.output_id.to_hex()],
+        items: vec![res.output_id],
         cursor: None,
     })
 }
@@ -90,10 +89,11 @@ where
     bson::Document: From<Q>,
 {
     let ledger_index = database
-        .collection::<MilestoneCollection>()
-        .get_ledger_index()
+        .collection::<CommittedSlotCollection>()
+        .get_latest_committed_slot()
         .await?
-        .ok_or(MissingError::NoResults)?;
+        .ok_or(MissingError::NoResults)?
+        .slot_index;
     let res = database
         .collection::<OutputCollection>()
         .get_indexed_outputs(
@@ -110,7 +110,7 @@ where
     let mut iter = res.outputs.iter();
 
     // Take all of the requested records first
-    let items = iter.by_ref().take(page_size).map(|o| o.output_id.to_hex()).collect();
+    let items = iter.by_ref().take(page_size).map(|o| o.output_id).collect();
 
     // If any record is left, use it to make the cursor
     let cursor = iter.next().map(|rec| {

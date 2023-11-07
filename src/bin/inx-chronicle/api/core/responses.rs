@@ -1,20 +1,24 @@
-// Copyright 2022 IOTA Stiftung
+// Copyright 2023 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-use iota_sdk::types::{api::core::response as iota, block::protocol::ProtocolParameters};
+use iota_sdk::types::{
+    api::core::{BaseTokenResponse, ProtocolParametersResponse},
+    block::slot::SlotCommitmentId,
+};
 use serde::{Deserialize, Serialize};
 
 use crate::api::responses::impl_success_response;
 
 /// Response of `GET /api/info`.
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct InfoResponse {
     pub name: String,
     pub version: String,
-    pub status: iota::StatusResponse,
-    pub protocol: ProtocolParameters,
-    pub base_token: iota::BaseTokenResponse,
+    pub is_healthy: bool,
+    pub latest_commitment_id: SlotCommitmentId,
+    pub protocol_parameters: Vec<ProtocolParametersResponse>,
+    pub base_token: BaseTokenResponse,
 }
 
 impl_success_response!(InfoResponse);

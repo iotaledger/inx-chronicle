@@ -1,11 +1,11 @@
-// Copyright 2022 IOTA Stiftung
+// Copyright 2023 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
 //! Module that holds the entry point of the Chronicle application.
 
 /// Module containing the API.
-// #[cfg(feature = "api")]
-// mod api;
+#[cfg(feature = "api")]
+mod api;
 // mod cli;
 // mod config;
 #[cfg(feature = "inx")]

@@ -1,7 +1,6 @@
-// Copyright 2022 IOTA Stiftung
+// Copyright 2023 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-use iota_sdk::types::block::payload::milestone::MilestoneValidationError;
 use thiserror::Error;
 
 #[derive(Error, Debug)]
@@ -14,11 +13,9 @@ pub enum RequestError {
     #[error("Invalid JSON representation of given audit path")]
     MalformedJsonAuditPath,
     #[error("Block '{0}' was not referenced by a milestone")]
-    BlockNotReferenced(String),
+    BlockNotConfirmed(String),
     #[error("Block '{0}' was not applied to the ledger")]
     BlockNotApplied(String),
-    #[error("Invalid milestone: {0:?}")]
-    InvalidMilestone(MilestoneValidationError),
 }
 
 #[derive(Error, Debug)]

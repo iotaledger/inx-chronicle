@@ -1,4 +1,4 @@
-// Copyright 2022 IOTA Stiftung
+// Copyright 2023 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
 pub mod config;
@@ -221,7 +221,7 @@ impl InxWorker {
             info!(
                 "Setting starting index to {} with timestamp {}",
                 starting_index,
-                time::OffsetDateTime::from_unix_timestamp(slot_timestamp as _)?
+                time::OffsetDateTime::from_unix_timestamp_nanos(slot_timestamp as _)?
                     .format(&time::format_description::well_known::Rfc3339)?
             );
 
@@ -304,7 +304,7 @@ impl InxWorker {
         // This acts as a checkpoint for the syncing and has to be done last, after everything else completed.
         self.db
             .collection::<CommittedSlotCollection>()
-            .upsert_committed_slot(slot.index(), slot.commitment_id())
+            .upsert_committed_slot(slot.index(), slot.commitment_id(), slot.commitment().clone())
             .await?;
 
         Ok(())
