@@ -3,8 +3,9 @@
 
 use core::str::FromStr;
 
-use mongodb::bson::Bson;
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
+
+use super::*;
 
 /// A [`Tag`] associated with an [`Output`].
 #[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -12,6 +13,7 @@ use serde::{Deserialize, Serialize};
 pub struct Tag(#[serde(with = "serde_bytes")] Vec<u8>);
 
 impl Tag {
+    /// Creates a [`Tag`] from bytes.
     pub fn from_bytes(bytes: impl Into<Vec<u8>>) -> Self {
         Self(bytes.into())
     }

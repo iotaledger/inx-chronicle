@@ -262,18 +262,18 @@ pub async fn fill_analytics<I: 'static + InputSource + Clone>(
                         .await?;
 
                     let elapsed = start_time.elapsed();
-                    // #[cfg(feature = "metrics")]
-                    // {
-                    //     influx_db
-                    //         .metrics()
-                    //         .insert(chronicle::metrics::AnalyticsMetrics {
-                    //             time: chrono::Utc::now(),
-                    //             milestone_index: slot.at.milestone_index,
-                    //             analytics_time: elapsed.as_millis() as u64,
-                    //             chronicle_version: std::env!("CARGO_PKG_VERSION").to_string(),
-                    //         })
-                    //         .await?;
-                    // }
+                    #[cfg(feature = "metrics")]
+                    {
+                        influx_db
+                            .metrics()
+                            .insert(chronicle::metrics::AnalyticsMetrics {
+                                time: chrono::Utc::now(),
+                                slot_index: slot.slot_index().0,
+                                analytics_time: elapsed.as_millis() as u64,
+                                chronicle_version: std::env!("CARGO_PKG_VERSION").to_string(),
+                            })
+                            .await?;
+                    }
                     info!(
                         "Task {i} finished analytics for slot {} in {}ms.",
                         slot.slot_index(),

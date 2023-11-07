@@ -9,7 +9,7 @@ use futures::{Stream, StreamExt, TryStreamExt};
 use iota_sdk::types::{
     block::{
         address::Address,
-        output::{dto::OutputDto, Output, OutputId},
+        output::{dto::OutputDto, AccountId, Output, OutputId},
         payload::signed_transaction::TransactionId,
         slot::{SlotCommitmentId, SlotIndex},
         BlockId,
@@ -21,12 +21,12 @@ use mongodb::{
     options::{IndexOptions, InsertManyOptions},
     IndexModel,
 };
-use primitive_types::U256;
 use serde::{Deserialize, Serialize};
 use tracing::instrument;
 
 pub use self::indexer::{
-    AliasOutputsQuery, BasicOutputsQuery, FoundryOutputsQuery, IndexedId, NftOutputsQuery, OutputsResult,
+    AccountOutputsQuery, AnchorOutputsQuery, BasicOutputsQuery, DelegationOutputsQuery, FoundryOutputsQuery, IndexedId,
+    NftOutputsQuery, OutputsResult,
 };
 use super::ledger_update::{LedgerOutputRecord, LedgerSpentRecord};
 use crate::{
@@ -38,7 +38,7 @@ use crate::{
         MongoDb,
     },
     inx::ledger::{LedgerOutput, LedgerSpent},
-    model::{address::AddressDto, raw::Raw, tag::Tag, SerializeToBson},
+    model::{address::AddressDto, native_token::NativeTokenDto, raw::Raw, tag::Tag, SerializeToBson},
 };
 
 /// Chronicle Output record.
@@ -123,6 +123,7 @@ impl MongoDbCollection for OutputCollection {
 /// Precalculated info and other output details.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 struct OutputDetails {
+    kind: String,
     is_trivial_unlock: bool,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     indexed_id: Option<IndexedId>,
@@ -149,7 +150,12 @@ struct OutputDetails {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     block_issuer_expiry: Option<SlotIndex>,
     // TODO: staking feature
-    native_tokens: U256,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    native_tokens: Vec<NativeTokenDto>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    validator: Option<AccountId>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    account_address: Option<AccountId>,
 }
 
 impl From<&LedgerOutput> for OutputDocument {
@@ -164,6 +170,7 @@ impl From<&LedgerOutput> for OutputDocument {
                 spent_metadata: None,
             },
             details: OutputDetails {
+                kind: rec.kind().to_owned(),
                 is_trivial_unlock: rec
                     .output()
                     .unlock_conditions()
@@ -235,13 +242,18 @@ impl From<&LedgerOutput> for OutputDocument {
                     .features()
                     .and_then(|uc| uc.block_issuer())
                     .map(|uc| uc.expiry_slot()),
-                native_tokens: rec.output().native_tokens().into_iter().flat_map(|t| t.iter()).fold(
-                    Default::default(),
-                    |mut v, t| {
-                        v += t.amount();
-                        v
-                    },
-                ),
+                native_tokens: rec
+                    .output()
+                    .native_tokens()
+                    .into_iter()
+                    .flat_map(|t| t.iter())
+                    .map(Into::into)
+                    .collect(),
+                validator: rec
+                    .output()
+                    .as_delegation_opt()
+                    .map(|o| *o.validator_address().account_id()),
+                account_address: rec.output().as_foundry_opt().map(|o| *o.account_address().account_id()),
             },
         }
     }

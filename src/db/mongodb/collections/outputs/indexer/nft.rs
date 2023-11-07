@@ -1,13 +1,12 @@
 // Copyright 2023 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-use iota_sdk::types::block::{address::Address, slot::SlotIndex};
+use iota_sdk::types::block::{address::Address, output::TokenId, slot::SlotIndex};
 use mongodb::bson::{self, doc};
-use primitive_types::U256;
 
 use super::queries::{
     AddressQuery, AppendQuery, CreatedQuery, ExpirationQuery, IssuerQuery, NativeTokensQuery, SenderQuery,
-    StorageDepositReturnQuery, TagQuery, TimelockQuery,
+    StorageDepositReturnQuery, TagQuery, TimelockQuery, UnlockableByAddressQuery,
 };
 use crate::model::tag::Tag;
 
@@ -18,8 +17,7 @@ pub struct NftOutputsQuery {
     pub issuer: Option<Address>,
     pub sender: Option<Address>,
     pub has_native_tokens: Option<bool>,
-    pub min_native_token_count: Option<U256>,
-    pub max_native_token_count: Option<U256>,
+    pub native_token: Option<TokenId>,
     pub has_storage_deposit_return: Option<bool>,
     pub storage_deposit_return_address: Option<Address>,
     pub has_timelock: Option<bool>,
@@ -32,6 +30,7 @@ pub struct NftOutputsQuery {
     pub tag: Option<Tag>,
     pub created_before: Option<SlotIndex>,
     pub created_after: Option<SlotIndex>,
+    pub unlockable_by_address: Option<Address>,
 }
 
 impl From<NftOutputsQuery> for bson::Document {
@@ -43,8 +42,7 @@ impl From<NftOutputsQuery> for bson::Document {
         queries.append_query(SenderQuery(query.sender));
         queries.append_query(NativeTokensQuery {
             has_native_tokens: query.has_native_tokens,
-            min_native_token_count: query.min_native_token_count,
-            max_native_token_count: query.max_native_token_count,
+            native_token: query.native_token,
         });
         queries.append_query(StorageDepositReturnQuery {
             has_storage_return_condition: query.has_storage_deposit_return,
@@ -66,6 +64,7 @@ impl From<NftOutputsQuery> for bson::Document {
             created_before: query.created_before,
             created_after: query.created_after,
         });
+        queries.append_query(UnlockableByAddressQuery(query.unlockable_by_address));
         doc! { "$and": queries }
     }
 }

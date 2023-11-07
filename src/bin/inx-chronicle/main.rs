@@ -10,7 +10,6 @@ mod cli;
 mod config;
 #[cfg(feature = "inx")]
 mod inx;
-// mod migrations;
 mod process;
 
 use bytesize::ByteSize;
@@ -44,7 +43,7 @@ async fn main() -> eyre::Result<()> {
         ByteSize::b(db.size().await?)
     );
 
-    // check_migration_version(&db).await?;
+    // TODO: check migration here
 
     #[cfg(feature = "inx")]
     build_indexes(&db).await?;

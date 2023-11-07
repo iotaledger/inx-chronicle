@@ -6,12 +6,12 @@ use std::str::FromStr;
 use axum::{extract::Path, routing::get, Extension};
 use chronicle::db::{
     mongodb::collections::{
-        AliasOutputsQuery, BasicOutputsQuery, CommittedSlotCollection, FoundryOutputsQuery, IndexedId, NftOutputsQuery,
-        OutputCollection,
+        AccountOutputsQuery, AnchorOutputsQuery, BasicOutputsQuery, CommittedSlotCollection, DelegationOutputsQuery,
+        FoundryOutputsQuery, IndexedId, NftOutputsQuery, OutputCollection,
     },
     MongoDb,
 };
-use iota_sdk::types::block::output::{AccountId, FoundryId, NftId};
+use iota_sdk::types::block::output::{AccountId, AnchorId, DelegationId, FoundryId, NftId};
 use mongodb::bson;
 
 use super::{extractors::IndexedOutputsPagination, responses::IndexerOutputsResponse};
@@ -28,10 +28,16 @@ pub fn routes() -> Router {
         Router::new()
             .route("/basic", get(indexed_outputs::<BasicOutputsQuery>))
             .nest(
-                "/alias",
+                "/account",
                 Router::new()
-                    .route("/", get(indexed_outputs::<AliasOutputsQuery>))
-                    .route("/:alias_id", get(indexed_output_by_id::<AccountId>)),
+                    .route("/", get(indexed_outputs::<AccountOutputsQuery>))
+                    .route("/:account_id", get(indexed_output_by_id::<AccountId>)),
+            )
+            .nest(
+                "/anchor",
+                Router::new()
+                    .route("/", get(indexed_outputs::<AnchorOutputsQuery>))
+                    .route("/:anchor_id", get(indexed_output_by_id::<AnchorId>)),
             )
             .nest(
                 "/foundry",
@@ -44,6 +50,12 @@ pub fn routes() -> Router {
                 Router::new()
                     .route("/", get(indexed_outputs::<NftOutputsQuery>))
                     .route("/:nft_id", get(indexed_output_by_id::<NftId>)),
+            )
+            .nest(
+                "/delegation",
+                Router::new()
+                    .route("/", get(indexed_outputs::<DelegationOutputsQuery>))
+                    .route("/:delegation_id", get(indexed_output_by_id::<DelegationId>)),
             ),
     )
 }

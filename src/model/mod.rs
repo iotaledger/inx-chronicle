@@ -4,6 +4,7 @@
 //! Module that contains the types.
 
 pub mod address;
+pub mod native_token;
 pub mod raw;
 pub mod tag;
 

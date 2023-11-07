@@ -91,8 +91,6 @@ impl IntoResponse for ApiError {
 #[derive(Error, Debug)]
 #[allow(missing_docs)]
 pub enum CorruptStateError {
-    #[error("no milestone in the database")]
-    Milestone,
     #[cfg(feature = "poi")]
     #[error(transparent)]
     PoI(#[from] crate::api::poi::CorruptStateError),

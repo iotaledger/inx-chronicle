@@ -53,6 +53,17 @@ impl LedgerOutput {
             .and_then(|uc| uc.address())
             .map(|uc| uc.address())
     }
+
+    pub fn kind(&self) -> &str {
+        match self.output() {
+            Output::Basic(_) => "basic",
+            Output::Account(_) => "account",
+            Output::Anchor(_) => "anchor",
+            Output::Foundry(_) => "foundry",
+            Output::Nft(_) => "nft",
+            Output::Delegation(_) => "delegation",
+        }
+    }
 }
 
 /// A spent output according to the ledger.

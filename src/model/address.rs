@@ -161,34 +161,47 @@ impl From<AddressDto> for Bson {
     }
 }
 
-// #[cfg(all(test, feature = "rand"))]
-// mod test {
-//     use mongodb::bson::{from_bson, to_bson};
-//     use pretty_assertions::assert_eq;
+#[cfg(test)]
+mod test {
+    use iota_sdk::types::block::{
+        address::Address,
+        rand::address::{rand_account_address, rand_anchor_address, rand_ed25519_address, rand_nft_address},
+    };
+    use mongodb::bson::from_bson;
+    use pretty_assertions::assert_eq;
 
-//     use super::*;
+    use super::*;
+    use crate::model::SerializeToBson;
 
-//     #[test]
-//     fn test_ed25519_address_bson() {
-//         let address = AddressDto::rand_ed25519();
-//         let bson = to_bson(&address).unwrap();
-//         assert_eq!(Bson::from(address), bson);
-//         assert_eq!(address, from_bson::<AddressDto>(bson).unwrap());
-//     }
+    #[test]
+    fn test_ed25519_address_bson() {
+        let address = AddressDto::from(Address::from(rand_ed25519_address()));
+        let bson = address.to_bson();
+        assert_eq!(Bson::from(address.clone()), bson);
+        assert_eq!(address, from_bson::<AddressDto>(bson).unwrap());
+    }
 
-//     #[test]
-//     fn test_alias_address_bson() {
-//         let address = AddressDto::rand_alias();
-//         let bson = to_bson(&address).unwrap();
-//         assert_eq!(Bson::from(address), bson);
-//         assert_eq!(address, from_bson::<AddressDto>(bson).unwrap());
-//     }
+    #[test]
+    fn test_account_address_bson() {
+        let address = AddressDto::from(Address::from(rand_account_address()));
+        let bson = address.to_bson();
+        assert_eq!(Bson::from(address.clone()), bson);
+        assert_eq!(address, from_bson::<AddressDto>(bson).unwrap());
+    }
 
-//     #[test]
-//     fn test_nft_address_bson() {
-//         let address = AddressDto::rand_nft();
-//         let bson = to_bson(&address).unwrap();
-//         assert_eq!(Bson::from(address), bson);
-//         assert_eq!(address, from_bson::<AddressDto>(bson).unwrap());
-//     }
-// }
+    #[test]
+    fn test_nft_address_bson() {
+        let address = AddressDto::from(Address::from(rand_nft_address()));
+        let bson = address.to_bson();
+        assert_eq!(Bson::from(address.clone()), bson);
+        assert_eq!(address, from_bson::<AddressDto>(bson).unwrap());
+    }
+
+    #[test]
+    fn test_anchor_address_bson() {
+        let address = AddressDto::from(Address::from(rand_anchor_address()));
+        let bson = address.to_bson();
+        assert_eq!(Bson::from(address.clone()), bson);
+        assert_eq!(address, from_bson::<AddressDto>(bson).unwrap());
+    }
+}

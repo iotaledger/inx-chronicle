@@ -29,9 +29,9 @@ pub use self::{
     configuration_update::ConfigurationUpdateCollection,
     ledger_update::{LedgerUpdateByAddressRecord, LedgerUpdateBySlotRecord, LedgerUpdateCollection},
     outputs::{
-        AddressStat, AliasOutputsQuery, BasicOutputsQuery, DistributionStat, FoundryOutputsQuery, IndexedId,
-        NftOutputsQuery, OutputCollection, OutputMetadata, OutputMetadataResult, OutputWithMetadataResult,
-        OutputsResult, UtxoChangesResult,
+        AccountOutputsQuery, AddressStat, AnchorOutputsQuery, BasicOutputsQuery, DelegationOutputsQuery,
+        DistributionStat, FoundryOutputsQuery, IndexedId, NftOutputsQuery, OutputCollection, OutputMetadata,
+        OutputMetadataResult, OutputWithMetadataResult, OutputsResult, UtxoChangesResult,
     },
     protocol_update::ProtocolUpdateCollection,
 };

@@ -3,8 +3,8 @@
 
 pub mod config;
 mod error;
-// #[cfg(feature = "influx")]
-// mod influx;
+#[cfg(feature = "influx")]
+mod influx;
 
 use std::time::Duration;
 
@@ -73,16 +73,16 @@ impl InxWorker {
 
         let mut stream = tangle.slot_stream(start_index..).await?;
 
-        // #[cfg(feature = "analytics")]
-        // let mut analytics_info = influx::analytics::AnalyticsInfo::init(&self.db, self.influx_db.as_ref()).await?;
+        #[cfg(feature = "analytics")]
+        let mut analytics_info = influx::analytics::AnalyticsInfo::init(&self.db, self.influx_db.as_ref()).await?;
 
         debug!("Started listening to ledger updates via INX.");
 
         while let Some(slot) = stream.try_next().await? {
             self.handle_ledger_update(
                 slot,
-                // #[cfg(feature = "analytics")]
-                // analytics_info.as_mut(),
+                #[cfg(feature = "analytics")]
+                analytics_info.as_mut(),
             )
             .await?;
         }
@@ -249,10 +249,10 @@ impl InxWorker {
     async fn handle_ledger_update<'a>(
         &mut self,
         slot: Slot<'a, Inx>,
-        // #[cfg(feature = "analytics")] analytics_info: Option<&mut influx::analytics::AnalyticsInfo>,
+        #[cfg(feature = "analytics")] analytics_info: Option<&mut influx::analytics::AnalyticsInfo>,
     ) -> Result<()> {
-        // #[cfg(feature = "metrics")]
-        // let start_time = std::time::Instant::now();
+        #[cfg(feature = "metrics")]
+        let start_time = std::time::Instant::now();
 
         let mut tasks = JoinSet::new();
 
@@ -291,15 +291,15 @@ impl InxWorker {
             .upsert_node_configuration(slot.index(), slot.node_config.clone())
             .await?;
 
-        // #[cfg(feature = "influx")]
-        // self.update_influx(
-        //     &slot,
-        //     // #[cfg(feature = "analytics")]
-        //     // analytics_info,
-        //     #[cfg(feature = "metrics")]
-        //     start_time,
-        // )
-        // .await?;
+        #[cfg(feature = "influx")]
+        self.update_influx(
+            &slot,
+            #[cfg(feature = "analytics")]
+            analytics_info,
+            #[cfg(feature = "metrics")]
+            start_time,
+        )
+        .await?;
 
         // This acts as a checkpoint for the syncing and has to be done last, after everything else completed.
         self.db

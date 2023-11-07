@@ -1,8 +1,10 @@
 // Copyright 2023 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-mod alias;
+mod account;
+mod anchor;
 mod basic;
+mod delegation;
 mod foundry;
 mod nft;
 mod queries;
@@ -21,7 +23,8 @@ use mongodb::{
 use serde::{Deserialize, Serialize};
 
 pub use self::{
-    alias::AliasOutputsQuery, basic::BasicOutputsQuery, foundry::FoundryOutputsQuery, nft::NftOutputsQuery,
+    account::AccountOutputsQuery, anchor::AnchorOutputsQuery, basic::BasicOutputsQuery,
+    delegation::DelegationOutputsQuery, foundry::FoundryOutputsQuery, nft::NftOutputsQuery,
 };
 use super::{OutputCollection, OutputDocument};
 use crate::{

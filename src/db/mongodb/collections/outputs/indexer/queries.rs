@@ -1,9 +1,12 @@
 // Copyright 2023 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-use iota_sdk::types::block::{address::Address, slot::SlotIndex};
+use iota_sdk::types::block::{
+    address::Address,
+    output::{AccountId, TokenId},
+    slot::SlotIndex,
+};
 use mongodb::bson::{doc, Document};
-use primitive_types::U256;
 
 use crate::model::{address::AddressDto, tag::Tag, SerializeToBson};
 
@@ -64,33 +67,28 @@ impl AppendToQuery for TagQuery {
 /// Queries for native tokens.
 pub(super) struct NativeTokensQuery {
     pub(super) has_native_tokens: Option<bool>,
-    pub(super) min_native_token_count: Option<U256>,
-    pub(super) max_native_token_count: Option<U256>,
+    pub(super) native_token: Option<TokenId>,
 }
 
 impl AppendToQuery for NativeTokensQuery {
     fn append_to(self, queries: &mut Vec<Document>) {
         if let Some(false) = self.has_native_tokens {
             queries.push(doc! {
-                "details.native_tokens": 0
+                "details.native_tokens": { "$exists": false }
             });
         } else {
-            if matches!(self.has_native_tokens, Some(true))
-                || self.min_native_token_count.is_some()
-                || self.max_native_token_count.is_some()
-            {
+            if matches!(self.has_native_tokens, Some(true)) || self.native_token.is_some() {
                 queries.push(doc! {
-                    "details.native_tokens": { "$ne": 0 }
+                    "details.native_tokens": { "$exists": true }
                 });
             }
-            if let Some(min_native_token_count) = self.min_native_token_count {
+            if let Some(native_token) = self.native_token {
                 queries.push(doc! {
-                    "details.native_tokens": { "$gte": min_native_token_count.to_bson() }
-                });
-            }
-            if let Some(max_native_token_count) = self.max_native_token_count {
-                queries.push(doc! {
-                    "details.native_tokens": { "$lte": max_native_token_count.to_bson() }
+                    "details.native_tokens": {
+                        "$elemMatch": {
+                            "token_id": native_token.to_bson()
+                        }
+                    }
                 });
             }
         }
@@ -110,6 +108,33 @@ impl AppendToQuery for AddressQuery {
     }
 }
 
+/// Queries for an a unlocking address.
+pub(super) struct UnlockableByAddressQuery(pub(super) Option<Address>);
+
+impl AppendToQuery for UnlockableByAddressQuery {
+    fn append_to(self, queries: &mut Vec<Document>) {
+        if let Some(address) = self.0 {
+            queries.push(doc! {
+                "details.address": AddressDto::from(address),
+                // TODO: check other conditions
+            });
+        }
+    }
+}
+
+/// Queries for an unlock condition of type `state_controller`.
+pub(super) struct StateControllerQuery(pub(super) Option<Address>);
+
+impl AppendToQuery for StateControllerQuery {
+    fn append_to(self, queries: &mut Vec<Document>) {
+        if let Some(address) = self.0 {
+            queries.push(doc! {
+                "details.state_controller_address": AddressDto::from(address)
+            });
+        }
+    }
+}
+
 /// Queries for an unlock condition of type `governor_address`.
 pub(super) struct GovernorQuery(pub(super) Option<Address>);
 
@@ -118,6 +143,32 @@ impl AppendToQuery for GovernorQuery {
         if let Some(address) = self.0 {
             queries.push(doc! {
                 "details.governor_address": AddressDto::from(address)
+            });
+        }
+    }
+}
+
+/// Queries for a validator account.
+pub(super) struct ValidatorQuery(pub(super) Option<AccountId>);
+
+impl AppendToQuery for ValidatorQuery {
+    fn append_to(self, queries: &mut Vec<Document>) {
+        if let Some(account_id) = self.0 {
+            queries.push(doc! {
+                "details.validator": account_id.to_bson()
+            });
+        }
+    }
+}
+
+/// Queries for an account address.
+pub(super) struct AccountAddressQuery(pub(super) Option<AccountId>);
+
+impl AppendToQuery for AccountAddressQuery {
+    fn append_to(self, queries: &mut Vec<Document>) {
+        if let Some(account_id) = self.0 {
+            queries.push(doc! {
+                "details.account_address": account_id.to_bson()
             });
         }
     }
@@ -214,12 +265,12 @@ impl AppendToQuery for CreatedQuery {
     fn append_to(self, queries: &mut Vec<Document>) {
         if let Some(created_before) = self.created_before {
             queries.push(doc! {
-                "metadata.booked.milestone_timestamp": { "$lt": created_before.0 }
+                "metadata.slot_booked": { "$lt": created_before.0 }
             });
         }
         if let Some(created_after) = self.created_after {
             queries.push(doc! {
-                "metadata.booked.milestone_timestamp": { "$gt": created_after.0 }
+                "metadata.slot_booked": { "$gt": created_after.0 }
             });
         }
     }

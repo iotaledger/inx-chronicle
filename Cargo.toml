@@ -122,9 +122,6 @@ metrics = [
 poi = [
     "api",
 ]
-rand = [
-    "iota-sdk/rand",
-]
 
 [profile.production]
 inherits = "release"

@@ -14,8 +14,8 @@ pub mod analytics;
 pub mod db;
 #[cfg(feature = "inx")]
 pub mod inx;
-// #[cfg(feature = "metrics")]
-// pub mod metrics;
+#[cfg(feature = "metrics")]
+pub mod metrics;
 pub mod model;
 pub mod tangle;
 

@@ -41,8 +41,8 @@ pub fn routes() -> Router {
     #[allow(unused_mut)]
     let mut router = Router::new()
         .nest("/core/v3", super::core::routes())
-        .nest("/explorer/v2", super::explorer::routes())
-        .nest("/indexer/v1", super::indexer::routes());
+        .nest("/explorer/v3", super::explorer::routes())
+        .nest("/indexer/v2", super::indexer::routes());
 
     #[cfg(feature = "poi")]
     {

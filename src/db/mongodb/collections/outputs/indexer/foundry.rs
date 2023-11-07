@@ -1,19 +1,20 @@
 // Copyright 2023 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-use iota_sdk::types::block::{address::Address, slot::SlotIndex};
+use iota_sdk::types::block::{
+    output::{AccountId, TokenId},
+    slot::SlotIndex,
+};
 use mongodb::bson::{self, doc};
-use primitive_types::U256;
 
-use super::queries::{AddressQuery, AppendQuery, CreatedQuery, NativeTokensQuery};
+use super::queries::{AccountAddressQuery, AppendQuery, CreatedQuery, NativeTokensQuery};
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 #[allow(missing_docs)]
 pub struct FoundryOutputsQuery {
-    pub alias_address: Option<Address>,
+    pub account: Option<AccountId>,
     pub has_native_tokens: Option<bool>,
-    pub min_native_token_count: Option<U256>,
-    pub max_native_token_count: Option<U256>,
+    pub native_token: Option<TokenId>,
     pub created_before: Option<SlotIndex>,
     pub created_after: Option<SlotIndex>,
 }
@@ -22,11 +23,10 @@ impl From<FoundryOutputsQuery> for bson::Document {
     fn from(query: FoundryOutputsQuery) -> Self {
         let mut queries = Vec::new();
         queries.push(doc! { "output.kind": "foundry" });
-        queries.append_query(AddressQuery(query.alias_address));
+        queries.append_query(AccountAddressQuery(query.account));
         queries.append_query(NativeTokensQuery {
             has_native_tokens: query.has_native_tokens,
-            min_native_token_count: query.min_native_token_count,
-            max_native_token_count: query.max_native_token_count,
+            native_token: query.native_token,
         });
         queries.append_query(CreatedQuery {
             created_before: query.created_before,

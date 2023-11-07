@@ -15,6 +15,7 @@ use crate::db::influxdb::InfluxDbMeasurement;
 pub struct SyncMetrics {
     pub time: DateTime<Utc>,
     pub slot_index: u32,
+    pub slot_time: u64,
     #[influxdb(tag)]
     pub chronicle_version: String,
 }
@@ -25,6 +26,7 @@ pub struct SyncMetrics {
 pub struct AnalyticsMetrics {
     pub time: DateTime<Utc>,
     pub slot_index: u32,
+    pub analytics_time: u64,
     #[influxdb(tag)]
     pub chronicle_version: String,
 }
