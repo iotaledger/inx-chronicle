@@ -11,12 +11,12 @@ use iota_sdk::{
         mana::ManaAllotment,
         output::AccountId,
         payload::{
-            signed_transaction::{self as iota},
+            signed_transaction::{self as iota, TransactionCapabilities},
             Payload,
         },
         slot::SlotIndex,
     },
-    utils::serde::{prefix_hex_bytes, string},
+    utils::serde::string,
 };
 use serde::{Deserialize, Serialize};
 
@@ -59,9 +59,7 @@ pub struct TransactionDto {
     context_inputs: Vec<ContextInput>,
     inputs: Vec<InputDto>,
     mana_allotments: Vec<ManaAllotmentDto>,
-    // TODO: use real type
-    #[serde(with = "prefix_hex_bytes")]
-    capabilities: Box<[u8]>,
+    capabilities: TransactionCapabilities,
     payload: Option<TaggedDataPayloadDto>,
     #[serde(skip_serializing)]
     outputs: Vec<OutputDto>,
@@ -76,8 +74,7 @@ impl<T: Borrow<iota::Transaction>> From<T> for TransactionDto {
             context_inputs: value.context_inputs().iter().cloned().collect(),
             inputs: value.inputs().iter().map(Into::into).collect(),
             mana_allotments: value.mana_allotments().iter().map(Into::into).collect(),
-            // TODO
-            capabilities: Default::default(),
+            capabilities: value.capabilities().clone(),
             payload: value.payload().map(Payload::as_tagged_data).map(Into::into),
             outputs: value.outputs().iter().map(Into::into).collect(),
         }

@@ -87,14 +87,6 @@ impl Inx {
         Ok(futures::stream::empty())
     }
 
-    // /// TODO
-    // pub async fn force_commitment_until(&mut self, slot_index: SlotIndex) -> Result<(), InxError> {
-    //     self.inx
-    //         .force_commit_until(proto::SlotIndex { index: slot_index.0 })
-    //         .await?;
-    //     Ok(())
-    // }
-
     /// Get a block using a block id.
     pub async fn get_block(&mut self, block_id: BlockId) -> Result<Raw<SignedBlock>, InxError> {
         Ok(self
