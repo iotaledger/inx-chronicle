@@ -111,6 +111,10 @@ where
 
     fn take_measurement(&mut self, ctx: &dyn AnalyticsContext) -> Box<dyn PrepareQuery> {
         Box::new(PerSlot {
+            slot_timestamp: ctx.slot_index().to_timestamp(
+                ctx.protocol_params().genesis_unix_timestamp(),
+                ctx.protocol_params().slot_duration_in_seconds(),
+            ),
             slot_index: ctx.slot_index(),
             inner: Analytics::take_measurement(self, ctx),
         }) as _
@@ -380,6 +384,7 @@ impl std::fmt::Display for AnalyticsInterval {
 #[derive(Clone, Debug)]
 #[allow(missing_docs)]
 pub struct PerSlot<M> {
+    slot_timestamp: u64,
     slot_index: SlotIndex,
     inner: M,
 }
@@ -425,7 +430,7 @@ mod test {
             ledger::{LedgerOutput, LedgerSpent, LedgerUpdateStore},
             responses::{BlockMetadata, Commitment, NodeConfiguration},
         },
-        model::{payload::transaction::output::OutputDto, raw::Raw, TryFromDto},
+        model::raw::Raw,
         tangle::{
             sources::{memory::InMemoryData, BlockData, SlotData},
             Tangle,
@@ -728,7 +733,7 @@ mod test {
             pub block_id: BlockId,
             pub slot_booked: SlotIndex,
             pub commitment_id_included: SlotCommitmentId,
-            pub output: OutputDto,
+            pub output: Raw<Output>,
         }
 
         impl From<BsonLedgerOutput> for LedgerOutput {
@@ -738,7 +743,7 @@ mod test {
                     block_id: value.block_id,
                     slot_booked: value.slot_booked,
                     commitment_id_included: value.commitment_id_included,
-                    output: Output::try_from_dto(value.output).unwrap(),
+                    output: value.output.inner_unverified().unwrap(),
                 }
             }
         }

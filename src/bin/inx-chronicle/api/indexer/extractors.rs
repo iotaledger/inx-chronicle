@@ -10,7 +10,7 @@ use axum::{
 };
 use chronicle::{
     db::mongodb::collections::{AliasOutputsQuery, BasicOutputsQuery, FoundryOutputsQuery, NftOutputsQuery, SortOrder},
-    model::utxo::Tag,
+    model::tag::Tag,
 };
 use iota_sdk::types::block::{address::Bech32Address, output::OutputId, slot::SlotIndex};
 use mongodb::bson;

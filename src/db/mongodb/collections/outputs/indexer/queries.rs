@@ -5,10 +5,7 @@ use iota_sdk::types::block::{address::Address, slot::SlotIndex};
 use mongodb::bson::{doc, Document};
 use primitive_types::U256;
 
-use crate::model::{
-    payload::transaction::output::{AddressDto, Tag},
-    SerializeToBson,
-};
+use crate::model::{address::AddressDto, tag::Tag, SerializeToBson};
 
 /// Defines how a query is appended to a list of `$and` queries.
 pub(super) trait AppendToQuery {
@@ -32,12 +29,7 @@ impl AppendToQuery for IssuerQuery {
     fn append_to(self, queries: &mut Vec<Document>) {
         if let Some(address) = self.0 {
             queries.push(doc! {
-                "output.features": {
-                    "$elemMatch": {
-                        "kind": "issuer",
-                        "address": AddressDto::from(address)
-                    }
-                }
+                "details.issuer": AddressDto::from(address)
             });
         }
     }
@@ -50,12 +42,7 @@ impl AppendToQuery for SenderQuery {
     fn append_to(self, queries: &mut Vec<Document>) {
         if let Some(address) = self.0 {
             queries.push(doc! {
-                "output.features": {
-                    "$elemMatch": {
-                        "kind": "sender",
-                        "address": AddressDto::from(address)
-                    }
-                }
+                "details.sender": AddressDto::from(address)
             });
         }
     }
@@ -68,12 +55,7 @@ impl AppendToQuery for TagQuery {
     fn append_to(self, queries: &mut Vec<Document>) {
         if let Some(tag) = self.0 {
             queries.push(doc! {
-                "output.features": {
-                    "$elemMatch": {
-                        "kind": "tag",
-                        "data": tag,
-                    }
-                }
+                "details.tag": tag
             });
         }
     }
@@ -90,7 +72,7 @@ impl AppendToQuery for NativeTokensQuery {
     fn append_to(self, queries: &mut Vec<Document>) {
         if let Some(false) = self.has_native_tokens {
             queries.push(doc! {
-                "output.native_tokens": { "$eq": [] }
+                "details.native_tokens": 0
             });
         } else {
             if matches!(self.has_native_tokens, Some(true))
@@ -98,33 +80,17 @@ impl AppendToQuery for NativeTokensQuery {
                 || self.max_native_token_count.is_some()
             {
                 queries.push(doc! {
-                    "output.native_tokens": { "$ne": [] }
+                    "details.native_tokens": { "$ne": 0 }
                 });
             }
             if let Some(min_native_token_count) = self.min_native_token_count {
                 queries.push(doc! {
-                    "output.native_tokens": {
-                        "$not": {
-                            "$elemMatch": {
-                                "amount": {
-                                    "$lt": min_native_token_count.to_bson()
-                                }
-                            }
-                        }
-                    }
+                    "details.native_tokens": { "$gte": min_native_token_count.to_bson() }
                 });
             }
             if let Some(max_native_token_count) = self.max_native_token_count {
                 queries.push(doc! {
-                    "output.native_tokens": {
-                        "$not": {
-                            "$elemMatch": {
-                                "amount": {
-                                    "$gt": max_native_token_count.to_bson()
-                                }
-                            }
-                        }
-                    }
+                    "details.native_tokens": { "$lte": max_native_token_count.to_bson() }
                 });
             }
         }
@@ -151,7 +117,7 @@ impl AppendToQuery for GovernorQuery {
     fn append_to(self, queries: &mut Vec<Document>) {
         if let Some(address) = self.0 {
             queries.push(doc! {
-                "output.governor_address_unlock_condition.address": AddressDto::from(address)
+                "details.governor_address": AddressDto::from(address)
             });
         }
     }
@@ -167,12 +133,12 @@ impl AppendToQuery for StorageDepositReturnQuery {
     fn append_to(self, queries: &mut Vec<Document>) {
         if let Some(has_storage_return_condition) = self.has_storage_return_condition {
             queries.push(doc! {
-                "output.storage_deposit_return_unlock_condition": { "$exists": has_storage_return_condition }
+                "details.storage_deposit_return_address": { "$exists": has_storage_return_condition }
             });
         }
-        if let Some(storage_return_address) = self.storage_return_address {
+        if let Some(address) = self.storage_return_address {
             queries.push(doc! {
-                "output.storage_deposit_return_unlock_condition.return_address": AddressDto::from(storage_return_address)
+                "details.storage_deposit_return_address": AddressDto::from(address)
             });
         }
     }
@@ -189,17 +155,17 @@ impl AppendToQuery for TimelockQuery {
     fn append_to(self, queries: &mut Vec<Document>) {
         if let Some(has_timelock_condition) = self.has_timelock_condition {
             queries.push(doc! {
-                "output.timelock_unlock_condition": { "$exists": has_timelock_condition }
+                "details.timelock": { "$exists": has_timelock_condition }
             });
         }
         if let Some(timelocked_before) = self.timelocked_before {
             queries.push(doc! {
-                "output.timelock_unlock_condition.timestamp": { "$lt": timelocked_before.0 }
+                "details.timelock": { "$lt": timelocked_before.0 }
             });
         }
         if let Some(timelocked_after) = self.timelocked_after {
             queries.push(doc! {
-                "output.timelock_unlock_condition.timestamp": { "$gt": timelocked_after.0 }
+                "details.timelock": { "$gt": timelocked_after.0 }
             });
         }
     }
@@ -230,9 +196,9 @@ impl AppendToQuery for ExpirationQuery {
                 "output.expiration_unlock_condition.timestamp": { "$gt": expires_after.0 }
             });
         }
-        if let Some(expiration_return_address) = self.expiration_return_address {
+        if let Some(address) = self.expiration_return_address {
             queries.push(doc! {
-                "output.expiration_unlock_condition.return_address": AddressDto::from(expiration_return_address)
+                "output.expiration_unlock_condition.return_address": AddressDto::from(address)
             });
         }
     }

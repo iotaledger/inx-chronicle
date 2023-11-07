@@ -18,6 +18,13 @@ pub struct Raw<T: Packable> {
 }
 
 impl<T: Packable> Raw<T> {
+    pub fn from_bytes(bytes: impl Into<Vec<u8>>) -> Self {
+        Self {
+            data: bytes.into(),
+            _phantom: PhantomData,
+        }
+    }
+
     /// Retrieves the underlying raw data.
     #[must_use]
     pub fn data(self) -> Vec<u8> {
@@ -39,12 +46,9 @@ impl<T: Packable> Raw<T> {
     }
 }
 
-impl<T: Packable> From<Vec<u8>> for Raw<T> {
-    fn from(value: Vec<u8>) -> Self {
-        Self {
-            data: value,
-            _phantom: PhantomData,
-        }
+impl<T: Packable> From<T> for Raw<T> {
+    fn from(value: T) -> Self {
+        Self::from_bytes(value.pack_to_vec())
     }
 }
 
@@ -62,6 +66,6 @@ impl<'de, T: Packable> Deserialize<'de> for Raw<T> {
     where
         D: serde::Deserializer<'de>,
     {
-        serde_bytes::deserialize::<Vec<u8>, _>(deserializer).map(Into::into)
+        serde_bytes::deserialize::<Vec<u8>, _>(deserializer).map(Raw::from_bytes)
     }
 }

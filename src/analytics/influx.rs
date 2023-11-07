@@ -62,13 +62,12 @@ where
     M: Measurement,
 {
     fn prepare_query(&self) -> Vec<WriteQuery> {
-        todo!()
-        // vec![
-        //     influxdb::Timestamp::from(self.slot_index)
-        //         .into_query(M::NAME)
-        //         .add_field("slot_index", self.slot_index.0)
-        //         .add_fields(&self.inner),
-        // ]
+        vec![
+            influxdb::Timestamp::from(influxdb::Timestamp::Nanoseconds(self.slot_timestamp as _))
+                .into_query(M::NAME)
+                .add_field("slot_index", self.slot_index.0)
+                .add_fields(&self.inner),
+        ]
     }
 }
 
@@ -87,6 +86,7 @@ where
             .iter()
             .flat_map(|inner| {
                 PerSlot {
+                    slot_timestamp: self.slot_timestamp,
                     slot_index: self.slot_index,
                     inner,
                 }

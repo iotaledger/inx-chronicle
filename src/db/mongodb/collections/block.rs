@@ -25,7 +25,7 @@ use crate::{
         MongoDb,
     },
     inx::responses::BlockMetadata,
-    model::{payload::transaction::input::InputDto, raw::Raw, SerializeToBson},
+    model::{raw::Raw, SerializeToBson},
     tangle::sources::BlockData,
 };
 
@@ -40,6 +40,8 @@ pub struct BlockDocument {
     metadata: BlockMetadata,
     /// The index of the slot to which this block commits.
     slot_index: SlotIndex,
+    /// The block's payload type.
+    payload_type: Option<u8>,
     /// Metadata about the possible transaction payload.
     transaction: Option<TransactionMetadata>,
 }
@@ -60,11 +62,21 @@ impl From<BlockData> for BlockDocument {
             .and_then(|p| p.as_signed_transaction_opt())
             .map(|txn| TransactionMetadata {
                 transaction_id: txn.transaction().id(),
-                inputs: txn.transaction().inputs().iter().map(Into::into).collect(),
+                inputs: txn
+                    .transaction()
+                    .inputs()
+                    .iter()
+                    .map(|i| *i.as_utxo().output_id())
+                    .collect(),
             });
         Self {
             block_id,
             slot_index: signed_block.slot_commitment_id().slot_index(),
+            payload_type: signed_block
+                .block()
+                .as_basic_opt()
+                .and_then(|b| b.payload())
+                .map(|p| p.kind()),
             block,
             metadata,
             transaction,
@@ -75,7 +87,7 @@ impl From<BlockData> for BlockDocument {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 struct TransactionMetadata {
     transaction_id: TransactionId,
-    inputs: Vec<InputDto>,
+    inputs: Vec<OutputId>,
 }
 
 /// The iota blocks collection.
@@ -413,8 +425,7 @@ impl BlockCollection {
 pub struct BlocksBySlotResult {
     #[serde(rename = "_id")]
     pub block_id: BlockId,
-    pub payload_kind: Option<String>,
-    pub issuing_time: u64,
+    pub payload_type: Option<u8>,
 }
 
 impl BlockCollection {
@@ -444,8 +455,7 @@ impl BlockCollection {
                     doc! { "$limit": page_size as i64 },
                     doc! { "$project": {
                         "_id": 1,
-                        "payload_kind": "$block.payload.kind",
-                        "issuing_time": "$block.issuing_time"
+                        "payload_type": 1,
                     } },
                 ],
                 None,

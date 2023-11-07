@@ -28,8 +28,8 @@ impl Analytics for BaseTokenActivityMeasurement {
 
         // We first gather all tokens that have been moved to an individual address.
         for output in created {
-            if let Some(a) = output.owning_address() {
-                *balance_deltas.entry(a.to_bech32(hrp)).or_default() += output.amount() as i128;
+            if let Some(a) = output.address() {
+                *balance_deltas.entry(a.clone().to_bech32(hrp)).or_default() += output.amount() as i128;
             }
         }
 
@@ -37,8 +37,8 @@ impl Analytics for BaseTokenActivityMeasurement {
 
         // Afterwards, we subtract the tokens from that address to get the actual deltas of each account.
         for output in consumed {
-            if let Some(a) = output.owning_address() {
-                *balance_deltas.entry(a.to_bech32(hrp)).or_default() -= output.amount() as i128;
+            if let Some(a) = output.address() {
+                *balance_deltas.entry(a.clone().to_bech32(hrp)).or_default() -= output.amount() as i128;
             }
         }
 

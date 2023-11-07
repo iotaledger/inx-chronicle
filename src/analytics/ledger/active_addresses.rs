@@ -47,14 +47,14 @@ impl Analytics for AddressActivityAnalytics {
     fn handle_transaction(&mut self, consumed: &[LedgerSpent], created: &[LedgerOutput], ctx: &dyn AnalyticsContext) {
         let hrp = ctx.protocol_params().bech32_hrp();
         for output in consumed {
-            if let Some(a) = output.owning_address() {
-                self.addresses.insert(a.to_bech32(hrp));
+            if let Some(a) = output.address() {
+                self.addresses.insert(a.clone().to_bech32(hrp));
             }
         }
 
         for output in created {
-            if let Some(a) = output.owning_address() {
-                self.addresses.insert(a.to_bech32(hrp));
+            if let Some(a) = output.address() {
+                self.addresses.insert(a.clone().to_bech32(hrp));
             }
         }
     }

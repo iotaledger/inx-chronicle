@@ -3,7 +3,7 @@
 
 use futures::{Stream, TryStreamExt};
 use iota_sdk::types::block::{
-    address::{Address, Bech32Address},
+    address::Address,
     output::{Output, OutputId},
     payload::signed_transaction::TransactionId,
     slot::{SlotCommitmentId, SlotIndex},
@@ -24,10 +24,7 @@ use crate::{
         MongoDb,
     },
     inx::ledger::{LedgerOutput, LedgerSpent},
-    model::{
-        payload::transaction::output::{AddressDto, OutputDto},
-        SerializeToBson, TryFromDto,
-    },
+    model::{address::AddressDto, raw::Raw, SerializeToBson},
 };
 
 /// Contains all information related to an output.
@@ -44,7 +41,7 @@ pub struct LedgerOutputRecord {
     pub block_id: BlockId,
     pub slot_booked: SlotIndex,
     pub commitment_id_included: SlotCommitmentId,
-    pub output: OutputDto,
+    pub output: Raw<Output>,
 }
 
 impl From<LedgerOutputRecord> for LedgerOutput {
@@ -54,7 +51,7 @@ impl From<LedgerOutputRecord> for LedgerOutput {
             block_id: value.block_id,
             slot_booked: value.slot_booked,
             commitment_id_included: value.commitment_id_included,
-            output: Output::try_from_dto(value.output).unwrap(),
+            output: value.output.inner_unverified().unwrap(),
         }
     }
 }
@@ -151,7 +148,7 @@ impl LedgerUpdateCollection {
     {
         let ledger_updates = outputs.into_iter().filter_map(|LedgerSpent { output, .. }| {
             // Ledger updates
-            output.owning_address().map(|address| LedgerUpdateDocument {
+            output.address().map(|address| LedgerUpdateDocument {
                 _id: LedgerUpdateByAddressRecord {
                     slot_index: output.slot_booked,
                     output_id: output.output_id,
@@ -175,7 +172,7 @@ impl LedgerUpdateCollection {
     {
         let ledger_updates = outputs.into_iter().filter_map(|output| {
             // Ledger updates
-            output.owning_address().map(|address| LedgerUpdateDocument {
+            output.address().map(|address| LedgerUpdateDocument {
                 _id: LedgerUpdateByAddressRecord {
                     slot_index: output.slot_booked,
                     output_id: output.output_id,

@@ -40,8 +40,8 @@ impl AddressBalancesAnalytics {
         let hrp = protocol_params.bech32_hrp();
         let mut balances = HashMap::new();
         for output in unspent_outputs {
-            if let Some(a) = output.owning_address() {
-                *balances.entry(a.to_bech32(hrp)).or_default() += output.amount();
+            if let Some(a) = output.address() {
+                *balances.entry(a.clone().to_bech32(hrp)).or_default() += output.amount();
             }
         }
         Self { balances }
@@ -54,8 +54,8 @@ impl Analytics for AddressBalancesAnalytics {
     fn handle_transaction(&mut self, consumed: &[LedgerSpent], created: &[LedgerOutput], ctx: &dyn AnalyticsContext) {
         let hrp = ctx.protocol_params().bech32_hrp();
         for output in consumed {
-            if let Some(a) = output.owning_address() {
-                let a = a.to_bech32(hrp);
+            if let Some(a) = output.address() {
+                let a = a.clone().to_bech32(hrp);
                 // All inputs should be present in `addresses`. If not, we skip it's value.
                 if let Some(amount) = self.balances.get_mut(&a) {
                     *amount -= output.amount();
@@ -67,9 +67,9 @@ impl Analytics for AddressBalancesAnalytics {
         }
 
         for output in created {
-            if let Some(a) = output.owning_address() {
+            if let Some(a) = output.address() {
                 // All inputs should be present in `addresses`. If not, we skip it's value.
-                *self.balances.entry(a.to_bech32(hrp)).or_default() += output.amount();
+                *self.balances.entry(a.clone().to_bech32(hrp)).or_default() += output.amount();
             }
         }
     }

@@ -2,15 +2,11 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use axum::{extract::Path, routing::get, Extension};
-use chronicle::{
-    db::{
-        mongodb::collections::{
-            BlockCollection, CommittedSlotCollection, LedgerUpdateCollection, OutputCollection,
-            ProtocolUpdateCollection,
-        },
-        MongoDb,
+use chronicle::db::{
+    mongodb::collections::{
+        BlockCollection, CommittedSlotCollection, LedgerUpdateCollection, OutputCollection, ProtocolUpdateCollection,
     },
-    model::payload::{SignedTransactionPayloadDto, TaggedDataPayloadDto},
+    MongoDb,
 };
 use futures::{StreamExt, TryStreamExt};
 use iota_sdk::types::block::{
@@ -253,11 +249,7 @@ async fn blocks_by_slot_index(
         .take(page_size)
         .map_ok(|rec| BlockPayloadTypeDto {
             block_id: rec.block_id,
-            payload_kind: rec.payload_kind.map(|kind| match kind.as_str() {
-                SignedTransactionPayloadDto::KIND => iota_sdk::types::block::payload::SignedTransactionPayload::KIND,
-                TaggedDataPayloadDto::KIND => iota_sdk::types::block::payload::TaggedDataPayload::KIND,
-                _ => panic!("Unknown payload type."),
-            }),
+            payload_kind: rec.payload_type,
         })
         .try_collect()
         .await?;

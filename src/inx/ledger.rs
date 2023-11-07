@@ -39,27 +39,19 @@ impl LedgerOutput {
         self.output_id
     }
 
+    pub fn output(&self) -> &Output {
+        &self.output
+    }
+
     pub fn amount(&self) -> u64 {
-        self.output.amount()
+        self.output().amount()
     }
 
-    pub fn owning_address(&self) -> Option<Address> {
-        match &self.output {
-            Output::Basic(o) => Some(o.address().clone()),
-            Output::Account(o) => Some(o.address().clone()),
-            Output::Foundry(o) => Some(o.account_address().clone().into()),
-            Output::Nft(o) => Some(o.address().clone()),
-            Output::Delegation(o) => Some(o.address().clone()),
-            Output::Anchor(o) => Some(o.state_controller_address().clone()),
-        }
-    }
-
-    /// Checks if an output is trivially unlockable by only providing a signature.
-    pub fn is_trivial_unlock(&self) -> bool {
-        self.output
+    pub fn address(&self) -> Option<&Address> {
+        self.output()
             .unlock_conditions()
-            .map(|uc| uc.storage_deposit_return().is_none() && uc.timelock().is_none() && uc.expiration().is_none())
-            .unwrap_or(true)
+            .and_then(|uc| uc.address())
+            .map(|uc| uc.address())
     }
 }
 
@@ -79,16 +71,16 @@ impl LedgerSpent {
         self.output.output_id
     }
 
+    pub fn output(&self) -> &Output {
+        &self.output.output()
+    }
+
     pub fn amount(&self) -> u64 {
-        self.output.amount()
+        self.output().amount()
     }
 
-    pub fn owning_address(&self) -> Option<Address> {
-        self.output.owning_address()
-    }
-
-    pub fn is_trivial_unlock(&self) -> bool {
-        self.output.is_trivial_unlock()
+    pub fn address(&self) -> Option<&Address> {
+        self.output.address()
     }
 }
 

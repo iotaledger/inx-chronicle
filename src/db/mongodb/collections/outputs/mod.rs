@@ -9,7 +9,7 @@ use futures::{Stream, StreamExt, TryStreamExt};
 use iota_sdk::types::{
     block::{
         address::Address,
-        output::{dto::OutputDto, AccountId, AnchorId, DelegationId, NftId, Output, OutputId},
+        output::{dto::OutputDto, Output, OutputId},
         payload::signed_transaction::TransactionId,
         slot::{SlotCommitmentId, SlotIndex},
         BlockId,
@@ -21,6 +21,7 @@ use mongodb::{
     options::{IndexOptions, InsertManyOptions},
     IndexModel,
 };
+use primitive_types::U256;
 use serde::{Deserialize, Serialize};
 use tracing::instrument;
 
@@ -37,7 +38,7 @@ use crate::{
         MongoDb,
     },
     inx::ledger::{LedgerOutput, LedgerSpent},
-    model::SerializeToBson,
+    model::{address::AddressDto, raw::Raw, tag::Tag, SerializeToBson},
 };
 
 /// Chronicle Output record.
@@ -45,7 +46,7 @@ use crate::{
 pub struct OutputDocument {
     #[serde(rename = "_id")]
     output_id: OutputId,
-    output: OutputDto,
+    output: Raw<Output>,
     metadata: OutputMetadata,
     details: OutputDetails,
 }
@@ -122,21 +123,40 @@ impl MongoDbCollection for OutputCollection {
 /// Precalculated info and other output details.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 struct OutputDetails {
-    #[serde(skip_serializing_if = "Option::is_none")]
-    address: Option<Address>,
     is_trivial_unlock: bool,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     indexed_id: Option<IndexedId>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    address: Option<AddressDto>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    governor_address: Option<AddressDto>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    state_controller_address: Option<AddressDto>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    storage_deposit_return_address: Option<AddressDto>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    timelock: Option<SlotIndex>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    expiration: Option<SlotIndex>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    expiration_return_address: Option<AddressDto>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    issuer: Option<AddressDto>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    sender: Option<AddressDto>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    tag: Option<Tag>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    block_issuer_expiry: Option<SlotIndex>,
+    // TODO: staking feature
+    native_tokens: U256,
 }
 
 impl From<&LedgerOutput> for OutputDocument {
     fn from(rec: &LedgerOutput) -> Self {
-        let address = rec.owning_address();
-        let is_trivial_unlock = rec.is_trivial_unlock();
-
         Self {
             output_id: rec.output_id,
-            output: (&rec.output).into(),
+            output: rec.output.clone().into(),
             metadata: OutputMetadata {
                 block_id: rec.block_id,
                 slot_booked: rec.slot_booked,
@@ -144,44 +164,84 @@ impl From<&LedgerOutput> for OutputDocument {
                 spent_metadata: None,
             },
             details: OutputDetails {
-                address,
-                is_trivial_unlock,
-                indexed_id: match &rec.output {
-                    Output::Account(output) => Some(
-                        if output.account_id() == &AccountId::null() {
-                            AccountId::from(&rec.output_id)
-                        } else {
-                            *output.account_id()
-                        }
-                        .into(),
-                    ),
-                    Output::Anchor(output) => Some(
-                        if output.anchor_id() == &AnchorId::null() {
-                            AnchorId::from(&rec.output_id)
-                        } else {
-                            *output.anchor_id()
-                        }
-                        .into(),
-                    ),
-                    Output::Nft(output) => Some(
-                        if output.nft_id() == &NftId::null() {
-                            NftId::from(&rec.output_id)
-                        } else {
-                            *output.nft_id()
-                        }
-                        .into(),
-                    ),
-                    Output::Delegation(output) => Some(
-                        if output.delegation_id() == &DelegationId::null() {
-                            DelegationId::from(&rec.output_id)
-                        } else {
-                            *output.delegation_id()
-                        }
-                        .into(),
-                    ),
+                is_trivial_unlock: rec
+                    .output()
+                    .unlock_conditions()
+                    .map(|uc| {
+                        uc.storage_deposit_return().is_none() && uc.expiration().is_none() && uc.timelock().is_none()
+                    })
+                    .unwrap_or(true),
+                indexed_id: match rec.output() {
+                    Output::Account(output) => Some(output.account_id_non_null(&rec.output_id).into()),
+                    Output::Anchor(output) => Some(output.anchor_id_non_null(&rec.output_id).into()),
+                    Output::Nft(output) => Some(output.nft_id_non_null(&rec.output_id).into()),
+                    Output::Delegation(output) => Some(output.delegation_id_non_null(&rec.output_id).into()),
                     Output::Foundry(output) => Some(output.id().into()),
                     _ => None,
                 },
+                address: rec
+                    .output()
+                    .unlock_conditions()
+                    .and_then(|uc| uc.address())
+                    .map(|uc| uc.address().into()),
+                governor_address: rec
+                    .output()
+                    .unlock_conditions()
+                    .and_then(|uc| uc.governor_address())
+                    .map(|uc| uc.address().into()),
+                state_controller_address: rec
+                    .output()
+                    .unlock_conditions()
+                    .and_then(|uc| uc.state_controller_address())
+                    .map(|uc| uc.address().into()),
+                storage_deposit_return_address: rec
+                    .output()
+                    .unlock_conditions()
+                    .and_then(|uc| uc.storage_deposit_return())
+                    .map(|uc| uc.return_address().into()),
+                timelock: rec
+                    .output()
+                    .unlock_conditions()
+                    .and_then(|uc| uc.timelock())
+                    .map(|uc| uc.slot_index()),
+                expiration: rec
+                    .output()
+                    .unlock_conditions()
+                    .and_then(|uc| uc.expiration())
+                    .map(|uc| uc.slot_index()),
+                expiration_return_address: rec
+                    .output()
+                    .unlock_conditions()
+                    .and_then(|uc| uc.expiration())
+                    .map(|uc| uc.return_address().into()),
+                issuer: rec
+                    .output()
+                    .features()
+                    .and_then(|uc| uc.issuer())
+                    .map(|uc| uc.address().into()),
+                sender: rec
+                    .output()
+                    .features()
+                    .and_then(|uc| uc.sender())
+                    .map(|uc| uc.address().into()),
+                tag: rec
+                    .output()
+                    .features()
+                    .and_then(|uc| uc.tag())
+                    .map(|uc| uc.tag())
+                    .map(Tag::from_bytes),
+                block_issuer_expiry: rec
+                    .output()
+                    .features()
+                    .and_then(|uc| uc.block_issuer())
+                    .map(|uc| uc.expiry_slot()),
+                native_tokens: rec.output().native_tokens().into_iter().flat_map(|t| t.iter()).fold(
+                    Default::default(),
+                    |mut v, t| {
+                        v += t.amount();
+                        v
+                    },
+                ),
             },
         }
     }
@@ -544,10 +604,10 @@ impl OutputCollection {
                 .await?
                 .try_next()
                 .await?
-                .map(|res| 
-                    BalanceResult { 
-                        total_balance: res.total_balance.parse().unwrap(), 
-                        sig_locked_balance: res.sig_locked_balance.parse().unwrap() 
+                .map(|res|
+                    BalanceResult {
+                        total_balance: res.total_balance.parse().unwrap(),
+                        sig_locked_balance: res.sig_locked_balance.parse().unwrap(),
                     }
                 ))
     }

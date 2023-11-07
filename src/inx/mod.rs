@@ -20,24 +20,24 @@ use crate::model::raw::Raw;
 
 impl From<proto::RawOutput> for Raw<Output> {
     fn from(value: proto::RawOutput) -> Self {
-        value.data.into()
+        Raw::from_bytes(value.data)
     }
 }
 
 impl From<proto::RawBlock> for Raw<SignedBlock> {
     fn from(value: proto::RawBlock) -> Self {
-        value.data.into()
+        Raw::from_bytes(value.data)
     }
 }
 
 impl From<proto::RawPayload> for Raw<Payload> {
     fn from(value: proto::RawPayload) -> Self {
-        value.data.into()
+        Raw::from_bytes(value.data)
     }
 }
 
 impl From<proto::RawCommitment> for Raw<SlotCommitment> {
     fn from(value: proto::RawCommitment) -> Self {
-        value.data.into()
+        Raw::from_bytes(value.data)
     }
 }
