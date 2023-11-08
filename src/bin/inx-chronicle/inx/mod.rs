@@ -275,7 +275,7 @@ impl InxWorker {
         tracing::Span::current().record("created", slot.ledger_updates().created_outputs().len());
         tracing::Span::current().record("consumed", slot.ledger_updates().consumed_outputs().len());
 
-        self.handle_cone_stream(&slot).await?;
+        self.handle_accepted_blocks(&slot).await?;
         self.db
             .collection::<ProtocolUpdateCollection>()
             .upsert_protocol_parameters(
@@ -309,10 +309,10 @@ impl InxWorker {
     }
 
     #[instrument(skip_all, err, level = "trace")]
-    async fn handle_cone_stream<'a>(&mut self, slot: &Slot<'a, Inx>) -> Result<()> {
-        let cone_stream = slot.accepted_block_stream().await?;
+    async fn handle_accepted_blocks<'a>(&mut self, slot: &Slot<'a, Inx>) -> Result<()> {
+        let blocks_stream = slot.accepted_block_stream().await?;
 
-        let mut tasks = cone_stream
+        let mut tasks = blocks_stream
             .try_chunks(INSERT_BATCH_SIZE)
             .map_err(|e| e.1)
             .try_fold(JoinSet::new(), |mut tasks, batch| async {
