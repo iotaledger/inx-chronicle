@@ -8,10 +8,10 @@ use futures::{stream::BoxStream, StreamExt, TryStreamExt};
 use iota_sdk::types::block::slot::SlotIndex;
 use thiserror::Error;
 
-use super::{BlockData, InputSource, SlotData};
-use crate::inx::{
-    ledger::{LedgerUpdateStore, MarkerMessage},
-    Inx, InxError, SlotRangeRequest,
+use super::{InputSource, SlotData};
+use crate::{
+    inx::{ledger::MarkerMessage, Inx, InxError, SlotRangeRequest},
+    model::{block_metadata::BlockWithMetadata, ledger::LedgerUpdateStore},
 };
 
 #[derive(Debug, Error)]
@@ -50,26 +50,15 @@ impl InputSource for Inx {
         ))
     }
 
-    async fn confirmed_blocks(
+    async fn accepted_blocks(
         &self,
         index: SlotIndex,
-    ) -> Result<BoxStream<Result<BlockData, Self::Error>>, Self::Error> {
+    ) -> Result<BoxStream<Result<BlockWithMetadata, Self::Error>>, Self::Error> {
         let mut inx = self.clone();
         Ok(Box::pin(
-            inx.get_confirmed_blocks_for_slot(index)
+            inx.get_accepted_blocks_for_slot(index)
                 .await?
-                .and_then(move |msg| {
-                    let mut inx = inx.clone();
-                    async move { Ok((inx.get_block(msg.block_id).await?, msg)) }
-                })
-                .map_err(Self::Error::from)
-                .and_then(|(block, metadata)| async move {
-                    Ok(BlockData {
-                        block_id: metadata.block_id,
-                        block,
-                        metadata: metadata,
-                    })
-                }),
+                .map_err(Self::Error::from),
         ))
     }
 

@@ -37,8 +37,14 @@ use crate::{
         },
         MongoDb,
     },
-    inx::ledger::{LedgerOutput, LedgerSpent},
-    model::{address::AddressDto, native_token::NativeTokenDto, raw::Raw, tag::Tag, SerializeToBson},
+    model::{
+        address::AddressDto,
+        ledger::{LedgerOutput, LedgerSpent},
+        native_token::NativeTokenDto,
+        raw::Raw,
+        tag::Tag,
+        SerializeToBson,
+    },
 };
 
 /// Chronicle Output record.

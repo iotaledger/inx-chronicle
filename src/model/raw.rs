@@ -1,8 +1,6 @@
 // Copyright 2023 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-use std::marker::PhantomData;
-
 use packable::{Packable, PackableExt};
 use serde::{Deserialize, Serialize};
 
@@ -14,15 +12,17 @@ pub struct InvalidRawBytesError(pub String);
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Raw<T: Packable> {
     data: Vec<u8>,
-    _phantom: PhantomData<T>,
+    inner: T,
 }
 
 impl<T: Packable> Raw<T> {
-    pub fn from_bytes(bytes: impl Into<Vec<u8>>) -> Self {
-        Self {
-            data: bytes.into(),
-            _phantom: PhantomData,
-        }
+    /// Create a raw value from bytes.
+    pub fn from_bytes(bytes: impl Into<Vec<u8>>) -> Result<Self, InvalidRawBytesError> {
+        let data = bytes.into();
+        Ok(Self {
+            inner: T::unpack_unverified(&data).map_err(|e| InvalidRawBytesError(format!("{e:?}")))?,
+            data,
+        })
     }
 
     /// Retrieves the underlying raw data.
@@ -31,24 +31,23 @@ impl<T: Packable> Raw<T> {
         self.data
     }
 
-    /// Unpack the raw data into a type `T` using
-    /// [`ProtocolParameters`](iota_sdk::types::block::protocol::ProtocolParameters) to verify the bytes.
-    pub fn inner(self, visitor: &T::UnpackVisitor) -> Result<T, InvalidRawBytesError> {
-        let unpacked = T::unpack_verified(self.data, visitor).map_err(|e| InvalidRawBytesError(format!("{e:?}")))?;
-        Ok(unpacked)
+    /// Get the inner value.
+    pub fn inner(&self) -> &T {
+        &self.inner
     }
 
-    /// Unpack the raw data into a type `T` without performing syntactic or semantic validation. This is useful if the
-    /// type is guaranteed to be well-formed, for example when it was transmitted via the INX interface.
-    pub fn inner_unverified(self) -> Result<T, InvalidRawBytesError> {
-        let unpacked = T::unpack_unverified(self.data).map_err(|e| InvalidRawBytesError(format!("{e:?}")))?;
-        Ok(unpacked)
+    /// Consume the inner value.
+    pub fn into_inner(self) -> T {
+        self.inner
     }
 }
 
 impl<T: Packable> From<T> for Raw<T> {
     fn from(value: T) -> Self {
-        Self::from_bytes(value.pack_to_vec())
+        Self {
+            data: value.pack_to_vec(),
+            inner: value,
+        }
     }
 }
 
@@ -66,6 +65,7 @@ impl<'de, T: Packable> Deserialize<'de> for Raw<T> {
     where
         D: serde::Deserializer<'de>,
     {
-        serde_bytes::deserialize::<Vec<u8>, _>(deserializer).map(Raw::from_bytes)
+        serde_bytes::deserialize::<Vec<u8>, _>(deserializer)
+            .and_then(|bytes| Self::from_bytes(bytes).map_err(serde::de::Error::custom))
     }
 }

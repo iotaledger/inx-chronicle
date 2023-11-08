@@ -8,13 +8,13 @@ use futures::{stream::BoxStream, TryStreamExt};
 use iota_sdk::types::block::slot::SlotIndex;
 use thiserror::Error;
 
-use super::{BlockData, InputSource, SlotData};
+use super::{InputSource, SlotData};
 use crate::{
     db::{
         mongodb::{collections::OutputCollection, DbError},
         MongoDb,
     },
-    inx::ledger::LedgerUpdateStore,
+    model::{block_metadata::BlockWithMetadata, ledger::LedgerUpdateStore},
 };
 
 #[derive(Debug, Error)]
@@ -55,11 +55,10 @@ impl InputSource for MongoDb {
     //   milestone_id, at, payload, protocol_params, node_config, }) }, )))
     // }
 
-    /// Retrieves a stream of blocks and their metadata in white-flag order given a milestone index.
-    async fn confirmed_blocks(
+    async fn accepted_blocks(
         &self,
         index: SlotIndex,
-    ) -> Result<BoxStream<Result<BlockData, Self::Error>>, Self::Error> {
+    ) -> Result<BoxStream<Result<BlockWithMetadata, Self::Error>>, Self::Error> {
         // Ok(Box::pin(
         //     self.collection::<BlockCollection>()
         //         .get_referenced_blocks_in_white_flag_order_stream(index)

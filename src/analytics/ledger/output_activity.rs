@@ -7,16 +7,20 @@ use iota_sdk::types::block::{
     address::Address,
     output::{AccountId, AnchorId, DelegationId},
 };
+use serde::{Deserialize, Serialize};
 
-use super::*;
+use crate::{
+    analytics::{Analytics, AnalyticsContext},
+    model::ledger::{LedgerOutput, LedgerSpent},
+};
 
 /// Nft activity statistics.
 #[derive(Copy, Clone, Debug, Default, PartialEq)]
 pub(crate) struct OutputActivityMeasurement {
     pub(crate) nft: NftActivityMeasurement,
     pub(crate) account: AccountActivityMeasurement,
-    pub(crate) foundry: FoundryActivityMeasurement,
     pub(crate) anchor: AnchorActivityMeasurement,
+    pub(crate) foundry: FoundryActivityMeasurement,
     pub(crate) delegation: DelegationActivityMeasurement,
 }
 
@@ -26,8 +30,9 @@ impl Analytics for OutputActivityMeasurement {
     fn handle_transaction(&mut self, consumed: &[LedgerSpent], created: &[LedgerOutput], _ctx: &dyn AnalyticsContext) {
         self.nft.handle_transaction(consumed, created);
         self.account.handle_transaction(consumed, created);
-        self.foundry.handle_transaction(consumed, created);
         self.anchor.handle_transaction(consumed, created);
+        self.foundry.handle_transaction(consumed, created);
+        self.delegation.handle_transaction(consumed, created);
     }
 
     fn take_measurement(&mut self, _ctx: &dyn AnalyticsContext) -> Self::Measurement {
@@ -47,7 +52,7 @@ impl NftActivityMeasurement {
     fn handle_transaction(&mut self, consumed: &[LedgerSpent], created: &[LedgerOutput]) {
         let map = |ledger_output: &LedgerOutput| {
             ledger_output
-                .output
+                .output()
                 .as_nft_opt()
                 .map(|output| output.nft_id_non_null(&ledger_output.output_id))
         };
@@ -94,7 +99,7 @@ impl std::hash::Hash for AccountData {
 impl AccountActivityMeasurement {
     fn handle_transaction(&mut self, consumed: &[LedgerSpent], created: &[LedgerOutput]) {
         let map = |ledger_output: &LedgerOutput| {
-            ledger_output.output.as_account_opt().map(|output| AccountData {
+            ledger_output.output().as_account_opt().map(|output| AccountData {
                 account_id: output.account_id_non_null(&ledger_output.output_id),
             })
         };
@@ -144,7 +149,7 @@ impl std::hash::Hash for AnchorData {
 impl AnchorActivityMeasurement {
     fn handle_transaction(&mut self, consumed: &[LedgerSpent], created: &[LedgerOutput]) {
         let map = |ledger_output: &LedgerOutput| {
-            ledger_output.output.as_anchor_opt().map(|output| AnchorData {
+            ledger_output.output().as_anchor_opt().map(|output| AnchorData {
                 anchor_id: output.anchor_id_non_null(&ledger_output.output_id),
                 governor_address: output.governor_address().clone(),
                 state_index: output.state_index(),
@@ -188,7 +193,7 @@ pub(crate) struct FoundryActivityMeasurement {
 
 impl FoundryActivityMeasurement {
     fn handle_transaction(&mut self, consumed: &[LedgerSpent], created: &[LedgerOutput]) {
-        let map = |ledger_output: &LedgerOutput| ledger_output.output.as_foundry_opt().map(|output| output.id());
+        let map = |ledger_output: &LedgerOutput| ledger_output.output().as_foundry_opt().map(|output| output.id());
 
         let foundry_inputs = consumed
             .iter()
@@ -232,7 +237,7 @@ impl std::hash::Hash for DelegationData {
 impl DelegationActivityMeasurement {
     fn handle_transaction(&mut self, consumed: &[LedgerSpent], created: &[LedgerOutput]) {
         let map = |ledger_output: &LedgerOutput| {
-            ledger_output.output.as_delegation_opt().map(|output| DelegationData {
+            ledger_output.output().as_delegation_opt().map(|output| DelegationData {
                 delegation_id: output.delegation_id_non_null(&ledger_output.output_id),
             })
         };

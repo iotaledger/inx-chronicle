@@ -7,8 +7,12 @@ use iota_sdk::types::block::{
     address::{Bech32Address, ToBech32Ext},
     protocol::ProtocolParameters,
 };
+use serde::{Deserialize, Serialize};
 
-use super::*;
+use crate::{
+    analytics::{Analytics, AnalyticsContext},
+    model::ledger::{LedgerOutput, LedgerSpent},
+};
 
 #[derive(Debug)]
 pub(crate) struct AddressBalanceMeasurement {

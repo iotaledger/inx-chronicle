@@ -2,8 +2,13 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use iota_sdk::types::block::output::Output;
+use serde::{Deserialize, Serialize};
 
-use super::*;
+use super::CountAndAmount;
+use crate::{
+    analytics::{Analytics, AnalyticsContext},
+    model::ledger::{LedgerOutput, LedgerSpent},
+};
 
 #[derive(Copy, Clone, Debug, Default, Serialize, Deserialize)]
 #[allow(missing_docs)]
@@ -37,7 +42,7 @@ impl UnlockConditionMeasurement {
     pub(crate) fn init<'a>(unspent_outputs: impl IntoIterator<Item = &'a LedgerOutput>) -> Self {
         let mut measurement = Self::default();
         for output in unspent_outputs {
-            match &output.output {
+            match output.output() {
                 Output::Basic(basic) => {
                     if basic.unlock_conditions().timelock().is_some() {
                         measurement.timelock.add_output(output);

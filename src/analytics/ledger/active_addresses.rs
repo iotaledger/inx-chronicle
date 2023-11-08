@@ -5,10 +5,10 @@ use std::collections::HashSet;
 
 use iota_sdk::types::block::address::{Bech32Address, ToBech32Ext};
 
-use super::*;
 use crate::{
-    analytics::{AnalyticsInterval, IntervalAnalytics},
+    analytics::{Analytics, AnalyticsContext, AnalyticsInterval, IntervalAnalytics},
     db::{mongodb::collections::OutputCollection, MongoDb},
+    model::ledger::{LedgerOutput, LedgerSpent},
 };
 
 #[derive(Debug, Default)]

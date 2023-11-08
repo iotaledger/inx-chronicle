@@ -3,7 +3,7 @@
 
 use iota_sdk::types::block::protocol::ProtocolParameters;
 
-use super::*;
+use crate::analytics::{Analytics, AnalyticsContext};
 
 #[derive(Clone, Debug, Default)]
 pub(crate) struct ProtocolParamsAnalytics {

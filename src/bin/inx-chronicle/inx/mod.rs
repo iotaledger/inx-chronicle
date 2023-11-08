@@ -16,10 +16,8 @@ use chronicle::{
         },
         MongoDb,
     },
-    inx::{
-        ledger::{LedgerOutput, LedgerSpent},
-        Inx, InxError,
-    },
+    inx::{Inx, InxError},
+    model::ledger::{LedgerOutput, LedgerSpent},
     tangle::{Slot, Tangle},
 };
 use eyre::{bail, Result};
@@ -312,7 +310,7 @@ impl InxWorker {
 
     #[instrument(skip_all, err, level = "trace")]
     async fn handle_cone_stream<'a>(&mut self, slot: &Slot<'a, Inx>) -> Result<()> {
-        let cone_stream = slot.confirmed_block_stream().await?;
+        let cone_stream = slot.accepted_block_stream().await?;
 
         let mut tasks = cone_stream
             .try_chunks(INSERT_BATCH_SIZE)

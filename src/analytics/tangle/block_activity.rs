@@ -3,11 +3,13 @@
 
 use iota_sdk::types::{
     api::core::BlockState,
-    block::{payload::Payload, BlockId, SignedBlock},
+    block::{payload::Payload, SignedBlock},
 };
 
-use super::*;
-use crate::inx::responses::BlockMetadata;
+use crate::{
+    analytics::{Analytics, AnalyticsContext},
+    model::block_metadata::BlockMetadata,
+};
 
 /// The type of payloads that occured within a single slot.
 #[derive(Copy, Clone, Debug, Default)]
@@ -26,13 +28,7 @@ pub(crate) struct BlockActivityMeasurement {
 impl Analytics for BlockActivityMeasurement {
     type Measurement = Self;
 
-    fn handle_block(
-        &mut self,
-        _block_id: BlockId,
-        block: &SignedBlock,
-        metadata: &BlockMetadata,
-        _ctx: &dyn AnalyticsContext,
-    ) {
+    fn handle_block(&mut self, block: &SignedBlock, metadata: &BlockMetadata, _ctx: &dyn AnalyticsContext) {
         match block.block().as_basic_opt().and_then(|b| b.payload()) {
             Some(Payload::TaggedData(_)) => self.tagged_data_count += 1,
             Some(Payload::SignedTransaction(_)) => self.transaction_count += 1,

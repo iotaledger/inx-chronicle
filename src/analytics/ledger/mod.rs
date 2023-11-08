@@ -17,10 +17,7 @@ pub(super) use self::{
     unclaimed_tokens::UnclaimedTokenMeasurement,
     unlock_conditions::UnlockConditionMeasurement,
 };
-use crate::{
-    analytics::{Analytics, AnalyticsContext},
-    inx::ledger::{LedgerOutput, LedgerSpent},
-};
+use crate::model::ledger::LedgerOutput;
 
 mod active_addresses;
 mod address_balance;

@@ -6,7 +6,7 @@
 use futures::TryStreamExt;
 use iota_sdk::types::{
     api::core::BlockState,
-    block::{output::OutputId, protocol::ProtocolParameters, slot::SlotIndex, BlockId, SignedBlock},
+    block::{output::OutputId, protocol::ProtocolParameters, slot::SlotIndex, SignedBlock},
 };
 use thiserror::Error;
 
@@ -24,11 +24,11 @@ use crate::{
         influxdb::{config::IntervalAnalyticsChoice, AnalyticsChoice, InfluxDb},
         MongoDb,
     },
-    inx::{
+    model::{
+        block_metadata::{BlockMetadata, BlockWithMetadata},
         ledger::{LedgerOutput, LedgerSpent},
-        responses::BlockMetadata,
     },
-    tangle::{sources::BlockData, InputSource, Slot},
+    tangle::{InputSource, Slot},
 };
 
 mod influx;
@@ -66,14 +66,7 @@ pub trait Analytics {
     ) {
     }
     /// Handle a block.
-    fn handle_block(
-        &mut self,
-        _block_id: BlockId,
-        _block: &SignedBlock,
-        _metadata: &BlockMetadata,
-        _ctx: &dyn AnalyticsContext,
-    ) {
-    }
+    fn handle_block(&mut self, _block: &SignedBlock, _metadata: &BlockMetadata, _ctx: &dyn AnalyticsContext) {}
     /// Take the measurement from the analytic. This should prepare the analytic for the next slot.
     fn take_measurement(&mut self, ctx: &dyn AnalyticsContext) -> Self::Measurement;
 }
@@ -81,13 +74,7 @@ pub trait Analytics {
 // This trait allows using the above implementation dynamically
 trait DynAnalytics: Send {
     fn handle_transaction(&mut self, consumed: &[LedgerSpent], created: &[LedgerOutput], ctx: &dyn AnalyticsContext);
-    fn handle_block(
-        &mut self,
-        block_id: BlockId,
-        block: &SignedBlock,
-        metadata: &BlockMetadata,
-        ctx: &dyn AnalyticsContext,
-    );
+    fn handle_block(&mut self, block: &SignedBlock, metadata: &BlockMetadata, ctx: &dyn AnalyticsContext);
     fn take_measurement(&mut self, ctx: &dyn AnalyticsContext) -> Box<dyn PrepareQuery>;
 }
 
@@ -99,14 +86,8 @@ where
         Analytics::handle_transaction(self, consumed, created, ctx)
     }
 
-    fn handle_block(
-        &mut self,
-        block_id: BlockId,
-        block: &SignedBlock,
-        metadata: &BlockMetadata,
-        ctx: &dyn AnalyticsContext,
-    ) {
-        Analytics::handle_block(self, block_id, block, metadata, ctx)
+    fn handle_block(&mut self, block: &SignedBlock, metadata: &BlockMetadata, ctx: &dyn AnalyticsContext) {
+        Analytics::handle_block(self, block, metadata, ctx)
     }
 
     fn take_measurement(&mut self, ctx: &dyn AnalyticsContext) -> Box<dyn PrepareQuery> {
@@ -200,15 +181,9 @@ impl Analytic {
 impl<T: AsMut<[Analytic]>> Analytics for T {
     type Measurement = Vec<Box<dyn PrepareQuery>>;
 
-    fn handle_block(
-        &mut self,
-        block_id: BlockId,
-        block: &SignedBlock,
-        metadata: &BlockMetadata,
-        ctx: &dyn AnalyticsContext,
-    ) {
+    fn handle_block(&mut self, block: &SignedBlock, metadata: &BlockMetadata, ctx: &dyn AnalyticsContext) {
         for analytic in self.as_mut().iter_mut() {
-            analytic.0.handle_block(block_id, block, metadata, ctx);
+            analytic.0.handle_block(block, metadata, ctx);
         }
     }
 
@@ -257,7 +232,7 @@ impl<'a, I: InputSource> Slot<'a, I> {
     where
         PerSlot<A::Measurement>: 'static + PrepareQuery,
     {
-        let mut block_stream = self.confirmed_block_stream().await?;
+        let mut block_stream = self.accepted_block_stream().await?;
 
         while let Some(block_data) = block_stream.try_next().await? {
             self.handle_block(analytics, &block_data)?;
@@ -270,8 +245,8 @@ impl<'a, I: InputSource> Slot<'a, I> {
         Ok(())
     }
 
-    fn handle_block<A: Analytics + Send>(&self, analytics: &mut A, block_data: &BlockData) -> eyre::Result<()> {
-        let block = block_data.block.clone().inner_unverified().unwrap();
+    fn handle_block<A: Analytics + Send>(&self, analytics: &mut A, block_data: &BlockWithMetadata) -> eyre::Result<()> {
+        let block = block_data.block.inner();
         if block_data.metadata.block_state == BlockState::Confirmed {
             if let Some(payload) = block
                 .block()
@@ -315,7 +290,7 @@ impl<'a, I: InputSource> Slot<'a, I> {
                 analytics.handle_transaction(&consumed, &created, self)
             }
         }
-        analytics.handle_block(block_data.block_id, &block, &block_data.metadata, self);
+        analytics.handle_block(&block, &block_data.metadata, self);
         Ok(())
     }
 }
@@ -406,13 +381,7 @@ mod test {
     };
 
     use futures::TryStreamExt;
-    use iota_sdk::types::block::{
-        output::{Output, OutputId},
-        payload::signed_transaction::TransactionId,
-        protocol::ProtocolParameters,
-        slot::{SlotCommitment, SlotCommitmentId, SlotIndex},
-        BlockId, SignedBlock,
-    };
+    use iota_sdk::types::block::{protocol::ProtocolParameters, slot::SlotIndex, SignedBlock};
     use serde::{de::DeserializeOwned, Deserialize, Serialize};
 
     use super::{
@@ -426,15 +395,11 @@ mod test {
         Analytics, AnalyticsContext,
     };
     use crate::{
-        inx::{
-            ledger::{LedgerOutput, LedgerSpent, LedgerUpdateStore},
-            responses::{BlockMetadata, Commitment, NodeConfiguration},
+        model::{
+            block_metadata::BlockMetadata,
+            ledger::{LedgerOutput, LedgerSpent},
         },
-        model::raw::Raw,
-        tangle::{
-            sources::{memory::InMemoryData, BlockData, SlotData},
-            Tangle,
-        },
+        tangle::{sources::memory::InMemoryData, Tangle},
     };
 
     pub(crate) struct TestContext {
@@ -513,24 +478,18 @@ mod test {
     impl Analytics for TestAnalytics {
         type Measurement = TestMeasurements;
 
-        fn handle_block(
-            &mut self,
-            block_id: BlockId,
-            block: &SignedBlock,
-            metadata: &BlockMetadata,
-            ctx: &dyn AnalyticsContext,
-        ) {
-            self.active_addresses.handle_block(block_id, block, metadata, ctx);
-            self.address_balance.handle_block(block_id, block, metadata, ctx);
-            self.base_tokens.handle_block(block_id, block, metadata, ctx);
-            self.ledger_outputs.handle_block(block_id, block, metadata, ctx);
-            self.ledger_size.handle_block(block_id, block, metadata, ctx);
-            self.output_activity.handle_block(block_id, block, metadata, ctx);
-            self.transaction_size.handle_block(block_id, block, metadata, ctx);
-            self.unclaimed_tokens.handle_block(block_id, block, metadata, ctx);
-            self.unlock_conditions.handle_block(block_id, block, metadata, ctx);
-            self.block_activity.handle_block(block_id, block, metadata, ctx);
-            self.slot_size.handle_block(block_id, block, metadata, ctx);
+        fn handle_block(&mut self, block: &SignedBlock, metadata: &BlockMetadata, ctx: &dyn AnalyticsContext) {
+            self.active_addresses.handle_block(block, metadata, ctx);
+            self.address_balance.handle_block(block, metadata, ctx);
+            self.base_tokens.handle_block(block, metadata, ctx);
+            self.ledger_outputs.handle_block(block, metadata, ctx);
+            self.ledger_size.handle_block(block, metadata, ctx);
+            self.output_activity.handle_block(block, metadata, ctx);
+            self.transaction_size.handle_block(block, metadata, ctx);
+            self.unclaimed_tokens.handle_block(block, metadata, ctx);
+            self.unlock_conditions.handle_block(block, metadata, ctx);
+            self.block_activity.handle_block(block, metadata, ctx);
+            self.slot_size.handle_block(block, metadata, ctx);
         }
 
         fn handle_transaction(
@@ -678,7 +637,7 @@ mod test {
         let mut stream = data.slot_stream(..).await?;
         let mut res = BTreeMap::new();
         while let Some(slot) = stream.try_next().await? {
-            let mut blocks_stream = slot.confirmed_block_stream().await?;
+            let mut blocks_stream = slot.accepted_block_stream().await?;
 
             while let Some(block_data) = blocks_stream.try_next().await? {
                 slot.handle_block(&mut analytics, &block_data)?;
@@ -691,111 +650,10 @@ mod test {
     }
 
     fn get_in_memory_data() -> Tangle<BTreeMap<SlotIndex, InMemoryData>> {
-        #[derive(Deserialize)]
-        struct BsonSlotData {
-            commitment_id: SlotCommitmentId,
-            commitment: Raw<SlotCommitment>,
-            node_config: NodeConfiguration,
-        }
-
-        impl From<BsonSlotData> for SlotData {
-            fn from(value: BsonSlotData) -> Self {
-                Self {
-                    commitment: Commitment {
-                        commitment_id: value.commitment_id,
-                        commitment: value.commitment,
-                    },
-                    node_config: value.node_config,
-                }
-            }
-        }
-
-        #[derive(Deserialize)]
-        struct BsonBlockData {
-            block_id: BlockId,
-            block: Raw<SignedBlock>,
-            metadata: BlockMetadata,
-        }
-
-        impl From<BsonBlockData> for BlockData {
-            fn from(value: BsonBlockData) -> Self {
-                Self {
-                    block_id: value.block_id,
-                    block: value.block,
-                    metadata: value.metadata,
-                }
-            }
-        }
-
-        #[derive(Deserialize)]
-        pub struct BsonLedgerOutput {
-            pub output_id: OutputId,
-            pub block_id: BlockId,
-            pub slot_booked: SlotIndex,
-            pub commitment_id_included: SlotCommitmentId,
-            pub output: Raw<Output>,
-        }
-
-        impl From<BsonLedgerOutput> for LedgerOutput {
-            fn from(value: BsonLedgerOutput) -> Self {
-                Self {
-                    output_id: value.output_id,
-                    block_id: value.block_id,
-                    slot_booked: value.slot_booked,
-                    commitment_id_included: value.commitment_id_included,
-                    output: value.output.inner_unverified().unwrap(),
-                }
-            }
-        }
-
-        #[derive(Deserialize)]
-        pub struct BsonLedgerSpent {
-            pub output: BsonLedgerOutput,
-            pub commitment_id_spent: SlotCommitmentId,
-            pub transaction_id_spent: TransactionId,
-            pub slot_spent: SlotIndex,
-        }
-
-        impl From<BsonLedgerSpent> for LedgerSpent {
-            fn from(value: BsonLedgerSpent) -> Self {
-                Self {
-                    output: value.output.into(),
-                    commitment_id_spent: value.commitment_id_spent,
-                    transaction_id_spent: value.transaction_id_spent,
-                    slot_spent: value.slot_spent,
-                }
-            }
-        }
-
-        #[derive(Deserialize)]
-        struct InMemoryBsonData {
-            slot_data: BsonSlotData,
-            confirmed_blocks: BTreeMap<BlockId, BsonBlockData>,
-            created: Vec<BsonLedgerOutput>,
-            consumed: Vec<BsonLedgerSpent>,
-        }
-
-        impl From<InMemoryBsonData> for InMemoryData {
-            fn from(value: InMemoryBsonData) -> Self {
-                Self {
-                    slot_data: value.slot_data.into(),
-                    confirmed_blocks: value
-                        .confirmed_blocks
-                        .into_iter()
-                        .map(|(block_id, data)| (block_id, data.into()))
-                        .collect(),
-                    ledger_updates: LedgerUpdateStore::init(
-                        value.consumed.into_iter().map(Into::into).collect(),
-                        value.created.into_iter().map(Into::into).collect(),
-                    ),
-                }
-            }
-        }
-
         let file = File::open("tests/data/in_memory_data.json").unwrap();
         let test_data: mongodb::bson::Bson = serde_json::from_reader(BufReader::new(file)).unwrap();
         Tangle::from(
-            mongodb::bson::from_bson::<BTreeMap<String, InMemoryBsonData>>(test_data)
+            mongodb::bson::from_bson::<BTreeMap<String, InMemoryData>>(test_data)
                 .unwrap()
                 .into_iter()
                 .map(|(k, v)| (k.parse().unwrap(), v.into()))

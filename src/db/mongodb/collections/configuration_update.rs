@@ -13,8 +13,7 @@ use crate::{
         mongodb::{DbError, MongoDbCollection, MongoDbCollectionExt},
         MongoDb,
     },
-    inx::responses::NodeConfiguration,
-    model::SerializeToBson,
+    model::{node::NodeConfiguration, SerializeToBson},
 };
 
 /// The corresponding MongoDb document representation to store [`NodeConfiguration`]s.

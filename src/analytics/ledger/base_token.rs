@@ -5,7 +5,10 @@ use std::collections::HashMap;
 
 use iota_sdk::types::block::address::{Bech32Address, ToBech32Ext};
 
-use super::*;
+use crate::{
+    analytics::{Analytics, AnalyticsContext},
+    model::ledger::{LedgerOutput, LedgerSpent},
+};
 
 /// Measures activity of the base token, such as Shimmer or IOTA.
 #[derive(Copy, Clone, Debug, Default)]

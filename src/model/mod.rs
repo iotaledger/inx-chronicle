@@ -4,8 +4,13 @@
 //! Module that contains the types.
 
 pub mod address;
+pub mod block_metadata;
+pub mod ledger;
 pub mod native_token;
+pub mod node;
+pub mod protocol;
 pub mod raw;
+pub mod slot;
 pub mod tag;
 
 use mongodb::bson::Bson;

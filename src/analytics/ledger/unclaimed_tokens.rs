@@ -1,7 +1,12 @@
 // Copyright 2023 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-use super::*;
+use serde::{Deserialize, Serialize};
+
+use crate::{
+    analytics::{Analytics, AnalyticsContext},
+    model::ledger::{LedgerOutput, LedgerSpent},
+};
 
 /// Information about the claiming process.
 #[derive(Copy, Clone, Debug, Default, Serialize, Deserialize)]

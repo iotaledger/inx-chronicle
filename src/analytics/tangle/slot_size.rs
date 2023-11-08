@@ -1,11 +1,13 @@
 // Copyright 2023 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-use iota_sdk::types::block::{payload::Payload, BlockId, SignedBlock};
+use iota_sdk::types::block::{payload::Payload, SignedBlock};
 use packable::PackableExt;
 
-use super::*;
-use crate::inx::responses::BlockMetadata;
+use crate::{
+    analytics::{Analytics, AnalyticsContext},
+    model::block_metadata::BlockMetadata,
+};
 
 /// Slot size statistics.
 #[derive(Copy, Clone, Debug, Default)]
@@ -19,13 +21,7 @@ pub(crate) struct SlotSizeMeasurement {
 impl Analytics for SlotSizeMeasurement {
     type Measurement = Self;
 
-    fn handle_block(
-        &mut self,
-        _block_id: BlockId,
-        block: &SignedBlock,
-        _metadata: &BlockMetadata,
-        _ctx: &dyn AnalyticsContext,
-    ) {
+    fn handle_block(&mut self, block: &SignedBlock, _metadata: &BlockMetadata, _ctx: &dyn AnalyticsContext) {
         let byte_len = block.packed_len();
         self.total_slot_bytes += byte_len;
         match block.block().as_basic_opt().and_then(|b| b.payload()) {

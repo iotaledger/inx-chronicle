@@ -9,13 +9,10 @@ use std::{
 use futures::{stream::BoxStream, Stream};
 use iota_sdk::types::block::slot::{SlotCommitment, SlotCommitmentId, SlotIndex};
 
-use super::{sources::BlockData, InputSource};
-use crate::{
-    inx::{
-        ledger::LedgerUpdateStore,
-        responses::{Commitment, NodeConfiguration, ProtocolParameters},
-    },
-    model::raw::Raw,
+use super::InputSource;
+use crate::model::{
+    block_metadata::BlockWithMetadata, ledger::LedgerUpdateStore, node::NodeConfiguration,
+    protocol::ProtocolParameters, raw::Raw, slot::Commitment,
 };
 
 #[allow(missing_docs)]
@@ -45,9 +42,9 @@ impl<'a, I: InputSource> Slot<'a, I> {
 }
 
 impl<'a, I: InputSource> Slot<'a, I> {
-    /// Returns the confirmed blocks of a slot.
-    pub async fn confirmed_block_stream(&self) -> Result<BoxStream<Result<BlockData, I::Error>>, I::Error> {
-        self.source.confirmed_blocks(self.index()).await
+    /// Returns the accepted blocks of a slot.
+    pub async fn accepted_block_stream(&self) -> Result<BoxStream<Result<BlockWithMetadata, I::Error>>, I::Error> {
+        self.source.accepted_blocks(self.index()).await
     }
 
     /// Returns the ledger update store.

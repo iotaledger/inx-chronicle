@@ -24,7 +24,7 @@ pub struct CommittedSlotDocument {
     #[serde(rename = "_id")]
     pub slot_index: SlotIndex,
     pub commitment_id: SlotCommitmentId,
-    pub raw: Raw<SlotCommitment>,
+    pub commitment: Raw<SlotCommitment>,
 }
 
 /// A collection to store committed slots.

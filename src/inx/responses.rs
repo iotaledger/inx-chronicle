@@ -4,40 +4,29 @@
 #![allow(missing_docs)]
 
 use inx::proto;
-use iota_sdk::types::{
-    api::core::{BlockFailureReason, BlockState, TransactionState},
-    block::{
-        semantic::TransactionFailureReason,
-        slot::{EpochIndex, SlotCommitment, SlotCommitmentId, SlotIndex},
-        BlockId, SignedBlock,
-    },
-};
+use iota_sdk::types::block::{slot::SlotCommitmentId, BlockId, SignedBlock};
 use packable::PackableExt;
-use serde::{Deserialize, Serialize};
 
 use super::{
     convert::{ConvertTo, TryConvertFrom, TryConvertTo},
-    ledger::{LedgerOutput, LedgerSpent},
     InxError,
 };
 use crate::{
     maybe_missing,
-    model::raw::{InvalidRawBytesError, Raw},
+    model::{
+        block_metadata::{BlockMetadata, BlockWithMetadata},
+        ledger::{LedgerOutput, LedgerSpent},
+        node::{BaseToken, NodeConfiguration, NodeStatus},
+        protocol::ProtocolParameters,
+        raw::{InvalidRawBytesError, Raw},
+        slot::Commitment,
+    },
 };
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Block {
     pub block_id: BlockId,
     pub block: Raw<SignedBlock>,
-}
-
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct BlockMetadata {
-    pub block_id: BlockId,
-    pub block_state: BlockState,
-    pub transaction_state: Option<TransactionState>,
-    pub block_failure_reason: Option<BlockFailureReason>,
-    pub transaction_failure_reason: Option<TransactionFailureReason>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -52,42 +41,6 @@ pub enum OutputPayload {
     Output(LedgerOutput),
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct ProtocolParameters {
-    pub start_epoch: EpochIndex,
-    pub parameters: iota_sdk::types::block::protocol::ProtocolParameters,
-}
-
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct BaseToken {
-    pub name: String,
-    pub ticker_symbol: String,
-    pub unit: String,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub subunit: Option<String>,
-    pub decimals: u32,
-    pub use_metric_prefix: bool,
-}
-
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct NodeConfiguration {
-    pub base_token: BaseToken,
-    pub protocol_parameters: Vec<ProtocolParameters>,
-}
-
-pub struct NodeStatus {
-    pub is_healthy: bool,
-    pub accepted_tangle_time: Option<u64>,
-    pub relative_accepted_tangle_time: Option<u64>,
-    pub confirmed_tangle_time: Option<u64>,
-    pub relative_confirmed_tangle_time: Option<u64>,
-    pub latest_commitment_id: SlotCommitmentId,
-    pub latest_finalized_slot: SlotIndex,
-    pub latest_accepted_block_slot: Option<SlotIndex>,
-    pub latest_confirmed_block_slot: Option<SlotIndex>,
-    pub pruning_epoch: EpochIndex,
-}
-
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct RootBlocks {
     pub root_blocks: Vec<RootBlock>,
@@ -97,13 +50,6 @@ pub struct RootBlocks {
 pub struct RootBlock {
     pub block_id: BlockId,
     pub commitment_id: SlotCommitmentId,
-}
-
-#[derive(Clone, Debug, PartialEq, Eq)]
-
-pub struct Commitment {
-    pub commitment_id: SlotCommitmentId,
-    pub commitment: Raw<SlotCommitment>,
 }
 
 impl TryConvertFrom<proto::RawProtocolParameters> for ProtocolParameters {
@@ -219,7 +165,7 @@ impl TryConvertFrom<proto::Commitment> for Commitment {
     {
         Ok(Self {
             commitment_id: maybe_missing!(proto.commitment_id).try_convert()?,
-            commitment: maybe_missing!(proto.commitment).into(),
+            commitment: maybe_missing!(proto.commitment).try_into()?,
         })
     }
 }
@@ -233,7 +179,7 @@ impl TryConvertFrom<proto::Block> for Block {
     {
         Ok(Self {
             block_id: maybe_missing!(proto.block_id).try_convert()?,
-            block: maybe_missing!(proto.block).into(),
+            block: maybe_missing!(proto.block).try_into()?,
         })
     }
 }
@@ -251,6 +197,20 @@ impl TryConvertFrom<proto::BlockMetadata> for BlockMetadata {
             block_failure_reason: proto.block_failure_reason().convert(),
             transaction_failure_reason: proto.transaction_failure_reason().convert(),
             block_id: maybe_missing!(proto.block_id).try_convert()?,
+        })
+    }
+}
+
+impl TryConvertFrom<proto::BlockWithMetadata> for BlockWithMetadata {
+    type Error = InxError;
+
+    fn try_convert_from(proto: proto::BlockWithMetadata) -> Result<Self, Self::Error>
+    where
+        Self: Sized,
+    {
+        Ok(Self {
+            metadata: maybe_missing!(proto.metadata).try_convert()?,
+            block: maybe_missing!(proto.block).try_into()?,
         })
     }
 }

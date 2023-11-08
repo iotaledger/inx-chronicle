@@ -10,10 +10,15 @@ use super::{
     convert::TryConvertTo,
     ledger::{AcceptedTransaction, LedgerUpdate, UnspentOutput},
     request::SlotRangeRequest,
-    responses::{self, BlockMetadata, Commitment, NodeConfiguration, NodeStatus, RootBlocks},
+    responses::{Block, Output},
     InxError,
 };
-use crate::model::raw::Raw;
+use crate::model::{
+    block_metadata::{BlockMetadata, BlockWithMetadata},
+    node::{NodeConfiguration, NodeStatus},
+    raw::Raw,
+    slot::Commitment,
+};
 
 /// An INX client connection.
 #[derive(Clone, Debug)]
@@ -58,14 +63,14 @@ impl Inx {
             .try_convert()?)
     }
 
-    /// Get the active root blocks of the node.
-    pub async fn get_active_root_blocks(&mut self) -> Result<RootBlocks, InxError> {
-        Ok(self
-            .inx
-            .read_active_root_blocks(proto::NoParams {})
-            .await?
-            .try_convert()?)
-    }
+    // /// Get the active root blocks of the node.
+    // pub async fn get_active_root_blocks(&mut self) -> Result<RootBlocks, InxError> {
+    //     Ok(self
+    //         .inx
+    //         .read_active_root_blocks(proto::NoParams {})
+    //         .await?
+    //         .try_convert()?)
+    // }
 
     /// Get a commitment from a slot index.
     pub async fn get_commitment(&mut self, slot_index: SlotIndex) -> Result<Commitment, InxError> {
@@ -84,7 +89,12 @@ impl Inx {
         &mut self,
         request: SlotRangeRequest,
     ) -> Result<impl Stream<Item = Result<Commitment, InxError>>, InxError> {
-        Ok(futures::stream::empty())
+        Ok(self
+            .inx
+            .listen_to_commitments(proto::SlotRangeRequest::from(request))
+            .await?
+            .into_inner()
+            .map(|msg| TryConvertTo::try_convert(msg?)))
     }
 
     /// Get a block using a block id.
@@ -94,7 +104,7 @@ impl Inx {
             .read_block(proto::BlockId { id: block_id.to_vec() })
             .await?
             .into_inner()
-            .into())
+            .try_into()?)
     }
 
     /// Get a block's metadata using a block id.
@@ -107,7 +117,7 @@ impl Inx {
     }
 
     /// Convenience wrapper that gets all blocks.
-    pub async fn get_blocks(&mut self) -> Result<impl Stream<Item = Result<responses::Block, InxError>>, InxError> {
+    pub async fn get_blocks(&mut self) -> Result<impl Stream<Item = Result<Block, InxError>>, InxError> {
         Ok(self
             .inx
             .listen_to_blocks(proto::NoParams {})
@@ -140,12 +150,17 @@ impl Inx {
             .map(|msg| TryConvertTo::try_convert(msg?)))
     }
 
-    /// Convenience wrapper that gets confirmed blocks for a given slot.
-    pub async fn get_confirmed_blocks_for_slot(
+    /// Convenience wrapper that gets accepted blocks for a given slot.
+    pub async fn get_accepted_blocks_for_slot(
         &mut self,
         slot_index: SlotIndex,
-    ) -> Result<impl Stream<Item = Result<BlockMetadata, InxError>>, InxError> {
-        Ok(futures::stream::empty())
+    ) -> Result<impl Stream<Item = Result<BlockWithMetadata, InxError>>, InxError> {
+        Ok(self
+            .inx
+            .read_accepted_blocks(proto::SlotIndex { index: slot_index.0 })
+            .await?
+            .into_inner()
+            .map(|msg| TryConvertTo::try_convert(msg?)))
     }
 
     /// Convenience wrapper that reads the current unspent outputs.
@@ -186,7 +201,7 @@ impl Inx {
     }
 
     /// Get an output using an output id.
-    pub async fn get_output(&mut self, output_id: OutputId) -> Result<responses::Output, InxError> {
+    pub async fn get_output(&mut self, output_id: OutputId) -> Result<Output, InxError> {
         Ok(self
             .inx
             .read_output(proto::OutputId {

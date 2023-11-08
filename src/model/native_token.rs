@@ -5,9 +5,7 @@ use core::borrow::Borrow;
 
 use iota_sdk::types::block::output::{NativeToken, TokenId};
 use primitive_types::U256;
-use serde::Deserialize;
-
-use super::*;
+use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct NativeTokenDto {

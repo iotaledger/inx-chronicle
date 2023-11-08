@@ -1,18 +1,13 @@
 // Copyright 2023 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-use std::collections::HashMap;
-
 use inx::proto;
 use iota_sdk::types::{
     api::core::{BlockFailureReason, BlockState, TransactionState},
     block::{
-        address::Address,
-        output::{Output, OutputId},
         payload::signed_transaction::TransactionId,
         semantic::TransactionFailureReason,
         slot::{SlotCommitmentId, SlotIndex},
-        BlockId,
     },
 };
 
@@ -20,80 +15,10 @@ use super::{
     convert::{ConvertFrom, TryConvertFrom, TryConvertTo},
     InxError,
 };
-use crate::maybe_missing;
-
-/// An unspent output according to the ledger.
-#[derive(Clone, Debug, Eq, PartialEq)]
-#[allow(missing_docs)]
-pub struct LedgerOutput {
-    pub output_id: OutputId,
-    pub block_id: BlockId,
-    pub slot_booked: SlotIndex,
-    pub commitment_id_included: SlotCommitmentId,
-    pub output: Output,
-}
-
-#[allow(missing_docs)]
-impl LedgerOutput {
-    pub fn output_id(&self) -> OutputId {
-        self.output_id
-    }
-
-    pub fn output(&self) -> &Output {
-        &self.output
-    }
-
-    pub fn amount(&self) -> u64 {
-        self.output().amount()
-    }
-
-    pub fn address(&self) -> Option<&Address> {
-        self.output()
-            .unlock_conditions()
-            .and_then(|uc| uc.address())
-            .map(|uc| uc.address())
-    }
-
-    pub fn kind(&self) -> &str {
-        match self.output() {
-            Output::Basic(_) => "basic",
-            Output::Account(_) => "account",
-            Output::Anchor(_) => "anchor",
-            Output::Foundry(_) => "foundry",
-            Output::Nft(_) => "nft",
-            Output::Delegation(_) => "delegation",
-        }
-    }
-}
-
-/// A spent output according to the ledger.
-#[derive(Clone, Debug, Eq, PartialEq)]
-#[allow(missing_docs)]
-pub struct LedgerSpent {
-    pub output: LedgerOutput,
-    pub commitment_id_spent: SlotCommitmentId,
-    pub transaction_id_spent: TransactionId,
-    pub slot_spent: SlotIndex,
-}
-
-#[allow(missing_docs)]
-impl LedgerSpent {
-    pub fn output_id(&self) -> OutputId {
-        self.output.output_id
-    }
-
-    pub fn output(&self) -> &Output {
-        &self.output.output()
-    }
-
-    pub fn amount(&self) -> u64 {
-        self.output().amount()
-    }
-
-    pub fn address(&self) -> Option<&Address> {
-        self.output.address()
-    }
-}
+use crate::{
+    maybe_missing,
+    model::ledger::{LedgerOutput, LedgerSpent},
+};
 
 impl TryConvertFrom<proto::LedgerOutput> for LedgerOutput {
     type Error = InxError;
@@ -104,7 +29,7 @@ impl TryConvertFrom<proto::LedgerOutput> for LedgerOutput {
             block_id: maybe_missing!(proto.block_id).try_convert()?,
             slot_booked: proto.slot_booked.into(),
             commitment_id_included: maybe_missing!(proto.commitment_id_included).try_convert()?,
-            output: maybe_missing!(proto.output).try_convert()?,
+            output: maybe_missing!(proto.output).try_into()?,
         })
     }
 }
@@ -119,65 +44,6 @@ impl TryConvertFrom<proto::LedgerSpent> for LedgerSpent {
             transaction_id_spent: maybe_missing!(proto.transaction_id_spent).try_convert()?,
             slot_spent: proto.slot_spent.into(),
         })
-    }
-}
-
-/// Holds the ledger updates that happened during a slot.
-///
-/// Note: For now we store all of these in memory. At some point we might need to retrieve them from an async
-/// datasource.
-#[derive(Clone, Default)]
-#[allow(missing_docs)]
-pub struct LedgerUpdateStore {
-    created: Vec<LedgerOutput>,
-    created_index: HashMap<OutputId, usize>,
-    consumed: Vec<LedgerSpent>,
-    consumed_index: HashMap<OutputId, usize>,
-}
-
-impl LedgerUpdateStore {
-    /// Initializes the store with consumed and created outputs.
-    pub fn init(consumed: Vec<LedgerSpent>, created: Vec<LedgerOutput>) -> Self {
-        let mut consumed_index = HashMap::new();
-        for (idx, c) in consumed.iter().enumerate() {
-            consumed_index.insert(c.output_id(), idx);
-        }
-
-        let mut created_index = HashMap::new();
-        for (idx, c) in created.iter().enumerate() {
-            created_index.insert(c.output_id(), idx);
-        }
-
-        LedgerUpdateStore {
-            created,
-            created_index,
-            consumed,
-            consumed_index,
-        }
-    }
-
-    /// Retrieves a [`LedgerOutput`] by [`OutputId`].
-    ///
-    /// Note: Only outputs that were touched in the current slot (either as inputs or outputs) are present.
-    pub fn get_created(&self, output_id: &OutputId) -> Option<&LedgerOutput> {
-        self.created_index.get(output_id).map(|&idx| &self.created[idx])
-    }
-
-    /// Retrieves a [`LedgerSpent`] by [`OutputId`].
-    ///
-    /// Note: Only outputs that were touched in the current slot (either as inputs or outputs) are present.
-    pub fn get_consumed(&self, output_id: &OutputId) -> Option<&LedgerSpent> {
-        self.consumed_index.get(output_id).map(|&idx| &self.consumed[idx])
-    }
-
-    /// The list of spent outputs.
-    pub fn consumed_outputs(&self) -> &[LedgerSpent] {
-        &self.consumed
-    }
-
-    /// The list of created outputs.
-    pub fn created_outputs(&self) -> &[LedgerOutput] {
-        &self.created
     }
 }
 

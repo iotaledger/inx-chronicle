@@ -24,9 +24,11 @@ use crate::{
         mongodb::{DbError, InsertIgnoreDuplicatesExt, MongoDbCollection, MongoDbCollectionExt},
         MongoDb,
     },
-    inx::responses::BlockMetadata,
-    model::{raw::Raw, SerializeToBson},
-    tangle::sources::BlockData,
+    model::{
+        block_metadata::{BlockMetadata, BlockWithMetadata},
+        raw::Raw,
+        SerializeToBson,
+    },
 };
 
 /// Chronicle Block record.
@@ -46,16 +48,10 @@ pub struct BlockDocument {
     transaction: Option<TransactionMetadata>,
 }
 
-impl From<BlockData> for BlockDocument {
-    fn from(
-        BlockData {
-            block_id,
-            block,
-            metadata,
-        }: BlockData,
-    ) -> Self {
-        let signed_block = block.clone().inner_unverified().unwrap();
-        let transaction = signed_block
+impl From<BlockWithMetadata> for BlockDocument {
+    fn from(BlockWithMetadata { block, metadata }: BlockWithMetadata) -> Self {
+        let transaction = block
+            .inner()
             .block()
             .as_basic_opt()
             .and_then(|b| b.payload())
@@ -70,9 +66,10 @@ impl From<BlockData> for BlockDocument {
                     .collect(),
             });
         Self {
-            block_id,
-            slot_index: signed_block.slot_commitment_id().slot_index(),
-            payload_type: signed_block
+            block_id: metadata.block_id,
+            slot_index: block.inner().slot_commitment_id().slot_index(),
+            payload_type: block
+                .inner()
                 .block()
                 .as_basic_opt()
                 .and_then(|b| b.payload())
@@ -172,10 +169,7 @@ struct BlockIdResult {
 impl BlockCollection {
     /// Get a [`Block`] by its [`BlockId`].
     pub async fn get_block(&self, block_id: &BlockId) -> Result<Option<SignedBlock>, DbError> {
-        Ok(self
-            .get_block_raw(block_id)
-            .await?
-            .map(|raw| raw.inner_unverified().unwrap()))
+        Ok(self.get_block_raw(block_id).await?.map(|raw| raw.into_inner()))
     }
 
     /// Get the raw bytes of a [`Block`] by its [`BlockId`].
@@ -414,7 +408,7 @@ impl BlockCollection {
                 None,
             )
             .await?
-            .map_ok(|RawResult { block }| block.inner_unverified().unwrap())
+            .map_ok(|RawResult { block }| block.into_inner())
             .try_next()
             .await?)
     }

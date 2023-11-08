@@ -3,14 +3,11 @@
 
 use inx::proto;
 use iota_sdk::types::block::{
-    output::{Output, OutputId},
-    payload::{signed_transaction::TransactionId, Payload},
-    slot::{SlotCommitment, SlotCommitmentId},
-    BlockId, SignedBlock,
+    output::OutputId, payload::signed_transaction::TransactionId, slot::SlotCommitmentId, BlockId,
 };
 
 use super::InxError;
-use crate::model::raw::{InvalidRawBytesError, Raw};
+use crate::model::raw::InvalidRawBytesError;
 
 /// Tries to access the field of a protobug messages and returns an appropriate error if the field is not present.
 #[macro_export]
@@ -134,22 +131,3 @@ impl TryConvertFrom<proto::OutputId> for OutputId {
         )?)
     }
 }
-
-macro_rules! impl_raw_convert {
-    ($raw:ident, $type:ident) => {
-        impl TryConvertFrom<proto::$raw> for $type {
-            type Error = InvalidRawBytesError;
-
-            fn try_convert_from(proto: proto::$raw) -> Result<Self, Self::Error>
-            where
-                Self: Sized,
-            {
-                Raw::from(proto).inner_unverified()
-            }
-        }
-    };
-}
-impl_raw_convert!(RawOutput, Output);
-impl_raw_convert!(RawBlock, SignedBlock);
-impl_raw_convert!(RawPayload, Payload);
-impl_raw_convert!(RawCommitment, SlotCommitment);

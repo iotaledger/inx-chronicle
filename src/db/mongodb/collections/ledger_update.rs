@@ -23,8 +23,12 @@ use crate::{
         mongodb::{DbError, InsertIgnoreDuplicatesExt, MongoDbCollection, MongoDbCollectionExt},
         MongoDb,
     },
-    inx::ledger::{LedgerOutput, LedgerSpent},
-    model::{address::AddressDto, raw::Raw, SerializeToBson},
+    model::{
+        address::AddressDto,
+        ledger::{LedgerOutput, LedgerSpent},
+        raw::Raw,
+        SerializeToBson,
+    },
 };
 
 /// Contains all information related to an output.
@@ -51,7 +55,7 @@ impl From<LedgerOutputRecord> for LedgerOutput {
             block_id: value.block_id,
             slot_booked: value.slot_booked,
             commitment_id_included: value.commitment_id_included,
-            output: value.output.inner_unverified().unwrap(),
+            output: value.output,
         }
     }
 }

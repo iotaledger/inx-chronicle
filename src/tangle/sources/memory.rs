@@ -7,14 +7,16 @@ use std::collections::BTreeMap;
 use async_trait::async_trait;
 use futures::stream::BoxStream;
 use iota_sdk::types::block::{slot::SlotIndex, BlockId};
+use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
-use super::{BlockData, InputSource, SlotData};
-use crate::inx::ledger::LedgerUpdateStore;
+use super::{InputSource, SlotData};
+use crate::model::{block_metadata::BlockWithMetadata, ledger::LedgerUpdateStore};
 
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct InMemoryData {
     pub slot_data: SlotData,
-    pub confirmed_blocks: BTreeMap<BlockId, BlockData>,
+    pub confirmed_blocks: BTreeMap<BlockId, BlockWithMetadata>,
     pub ledger_updates: LedgerUpdateStore,
 }
 
@@ -37,10 +39,10 @@ impl InputSource for BTreeMap<SlotIndex, InMemoryData> {
         )))
     }
 
-    async fn confirmed_blocks(
+    async fn accepted_blocks(
         &self,
         index: SlotIndex,
-    ) -> Result<BoxStream<Result<BlockData, Self::Error>>, Self::Error> {
+    ) -> Result<BoxStream<Result<BlockWithMetadata, Self::Error>>, Self::Error> {
         let blocks = &self
             .get(&index)
             .ok_or(InMemoryInputSourceError::MissingBlockData(index))?

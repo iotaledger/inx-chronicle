@@ -4,8 +4,13 @@
 #![allow(missing_docs)]
 
 use iota_sdk::types::block::output::Output;
+use serde::{Deserialize, Serialize};
 
-use super::*;
+use super::CountAndAmount;
+use crate::{
+    analytics::{Analytics, AnalyticsContext},
+    model::ledger::{LedgerOutput, LedgerSpent},
+};
 
 #[derive(Copy, Clone, Debug, Default, Serialize, Deserialize)]
 pub(crate) struct LedgerOutputMeasurement {
@@ -22,7 +27,7 @@ impl LedgerOutputMeasurement {
     pub(crate) fn init<'a>(unspent_outputs: impl IntoIterator<Item = &'a LedgerOutput>) -> Self {
         let mut measurement = Self::default();
         for output in unspent_outputs {
-            match output.output {
+            match output.output() {
                 Output::Account(_) => measurement.account.add_output(output),
                 Output::Basic(_) => measurement.basic.add_output(output),
                 Output::Nft(_) => measurement.nft.add_output(output),

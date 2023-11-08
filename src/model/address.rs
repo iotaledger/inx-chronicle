@@ -1,7 +1,7 @@
 // Copyright 2023 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-//! Module containing the [`Address`] types.
+//! Module containing address types.
 
 use core::borrow::Borrow;
 

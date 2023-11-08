@@ -17,7 +17,7 @@ use chronicle::{
         },
         MongoDb,
     },
-    inx::responses::BlockMetadata,
+    model::block_metadata::BlockMetadata,
 };
 use futures::TryStreamExt;
 use iota_sdk::types::{
@@ -317,10 +317,10 @@ async fn commitment_by_index(
         .ok_or(MissingError::NoResults)?;
 
     if matches!(headers.get(axum::http::header::ACCEPT), Some(header) if header == BYTE_CONTENT_HEADER) {
-        return Ok(IotaRawResponse::Raw(slot_commitment.raw.data()));
+        return Ok(IotaRawResponse::Raw(slot_commitment.commitment.data()));
     }
 
-    Ok(IotaRawResponse::Json(slot_commitment.raw.inner_unverified()?))
+    Ok(IotaRawResponse::Json(slot_commitment.commitment.into_inner()))
 }
 
 async fn utxo_changes(

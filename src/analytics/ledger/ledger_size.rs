@@ -5,8 +5,12 @@ use iota_sdk::types::block::{
     output::{Output, Rent},
     protocol::ProtocolParameters,
 };
+use serde::{Deserialize, Serialize};
 
-use super::*;
+use crate::{
+    analytics::{Analytics, AnalyticsContext},
+    model::ledger::{LedgerOutput, LedgerSpent},
+};
 
 trait LedgerSize {
     fn ledger_size(&self, protocol_params: &ProtocolParameters) -> LedgerSizeMeasurement;
@@ -67,7 +71,7 @@ impl LedgerSizeAnalytics {
     ) -> Self {
         let mut measurement = LedgerSizeMeasurement::default();
         for output in unspent_outputs {
-            measurement.wrapping_add(output.output.ledger_size(&protocol_params));
+            measurement.wrapping_add(output.output().ledger_size(&protocol_params));
         }
         Self {
             protocol_params,
@@ -82,11 +86,11 @@ impl Analytics for LedgerSizeAnalytics {
     fn handle_transaction(&mut self, consumed: &[LedgerSpent], created: &[LedgerOutput], _ctx: &dyn AnalyticsContext) {
         for output in created {
             self.measurement
-                .wrapping_add(output.output.ledger_size(&self.protocol_params));
+                .wrapping_add(output.output().ledger_size(&self.protocol_params));
         }
         for output in consumed.iter().map(|ledger_spent| &ledger_spent.output) {
             self.measurement
-                .wrapping_sub(output.output.ledger_size(&self.protocol_params));
+                .wrapping_sub(output.output().ledger_size(&self.protocol_params));
         }
     }
 

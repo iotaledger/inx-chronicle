@@ -3,9 +3,8 @@
 
 use core::str::FromStr;
 
-use serde::Deserialize;
-
-use super::*;
+use mongodb::bson::Bson;
+use serde::{Deserialize, Serialize};
 
 /// A [`Tag`] associated with an [`Output`].
 #[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
