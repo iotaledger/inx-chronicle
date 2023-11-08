@@ -6,7 +6,7 @@ use std::collections::BTreeMap;
 
 use async_trait::async_trait;
 use futures::stream::BoxStream;
-use iota_sdk::types::block::{slot::SlotIndex, BlockId};
+use iota_sdk::types::block::{protocol::ProtocolParameters, slot::SlotIndex, BlockId};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
@@ -56,5 +56,9 @@ impl InputSource for BTreeMap<SlotIndex, InMemoryData> {
             .ok_or(InMemoryInputSourceError::MissingBlockData(index))?
             .ledger_updates
             .clone())
+    }
+
+    async fn protocol_parameters(&self, index: SlotIndex) -> Result<ProtocolParameters, Self::Error> {
+        todo!()
     }
 }

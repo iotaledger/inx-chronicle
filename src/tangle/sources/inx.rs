@@ -5,7 +5,7 @@ use core::ops::RangeBounds;
 
 use async_trait::async_trait;
 use futures::{stream::BoxStream, StreamExt, TryStreamExt};
-use iota_sdk::types::block::slot::SlotIndex;
+use iota_sdk::types::block::{protocol::ProtocolParameters, slot::SlotIndex};
 use thiserror::Error;
 
 use super::{InputSource, SlotData};
@@ -39,13 +39,7 @@ impl InputSource for Inx {
                 .map_err(Self::Error::from)
                 .and_then(move |commitment| {
                     let mut inx = inx.clone();
-                    async move {
-                        let node_config = inx.get_node_configuration().await?.into();
-                        Ok(SlotData {
-                            commitment,
-                            node_config,
-                        })
-                    }
+                    async move { Ok(SlotData { commitment }) }
                 }),
         ))
     }
@@ -90,5 +84,19 @@ impl InputSource for Inx {
             .await?;
 
         Ok(LedgerUpdateStore::init(consumed, created))
+    }
+
+    async fn protocol_parameters(&self, _index: SlotIndex) -> Result<ProtocolParameters, Self::Error> {
+        let mut inx = self.clone();
+        // TODO: eventually we'll have to do this right
+        Ok(inx
+            .get_node_configuration()
+            .await?
+            .protocol_parameters
+            .into_iter()
+            .rev()
+            .next()
+            .unwrap()
+            .parameters)
     }
 }

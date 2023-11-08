@@ -10,7 +10,7 @@ use chronicle::{
             config::{all_analytics, all_interval_analytics, IntervalAnalyticsChoice},
             AnalyticsChoice, InfluxDb,
         },
-        mongodb::collections::{OutputCollection, ProtocolUpdateCollection},
+        mongodb::collections::{ApplicationStateCollection, OutputCollection},
         MongoDb,
     },
     tangle::{InputSource, Tangle},
@@ -91,11 +91,10 @@ impl FillAnalyticsCommand {
         tracing::info!("Connecting to database using hosts: `{}`.", config.mongodb.hosts_str()?);
         let db = MongoDb::connect(&config.mongodb).await?;
         let protocol_params = db
-            .collection::<ProtocolUpdateCollection>()
-            .get_latest_protocol_parameters()
+            .collection::<ApplicationStateCollection>()
+            .get_protocol_parameters()
             .await?
-            .ok_or_else(|| eyre::eyre!("No protocol parameters in database."))?
-            .parameters;
+            .ok_or_else(|| eyre::eyre!("No protocol parameters in database."))?;
         let start_index = if let Some(index) = start_index {
             *index
         } else if let Some(start_date) = start_date {
@@ -234,7 +233,7 @@ pub async fn fill_analytics<I: 'static + InputSource + Clone>(
 
                 if let Some(slot) = slot_stream.try_next().await? {
                     // Check if the protocol params changed (or we just started)
-                    if !matches!(&state, Some(state) if state.prev_protocol_params == slot.protocol_params.parameters) {
+                    if !matches!(&state, Some(state) if state.prev_protocol_params == slot.protocol_parameters) {
                         // Only get the ledger state for slots after the genesis since it requires
                         // getting the previous slot data.
                         let ledger_state = if slot.slot_index().0 > 0 {
@@ -249,11 +248,11 @@ pub async fn fill_analytics<I: 'static + InputSource + Clone>(
 
                         let analytics = analytics_choices
                             .iter()
-                            .map(|choice| Analytic::init(choice, &slot.protocol_params.parameters, &ledger_state))
+                            .map(|choice| Analytic::init(choice, &slot.protocol_parameters, &ledger_state))
                             .collect::<Vec<_>>();
                         state = Some(AnalyticsState {
                             analytics,
-                            prev_protocol_params: slot.protocol_params.parameters.clone(),
+                            prev_protocol_params: slot.protocol_parameters.clone(),
                         });
                     }
 

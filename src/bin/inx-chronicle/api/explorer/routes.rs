@@ -4,7 +4,7 @@
 use axum::{extract::Path, routing::get, Extension};
 use chronicle::db::{
     mongodb::collections::{
-        BlockCollection, CommittedSlotCollection, LedgerUpdateCollection, OutputCollection, ProtocolUpdateCollection,
+        ApplicationStateCollection, BlockCollection, CommittedSlotCollection, LedgerUpdateCollection, OutputCollection,
     },
     MongoDb,
 };
@@ -105,11 +105,10 @@ async fn ledger_updates_by_slot(
     LedgerUpdatesBySlotPagination { page_size, cursor }: LedgerUpdatesBySlotPagination,
 ) -> ApiResult<LedgerUpdatesBySlotResponse> {
     let hrp = database
-        .collection::<ProtocolUpdateCollection>()
-        .get_latest_protocol_parameters()
+        .collection::<ApplicationStateCollection>()
+        .get_protocol_parameters()
         .await?
         .ok_or(CorruptStateError::ProtocolParams)?
-        .parameters
         .bech32_hrp();
 
     let mut record_stream = database
@@ -298,11 +297,10 @@ async fn richest_addresses_ledger_analytics(
         .await?;
 
     let hrp = database
-        .collection::<ProtocolUpdateCollection>()
-        .get_latest_protocol_parameters()
+        .collection::<ApplicationStateCollection>()
+        .get_protocol_parameters()
         .await?
         .ok_or(CorruptStateError::ProtocolParams)?
-        .parameters
         .bech32_hrp();
 
     Ok(RichestAddressesResponse {

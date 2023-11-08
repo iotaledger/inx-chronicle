@@ -7,20 +7,19 @@ use std::{
 };
 
 use futures::{stream::BoxStream, Stream};
-use iota_sdk::types::block::slot::{SlotCommitment, SlotCommitmentId, SlotIndex};
+use iota_sdk::types::block::{
+    protocol::ProtocolParameters,
+    slot::{SlotCommitment, SlotCommitmentId, SlotIndex},
+};
 
 use super::InputSource;
-use crate::model::{
-    block_metadata::BlockWithMetadata, ledger::LedgerUpdateStore, node::NodeConfiguration,
-    protocol::ProtocolParameters, raw::Raw, slot::Commitment,
-};
+use crate::model::{block_metadata::BlockWithMetadata, ledger::LedgerUpdateStore, raw::Raw, slot::Commitment};
 
 #[allow(missing_docs)]
 pub struct Slot<'a, I: InputSource> {
     pub(super) source: &'a I,
     pub commitment: Commitment,
-    pub protocol_params: ProtocolParameters,
-    pub node_config: NodeConfiguration,
+    pub protocol_parameters: ProtocolParameters,
     pub ledger_updates: LedgerUpdateStore,
 }
 

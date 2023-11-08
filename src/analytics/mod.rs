@@ -45,7 +45,7 @@ pub trait AnalyticsContext: Send + Sync {
 
 impl<'a, I: InputSource> AnalyticsContext for Slot<'a, I> {
     fn protocol_params(&self) -> &ProtocolParameters {
-        &self.protocol_params.parameters
+        &self.protocol_parameters
     }
 
     fn slot_index(&self) -> SlotIndex {
@@ -158,9 +158,7 @@ impl Analytic {
         unspent_outputs: impl IntoIterator<Item = &'a LedgerOutput>,
     ) -> Self {
         Self(match choice {
-            AnalyticsChoice::AddressBalance => {
-                Box::new(AddressBalancesAnalytics::init(unspent_outputs, &protocol_params)) as _
-            }
+            AnalyticsChoice::AddressBalance => Box::new(AddressBalancesAnalytics::init(unspent_outputs)) as _,
             AnalyticsChoice::BaseTokenActivity => Box::<BaseTokenActivityMeasurement>::default() as _,
             AnalyticsChoice::BlockActivity => Box::<BlockActivityMeasurement>::default() as _,
             AnalyticsChoice::ActiveAddresses => Box::<AddressActivityAnalytics>::default() as _,
@@ -446,7 +444,7 @@ mod test {
         ) -> Self {
             Self {
                 active_addresses: Default::default(),
-                address_balance: AddressBalancesAnalytics::init(unspent_outputs, &protocol_params),
+                address_balance: AddressBalancesAnalytics::init(unspent_outputs),
                 base_tokens: Default::default(),
                 ledger_outputs: LedgerOutputMeasurement::init(unspent_outputs),
                 ledger_size: LedgerSizeAnalytics::init(protocol_params, unspent_outputs),

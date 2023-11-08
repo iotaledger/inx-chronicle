@@ -60,7 +60,7 @@ impl InxWorker {
         if let (Some(influx_db), analytics_choices) = (&self.influx_db, analytics_choices) {
             if influx_db.config().analytics_enabled {
                 // Check if the protocol params changed (or we just started)
-                if !matches!(&state, Some(state) if state.prev_protocol_params == slot.protocol_params.parameters) {
+                if !matches!(&state, Some(state) if state.prev_protocol_params == slot.protocol_parameters) {
                     let ledger_state = self
                         .db
                         .collection::<OutputCollection>()
@@ -71,11 +71,11 @@ impl InxWorker {
 
                     let analytics = analytics_choices
                         .iter()
-                        .map(|choice| Analytic::init(choice, &slot.protocol_params.parameters, &ledger_state))
+                        .map(|choice| Analytic::init(choice, &slot.protocol_parameters, &ledger_state))
                         .collect::<Vec<_>>();
                     *state = Some(AnalyticsState {
                         analytics,
-                        prev_protocol_params: slot.protocol_params.parameters.clone(),
+                        prev_protocol_params: slot.protocol_parameters.clone(),
                     });
                 }
 

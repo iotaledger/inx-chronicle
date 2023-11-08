@@ -39,20 +39,14 @@ impl Inx {
         Ok(self.inx.read_node_status(proto::NoParams {}).await?.try_convert()?)
     }
 
-    /// Stream status updates from the node.
-    pub async fn get_node_status_updates(
-        &mut self,
-        cooldown_in_milliseconds: u32,
-    ) -> Result<impl Stream<Item = Result<NodeStatus, InxError>>, InxError> {
-        Ok(self
-            .inx
-            .listen_to_node_status(proto::NodeStatusRequest {
-                cooldown_in_milliseconds,
-            })
-            .await?
-            .into_inner()
-            .map(|msg| TryConvertTo::try_convert(msg?)))
-    }
+    // /// Stream status updates from the node.
+    // pub async fn get_node_status_updates(
+    //     &mut self,
+    //     cooldown_in_milliseconds: u32,
+    // ) -> Result<impl Stream<Item = Result<NodeStatus, InxError>>, InxError> { Ok(self .inx
+    //   .listen_to_node_status(proto::NodeStatusRequest { cooldown_in_milliseconds, }) .await? .into_inner() .map(|msg|
+    //   TryConvertTo::try_convert(msg?)))
+    // }
 
     /// Get the configuration of the node.
     pub async fn get_node_configuration(&mut self) -> Result<NodeConfiguration, InxError> {

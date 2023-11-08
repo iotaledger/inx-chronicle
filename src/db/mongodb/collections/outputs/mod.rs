@@ -32,7 +32,7 @@ use super::ledger_update::{LedgerOutputRecord, LedgerSpentRecord};
 use crate::{
     db::{
         mongodb::{
-            collections::ProtocolUpdateCollection, DbError, InsertIgnoreDuplicatesExt, MongoDbCollection,
+            collections::ApplicationStateCollection, DbError, InsertIgnoreDuplicatesExt, MongoDbCollection,
             MongoDbCollectionExt,
         },
         MongoDb,
@@ -85,7 +85,7 @@ pub struct SpentMetadata {
 pub struct OutputCollection {
     db: mongodb::Database,
     collection: mongodb::Collection<OutputDocument>,
-    protocol_updates: ProtocolUpdateCollection,
+    app_state: ApplicationStateCollection,
 }
 
 #[async_trait::async_trait]
@@ -97,7 +97,7 @@ impl MongoDbCollection for OutputCollection {
         Self {
             db: db.db(),
             collection,
-            protocol_updates: db.collection(),
+            app_state: db.collection(),
         }
     }
 
@@ -684,11 +684,10 @@ impl OutputCollection {
 
         // TODO: handle missing params
         let protocol_params = self
-            .protocol_updates
-            .get_latest_protocol_parameters()
+            .app_state
+            .get_protocol_parameters()
             .await?
-            .expect("missing protocol parameters")
-            .parameters;
+            .expect("missing protocol parameters");
 
         let (start_slot, end_slot) = (
             protocol_params.slot_index(start_date.midnight().assume_utc().unix_timestamp() as _),

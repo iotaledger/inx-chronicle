@@ -12,14 +12,13 @@ use axum::{
 use chronicle::{
     db::{
         mongodb::collections::{
-            BlockCollection, CommittedSlotCollection, ConfigurationUpdateCollection, OutputCollection, OutputMetadata,
-            OutputWithMetadataResult, ProtocolUpdateCollection, UtxoChangesResult,
+            ApplicationStateCollection, BlockCollection, CommittedSlotCollection, OutputCollection, OutputMetadata,
+            OutputWithMetadataResult, UtxoChangesResult,
         },
         MongoDb,
     },
     model::block_metadata::BlockMetadata,
 };
-use futures::TryStreamExt;
 use iota_sdk::types::{
     api::core::{
         BaseTokenResponse, BlockMetadataResponse, OutputWithMetadataResponse, ProtocolParametersResponse,
@@ -88,30 +87,26 @@ pub fn routes() -> Router {
 }
 
 pub async fn info(database: Extension<MongoDb>) -> ApiResult<InfoResponse> {
-    let protocol_parameters = database
-        .collection::<ProtocolUpdateCollection>()
-        .get_all_protocol_parameters()
+    let node_config = database
+        .collection::<ApplicationStateCollection>()
+        .get_node_config()
         .await?
-        .map_ok(|doc| ProtocolParametersResponse {
+        .ok_or(CorruptStateError::NodeConfig)?;
+    let protocol_parameters = node_config
+        .protocol_parameters
+        .into_iter()
+        .map(|doc| ProtocolParametersResponse {
             parameters: doc.parameters,
             start_epoch: doc.start_epoch,
         })
-        .try_collect::<Vec<_>>()
-        .await
-        .map_err(|_| CorruptStateError::ProtocolParams)?;
+        .collect::<Vec<_>>();
 
     let is_healthy = is_healthy(&database).await.unwrap_or_else(|ApiError { error, .. }| {
         tracing::error!("An error occured during health check: {error}");
         false
     });
 
-    let base_token = database
-        .collection::<ConfigurationUpdateCollection>()
-        .get_latest_node_configuration()
-        .await?
-        .ok_or(CorruptStateError::NodeConfig)?
-        .config
-        .base_token;
+    let base_token = node_config.base_token;
 
     let latest_commitment_id = database
         .collection::<CommittedSlotCollection>()

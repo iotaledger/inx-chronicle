@@ -50,8 +50,9 @@ impl<I: InputSource + Sync> Tangle<I> {
                                 .ledger_updates(data.commitment.commitment_id.slot_index())
                                 .await?,
                             source,
-                            protocol_params: data.node_config.protocol_parameters.last().unwrap().clone(),
-                            node_config: data.node_config,
+                            protocol_parameters: source
+                                .protocol_parameters(data.commitment.commitment_id.slot_index())
+                                .await?,
                             commitment: data.commitment,
                         })
                     }

@@ -11,8 +11,8 @@ use std::time::Duration;
 use chronicle::{
     db::{
         mongodb::collections::{
-            ApplicationStateCollection, BlockCollection, CommittedSlotCollection, ConfigurationUpdateCollection,
-            LedgerUpdateCollection, OutputCollection, ProtocolUpdateCollection,
+            ApplicationStateCollection, BlockCollection, CommittedSlotCollection, LedgerUpdateCollection,
+            OutputCollection,
         },
         MongoDb,
     },
@@ -126,34 +126,34 @@ impl InxWorker {
 
         let node_configuration = inx.get_node_configuration().await?;
 
-        let protocol_parameters = node_configuration.protocol_parameters.last().unwrap();
-
         debug!(
             "Connected to network `{}` with base token `{}[{}]`.",
-            protocol_parameters.parameters.network_name(),
+            node_configuration
+                .protocol_parameters
+                .last()
+                .unwrap()
+                .parameters
+                .network_name(),
             node_configuration.base_token.name,
             node_configuration.base_token.ticker_symbol
         );
 
-        if let Some(latest) = self
+        if let Some(db_node_config) = self
             .db
-            .collection::<ProtocolUpdateCollection>()
-            .get_latest_protocol_parameters()
+            .collection::<ApplicationStateCollection>()
+            .get_node_config()
             .await?
         {
-            if latest.parameters.network_name() != protocol_parameters.parameters.network_name() {
-                bail!(InxWorkerError::NetworkChanged {
-                    old: latest.parameters.network_name().to_owned(),
-                    new: protocol_parameters.parameters.network_name().to_owned(),
-                });
-            }
-            debug!("Found matching network in the database.");
-            if latest.parameters != protocol_parameters.parameters {
-                debug!("Updating protocol parameters.");
-                self.db
-                    .collection::<ProtocolUpdateCollection>()
-                    .upsert_protocol_parameters(protocol_parameters.start_epoch, protocol_parameters.parameters.clone())
-                    .await?;
+            if db_node_config != node_configuration {
+                if db_node_config.latest_parameters().network_name()
+                    != node_configuration.latest_parameters().network_name()
+                {
+                    bail!(InxWorkerError::NetworkChanged {
+                        old: db_node_config.latest_parameters().network_name().to_owned(),
+                        new: node_configuration.latest_parameters().network_name().to_owned(),
+                    });
+                }
+                // TODO: Maybe we need to do some additional checking?
             }
         } else {
             self.db.clear().await?;
@@ -210,10 +210,12 @@ impl InxWorker {
 
             let starting_index = starting_index.unwrap_or(SlotIndex(0));
 
+            let protocol_params = node_configuration.latest_parameters();
+
             // Get the timestamp for the starting index
             let slot_timestamp = starting_index.to_timestamp(
-                protocol_parameters.parameters.genesis_unix_timestamp(),
-                protocol_parameters.parameters.slot_duration_in_seconds(),
+                protocol_params.genesis_unix_timestamp(),
+                protocol_params.slot_duration_in_seconds(),
             );
 
             info!(
@@ -231,14 +233,15 @@ impl InxWorker {
             info!(
                 "Linking database `{}` to network `{}`.",
                 self.db.name(),
-                protocol_parameters.parameters.network_name()
+                protocol_params.network_name()
             );
-
-            self.db
-                .collection::<ProtocolUpdateCollection>()
-                .upsert_protocol_parameters(protocol_parameters.start_epoch, protocol_parameters.parameters.clone())
-                .await?;
         }
+
+        debug!("Updating node configuration.");
+        self.db
+            .collection::<ApplicationStateCollection>()
+            .set_node_config(node_configuration)
+            .await?;
 
         Ok((start_index, inx))
     }
@@ -276,18 +279,6 @@ impl InxWorker {
         tracing::Span::current().record("consumed", slot.ledger_updates().consumed_outputs().len());
 
         self.handle_accepted_blocks(&slot).await?;
-        self.db
-            .collection::<ProtocolUpdateCollection>()
-            .upsert_protocol_parameters(
-                slot.index()
-                    .to_epoch_index(slot.protocol_params.parameters.slots_per_epoch_exponent()),
-                slot.protocol_params.parameters.clone(),
-            )
-            .await?;
-        self.db
-            .collection::<ConfigurationUpdateCollection>()
-            .upsert_node_configuration(slot.index(), slot.node_config.clone())
-            .await?;
 
         #[cfg(feature = "influx")]
         self.update_influx(

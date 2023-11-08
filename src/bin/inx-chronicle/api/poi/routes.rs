@@ -9,7 +9,7 @@ use axum::{
     Extension,
 };
 use chronicle::db::{
-    mongodb::collections::{BlockCollection, CommittedSlotCollection, ConfigurationUpdateCollection},
+    mongodb::collections::{BlockCollection, CommittedSlotCollection},
     MongoDb,
 };
 use iota_sdk::types::{api::core::BlockState, block::BlockId, TryFromDto};

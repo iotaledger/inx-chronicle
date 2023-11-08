@@ -5,13 +5,16 @@ use core::ops::RangeBounds;
 
 use async_trait::async_trait;
 use futures::{stream::BoxStream, TryStreamExt};
-use iota_sdk::types::block::slot::SlotIndex;
+use iota_sdk::types::block::{protocol::ProtocolParameters, slot::SlotIndex};
 use thiserror::Error;
 
 use super::{InputSource, SlotData};
 use crate::{
     db::{
-        mongodb::{collections::OutputCollection, DbError},
+        mongodb::{
+            collections::{ApplicationStateCollection, OutputCollection},
+            DbError,
+        },
         MongoDb,
     },
     model::{block_metadata::BlockWithMetadata, ledger::LedgerUpdateStore},
@@ -19,8 +22,6 @@ use crate::{
 
 #[derive(Debug, Error)]
 pub enum MongoDbInputSourceError {
-    #[error("missing node config for ledger index {0}")]
-    MissingNodeConfig(SlotIndex),
     #[error("missing protocol params for ledger index {0}")]
     MissingProtocolParams(SlotIndex),
     #[error(transparent)]
@@ -90,5 +91,13 @@ impl InputSource for MongoDb {
             .await?;
 
         Ok(LedgerUpdateStore::init(consumed, created))
+    }
+
+    async fn protocol_parameters(&self, index: SlotIndex) -> Result<ProtocolParameters, Self::Error> {
+        Ok(self
+            .collection::<ApplicationStateCollection>()
+            .get_protocol_parameters()
+            .await?
+            .ok_or_else(|| MongoDbInputSourceError::MissingProtocolParams(index))?)
     }
 }

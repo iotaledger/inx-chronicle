@@ -1,13 +1,17 @@
 // Copyright 2023 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-use iota_sdk::types::block::slot::SlotIndex;
+use futures::TryStreamExt;
+use iota_sdk::types::block::{protocol::ProtocolParameters, slot::SlotIndex};
 use mongodb::{bson::doc, options::UpdateOptions};
 use serde::{Deserialize, Serialize};
 
-use crate::db::{
-    mongodb::{DbError, MongoDbCollection, MongoDbCollectionExt},
-    MongoDb,
+use crate::{
+    db::{
+        mongodb::{DbError, MongoDbCollection, MongoDbCollectionExt},
+        MongoDb,
+    },
+    model::{node::NodeConfiguration, SerializeToBson},
 };
 
 /// The MongoDb document representation of singleton Application State.
@@ -15,6 +19,7 @@ use crate::db::{
 pub struct ApplicationStateDocument {
     pub starting_slot: Option<SlotIndex>,
     pub last_migration: Option<MigrationVersion>,
+    pub node_config: Option<NodeConfiguration>,
 }
 
 /// The migration version and associated metadata.
@@ -85,11 +90,45 @@ impl ApplicationStateCollection {
         self.update_one(
             doc! {},
             doc! {
-                "$set": { "last_migration": mongodb::bson::to_bson(&last_migration)? }
+                "$set": { "last_migration": last_migration.to_bson() }
             },
             UpdateOptions::builder().upsert(true).build(),
         )
         .await?;
         Ok(())
+    }
+
+    /// Gets the node config.
+    pub async fn get_node_config(&self) -> Result<Option<NodeConfiguration>, DbError> {
+        Ok(self
+            .find_one::<ApplicationStateDocument>(doc! {}, None)
+            .await?
+            .and_then(|doc| doc.node_config))
+    }
+
+    /// Set the node_config in the singleton application state.
+    pub async fn set_node_config(&self, node_config: NodeConfiguration) -> Result<(), DbError> {
+        self.update_one(
+            doc! {},
+            doc! {
+                "$set": { "node_config": node_config.to_bson() }
+            },
+            UpdateOptions::builder().upsert(true).build(),
+        )
+        .await?;
+        Ok(())
+    }
+
+    /// Gets the protocol parameters.
+    pub async fn get_protocol_parameters(&self) -> Result<Option<ProtocolParameters>, DbError> {
+        Ok(self
+            .aggregate::<crate::model::protocol::ProtocolParameters>(
+                [doc! { "$replaceWith": { "$last": "$node_config.protocol_parameters" } }],
+                None,
+            )
+            .await?
+            .try_next()
+            .await?
+            .map(|p| p.parameters))
     }
 }

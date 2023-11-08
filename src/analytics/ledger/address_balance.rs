@@ -3,10 +3,7 @@
 
 use std::collections::HashMap;
 
-use iota_sdk::types::block::{
-    address::{Bech32Address, ToBech32Ext},
-    protocol::ProtocolParameters,
-};
+use iota_sdk::types::block::address::Address;
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -32,20 +29,16 @@ pub(crate) struct DistributionStat {
 /// Computes the number of addresses the currently hold a balance.
 #[derive(Serialize, Deserialize)]
 pub(crate) struct AddressBalancesAnalytics {
-    balances: HashMap<Bech32Address, u64>,
+    balances: HashMap<Address, u64>,
 }
 
 impl AddressBalancesAnalytics {
     /// Initialize the analytics by reading the current ledger state.
-    pub(crate) fn init<'a>(
-        unspent_outputs: impl IntoIterator<Item = &'a LedgerOutput>,
-        protocol_params: &ProtocolParameters,
-    ) -> Self {
-        let hrp = protocol_params.bech32_hrp();
+    pub(crate) fn init<'a>(unspent_outputs: impl IntoIterator<Item = &'a LedgerOutput>) -> Self {
         let mut balances = HashMap::new();
         for output in unspent_outputs {
             if let Some(a) = output.address() {
-                *balances.entry(a.clone().to_bech32(hrp)).or_default() += output.amount();
+                *balances.entry(a.clone()).or_default() += output.amount();
             }
         }
         Self { balances }
@@ -56,15 +49,13 @@ impl Analytics for AddressBalancesAnalytics {
     type Measurement = AddressBalanceMeasurement;
 
     fn handle_transaction(&mut self, consumed: &[LedgerSpent], created: &[LedgerOutput], ctx: &dyn AnalyticsContext) {
-        let hrp = ctx.protocol_params().bech32_hrp();
         for output in consumed {
             if let Some(a) = output.address() {
-                let a = a.clone().to_bech32(hrp);
                 // All inputs should be present in `addresses`. If not, we skip it's value.
-                if let Some(amount) = self.balances.get_mut(&a) {
+                if let Some(amount) = self.balances.get_mut(a) {
                     *amount -= output.amount();
                     if *amount == 0 {
-                        self.balances.remove(&a);
+                        self.balances.remove(a);
                     }
                 }
             }
@@ -73,7 +64,7 @@ impl Analytics for AddressBalancesAnalytics {
         for output in created {
             if let Some(a) = output.address() {
                 // All inputs should be present in `addresses`. If not, we skip it's value.
-                *self.balances.entry(a.clone().to_bech32(hrp)).or_default() += output.amount();
+                *self.balances.entry(a.clone()).or_default() += output.amount();
             }
         }
     }

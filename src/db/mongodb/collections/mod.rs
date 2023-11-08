@@ -6,14 +6,10 @@ mod application_state;
 mod block;
 /// Module containing the committed slot collection.
 mod committed_slot;
-/// Module containing the node configuration collection.
-mod configuration_update;
 /// Module containing the ledger update collection.
 mod ledger_update;
 /// Module containing the outputs collection.
 mod outputs;
-/// Module containing the protocol parameters collection.
-mod protocol_update;
 
 use std::str::FromStr;
 
@@ -26,14 +22,12 @@ pub use self::{
     application_state::{ApplicationStateCollection, MigrationVersion},
     block::BlockCollection,
     committed_slot::CommittedSlotCollection,
-    configuration_update::ConfigurationUpdateCollection,
     ledger_update::{LedgerUpdateByAddressRecord, LedgerUpdateBySlotRecord, LedgerUpdateCollection},
     outputs::{
         AccountOutputsQuery, AddressStat, AnchorOutputsQuery, BasicOutputsQuery, DelegationOutputsQuery,
         DistributionStat, FoundryOutputsQuery, IndexedId, NftOutputsQuery, OutputCollection, OutputMetadata,
         OutputMetadataResult, OutputWithMetadataResult, OutputsResult, UtxoChangesResult,
     },
-    protocol_update::ProtocolUpdateCollection,
 };
 
 /// Helper to specify a kind for an output type.

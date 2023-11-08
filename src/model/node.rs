@@ -23,6 +23,12 @@ pub struct NodeConfiguration {
     pub protocol_parameters: Vec<ProtocolParameters>,
 }
 
+impl NodeConfiguration {
+    pub fn latest_parameters(&self) -> &iota_sdk::types::block::protocol::ProtocolParameters {
+        &self.protocol_parameters.last().unwrap().parameters
+    }
+}
+
 pub struct NodeStatus {
     pub is_healthy: bool,
     pub accepted_tangle_time: Option<u64>,

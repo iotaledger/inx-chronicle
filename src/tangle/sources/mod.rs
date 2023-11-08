@@ -10,18 +10,15 @@ use core::ops::RangeBounds;
 
 use async_trait::async_trait;
 use futures::stream::BoxStream;
-use iota_sdk::types::block::slot::SlotIndex;
+use iota_sdk::types::block::{protocol::ProtocolParameters, slot::SlotIndex};
 use serde::{Deserialize, Serialize};
 
-use crate::model::{
-    block_metadata::BlockWithMetadata, ledger::LedgerUpdateStore, node::NodeConfiguration, slot::Commitment,
-};
+use crate::model::{block_metadata::BlockWithMetadata, ledger::LedgerUpdateStore, slot::Commitment};
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[allow(missing_docs)]
 pub struct SlotData {
     pub commitment: Commitment,
-    pub node_config: NodeConfiguration,
 }
 
 /// Defines a type as a source for block and ledger update data.
@@ -44,4 +41,7 @@ pub trait InputSource: Send + Sync {
 
     /// Retrieves the updates to the ledger for a given range of slots.
     async fn ledger_updates(&self, index: SlotIndex) -> Result<LedgerUpdateStore, Self::Error>;
+
+    /// Retrieves the protocol parameters for the given slot index.
+    async fn protocol_parameters(&self, index: SlotIndex) -> Result<ProtocolParameters, Self::Error>;
 }

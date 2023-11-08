@@ -11,7 +11,7 @@ use axum::{
     Extension, Json, TypedHeader,
 };
 use chronicle::db::{
-    mongodb::collections::{CommittedSlotCollection, ProtocolUpdateCollection},
+    mongodb::collections::{ApplicationStateCollection, CommittedSlotCollection},
     MongoDb,
 };
 use hyper::StatusCode;
@@ -145,10 +145,9 @@ pub async fn is_healthy(database: &MongoDb) -> ApiResult<bool> {
             .await?
         {
             if let Some(protocol_params) = database
-                .collection::<ProtocolUpdateCollection>()
-                .get_latest_protocol_parameters()
+                .collection::<ApplicationStateCollection>()
+                .get_protocol_parameters()
                 .await?
-                .map(|p| p.parameters)
             {
                 if is_new_enough(newest_slot.slot_index.to_timestamp(
                     protocol_params.genesis_unix_timestamp(),
