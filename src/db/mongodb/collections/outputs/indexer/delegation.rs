@@ -19,7 +19,7 @@ pub struct DelegationOutputsQuery {
 impl From<DelegationOutputsQuery> for bson::Document {
     fn from(query: DelegationOutputsQuery) -> Self {
         let mut queries = Vec::new();
-        queries.push(doc! { "output.kind": "delegation" });
+        queries.push(doc! { "details.kind": "delegation" });
         queries.append_query(AddressQuery(query.address));
         queries.append_query(ValidatorQuery(query.validator));
         queries.append_query(CreatedQuery {
@@ -55,7 +55,7 @@ mod test {
         let address = AddressDto::from(address);
         let query_doc = doc! {
             "$and": [
-                { "output.kind": "alias" },
+                { "details.kind": "alias" },
                 { "details.address": address.clone() },
                 { "details.validator": validator.to_bson() },
                 { "metadata.slot_booked": { "$lt": 10000 } },
@@ -73,7 +73,7 @@ mod test {
         };
         let query_doc = doc! {
             "$and": [
-                { "output.kind": "alias" },
+                { "details.kind": "alias" },
                 { "metadata.slot_booked": { "$lt": 10000 } }
             ]
         };

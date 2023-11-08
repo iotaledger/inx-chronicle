@@ -9,7 +9,7 @@ use iota_sdk::types::{
 use super::*;
 use crate::inx::responses::BlockMetadata;
 
-/// The type of payloads that occured within a single milestone.
+/// The type of payloads that occured within a single slot.
 #[derive(Copy, Clone, Debug, Default)]
 pub(crate) struct BlockActivityMeasurement {
     pub(crate) no_payload_count: usize,

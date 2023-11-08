@@ -127,7 +127,7 @@ where
     // If any record is left, use it to make the cursor
     let cursor = iter.next().map(|rec| {
         IndexedOutputsCursor {
-            milestone_index: rec.booked_index,
+            slot_index: rec.booked_index,
             output_id: rec.output_id,
             page_size,
         }

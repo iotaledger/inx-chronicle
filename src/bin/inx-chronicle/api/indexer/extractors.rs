@@ -39,7 +39,7 @@ where
 
 #[derive(Clone)]
 pub struct IndexedOutputsCursor {
-    pub milestone_index: SlotIndex,
+    pub slot_index: SlotIndex,
     pub output_id: OutputId,
     pub page_size: usize,
 }
@@ -51,7 +51,7 @@ impl FromStr for IndexedOutputsCursor {
         let parts: Vec<_> = s.split('.').collect();
         Ok(match parts[..] {
             [ms, o, ps] => IndexedOutputsCursor {
-                milestone_index: ms.parse().map_err(RequestError::from)?,
+                slot_index: ms.parse().map_err(RequestError::from)?,
                 output_id: o.parse().map_err(RequestError::from)?,
                 page_size: ps.parse().map_err(RequestError::from)?,
             },
@@ -62,7 +62,7 @@ impl FromStr for IndexedOutputsCursor {
 
 impl Display for IndexedOutputsCursor {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}.{}.{}", self.milestone_index, self.output_id, self.page_size)
+        write!(f, "{}.{}.{}", self.slot_index, self.output_id, self.page_size)
     }
 }
 
@@ -104,7 +104,7 @@ impl<B: Send> FromRequest<B> for IndexedOutputsPagination<BasicOutputsQuery> {
 
         let (cursor, page_size) = if let Some(cursor) = query.cursor {
             let cursor: IndexedOutputsCursor = cursor.parse()?;
-            (Some((cursor.milestone_index, cursor.output_id)), cursor.page_size)
+            (Some((cursor.slot_index, cursor.output_id)), cursor.page_size)
         } else {
             (None, query.page_size.unwrap_or(DEFAULT_PAGE_SIZE))
         };
@@ -169,7 +169,7 @@ impl<B: Send> FromRequest<B> for IndexedOutputsPagination<AccountOutputsQuery> {
 
         let (cursor, page_size) = if let Some(cursor) = query.cursor {
             let cursor: IndexedOutputsCursor = cursor.parse()?;
-            (Some((cursor.milestone_index, cursor.output_id)), cursor.page_size)
+            (Some((cursor.slot_index, cursor.output_id)), cursor.page_size)
         } else {
             (None, query.page_size.unwrap_or(DEFAULT_PAGE_SIZE))
         };
@@ -224,7 +224,7 @@ impl<B: Send> FromRequest<B> for IndexedOutputsPagination<AnchorOutputsQuery> {
 
         let (cursor, page_size) = if let Some(cursor) = query.cursor {
             let cursor: IndexedOutputsCursor = cursor.parse()?;
-            (Some((cursor.milestone_index, cursor.output_id)), cursor.page_size)
+            (Some((cursor.slot_index, cursor.output_id)), cursor.page_size)
         } else {
             (None, query.page_size.unwrap_or(DEFAULT_PAGE_SIZE))
         };
@@ -279,7 +279,7 @@ impl<B: Send> FromRequest<B> for IndexedOutputsPagination<FoundryOutputsQuery> {
 
         let (cursor, page_size) = if let Some(cursor) = query.cursor {
             let cursor: IndexedOutputsCursor = cursor.parse()?;
-            (Some((cursor.milestone_index, cursor.output_id)), cursor.page_size)
+            (Some((cursor.slot_index, cursor.output_id)), cursor.page_size)
         } else {
             (None, query.page_size.unwrap_or(DEFAULT_PAGE_SIZE))
         };
@@ -345,7 +345,7 @@ impl<B: Send> FromRequest<B> for IndexedOutputsPagination<NftOutputsQuery> {
 
         let (cursor, page_size) = if let Some(cursor) = query.cursor {
             let cursor: IndexedOutputsCursor = cursor.parse()?;
-            (Some((cursor.milestone_index, cursor.output_id)), cursor.page_size)
+            (Some((cursor.slot_index, cursor.output_id)), cursor.page_size)
         } else {
             (None, query.page_size.unwrap_or(DEFAULT_PAGE_SIZE))
         };
@@ -410,7 +410,7 @@ impl<B: Send> FromRequest<B> for IndexedOutputsPagination<DelegationOutputsQuery
 
         let (cursor, page_size) = if let Some(cursor) = query.cursor {
             let cursor: IndexedOutputsCursor = cursor.parse()?;
-            (Some((cursor.milestone_index, cursor.output_id)), cursor.page_size)
+            (Some((cursor.slot_index, cursor.output_id)), cursor.page_size)
         } else {
             (None, query.page_size.unwrap_or(DEFAULT_PAGE_SIZE))
         };
@@ -446,11 +446,11 @@ mod test {
 
     #[test]
     fn indexed_outputs_cursor_from_to_str() {
-        let milestone_index = 164338324u32;
+        let slot_index = SlotIndex(164338324);
         let output_id_str = "0xfa0de75d225cca2799395e5fc340702fc7eac821d2bdd79911126f131ae097a20100";
         let page_size_str = "1337";
 
-        let cursor = format!("{milestone_index}.{output_id_str}.{page_size_str}",);
+        let cursor = format!("{slot_index}.{output_id_str}.{page_size_str}",);
         let parsed: IndexedOutputsCursor = cursor.parse().unwrap();
         assert_eq!(parsed.to_string(), cursor);
     }

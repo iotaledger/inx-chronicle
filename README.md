@@ -6,7 +6,7 @@
 
 Chronicle is the permanode (sometimes also called indexer or scanner) for the IOTA-based networks.
 It connects to a [Hornet](https://github.com/iotaledger/hornet) via the [IOTA Node Extension (INX)](https://github.com/iotaledger/inx) interface.
-Through the INX interface, Chronicle listens to all blocks in the Tangle that are referenced by a milestone and stores them in a [MongoDB](https://www.mongodb.com/) database.
+Through the INX interface, Chronicle listens to all blocks in the Tangle that are confirmed and stores them in a [MongoDB](https://www.mongodb.com/) database.
 
 ## Documentation
 

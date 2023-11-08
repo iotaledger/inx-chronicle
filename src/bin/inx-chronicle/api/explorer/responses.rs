@@ -105,12 +105,12 @@ pub struct BlockPayloadTypeDto {
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct BlocksByMilestoneResponse {
+pub struct BlocksBySlotResponse {
     pub blocks: Vec<BlockPayloadTypeDto>,
     pub cursor: Option<String>,
 }
 
-impl_success_response!(BlocksByMilestoneResponse);
+impl_success_response!(BlocksBySlotResponse);
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]

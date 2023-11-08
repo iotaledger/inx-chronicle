@@ -7,16 +7,16 @@ use packable::PackableExt;
 use super::*;
 use crate::inx::responses::BlockMetadata;
 
-/// Milestone size statistics.
+/// Slot size statistics.
 #[derive(Copy, Clone, Debug, Default)]
-pub(crate) struct MilestoneSizeMeasurement {
+pub(crate) struct SlotSizeMeasurement {
     pub(crate) total_tagged_data_payload_bytes: usize,
     pub(crate) total_transaction_payload_bytes: usize,
     pub(crate) total_candidacy_announcement_payload_bytes: usize,
     pub(crate) total_slot_bytes: usize,
 }
 
-impl Analytics for MilestoneSizeMeasurement {
+impl Analytics for SlotSizeMeasurement {
     type Measurement = Self;
 
     fn handle_block(

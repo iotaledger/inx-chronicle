@@ -16,12 +16,12 @@ use iota_sdk::types::block::{
 
 use super::{
     extractors::{
-        BlocksByMilestoneIdPagination, BlocksBySlotCursor, BlocksBySlotIndexPagination, LedgerIndex,
-        LedgerUpdatesByAddressCursor, LedgerUpdatesByAddressPagination, LedgerUpdatesByMilestoneCursor,
-        LedgerUpdatesBySlotPagination, RichestAddressesQuery, SlotsCursor, SlotsPagination,
+        BlocksBySlotCursor, BlocksBySlotIndexPagination, LedgerIndex, LedgerUpdatesByAddressCursor,
+        LedgerUpdatesByAddressPagination, LedgerUpdatesBySlotCursor, LedgerUpdatesBySlotPagination,
+        RichestAddressesQuery, SlotsCursor, SlotsPagination,
     },
     responses::{
-        AddressStatDto, BalanceResponse, BlockPayloadTypeDto, BlocksByMilestoneResponse, LedgerUpdateBySlotDto,
+        AddressStatDto, BalanceResponse, BlockPayloadTypeDto, BlocksBySlotResponse, LedgerUpdateBySlotDto,
         LedgerUpdatesByAddressResponse, LedgerUpdatesBySlotResponse, RichestAddressesResponse, SlotDto, SlotsResponse,
         TokenDistributionResponse,
     },
@@ -131,7 +131,7 @@ async fn ledger_updates_by_slot(
 
     // If any record is left, use it to make the paging state
     let cursor = record_stream.try_next().await?.map(|rec| {
-        LedgerUpdatesByMilestoneCursor {
+        LedgerUpdatesBySlotCursor {
             output_id: rec.output_id,
             page_size,
             is_spent: rec.is_spent,
@@ -237,7 +237,7 @@ async fn blocks_by_slot_index(
         page_size,
         cursor,
     }: BlocksBySlotIndexPagination,
-) -> ApiResult<BlocksByMilestoneResponse> {
+) -> ApiResult<BlocksBySlotResponse> {
     let mut record_stream = database
         .collection::<BlockCollection>()
         .get_blocks_by_slot_index(index, page_size + 1, cursor, sort)
@@ -263,18 +263,18 @@ async fn blocks_by_slot_index(
         .to_string()
     });
 
-    Ok(BlocksByMilestoneResponse { blocks, cursor })
+    Ok(BlocksBySlotResponse { blocks, cursor })
 }
 
 async fn blocks_by_commitment_id(
     database: Extension<MongoDb>,
     Path(commitment_id): Path<SlotCommitmentId>,
-    BlocksByMilestoneIdPagination {
+    BlocksBySlotIndexPagination {
         sort,
         page_size,
         cursor,
-    }: BlocksByMilestoneIdPagination,
-) -> ApiResult<BlocksByMilestoneResponse> {
+    }: BlocksBySlotIndexPagination,
+) -> ApiResult<BlocksBySlotResponse> {
     blocks_by_slot_index(
         database,
         Path(commitment_id.slot_index()),

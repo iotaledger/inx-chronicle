@@ -51,7 +51,7 @@ impl MongoDbCollection for ApplicationStateCollection {
 }
 
 impl ApplicationStateCollection {
-    /// Gets the application starting milestone index.
+    /// Gets the application starting slot index.
     pub async fn get_starting_index(&self) -> Result<Option<SlotIndex>, DbError> {
         Ok(self
             .find_one::<ApplicationStateDocument>(doc! {}, None)
@@ -59,7 +59,7 @@ impl ApplicationStateCollection {
             .and_then(|doc| doc.starting_slot))
     }
 
-    /// Set the starting milestone index in the singleton application state.
+    /// Set the starting slot index in the singleton application state.
     pub async fn set_starting_index(&self, starting_slot: SlotIndex) -> Result<(), DbError> {
         self.update_one(
             doc! {},

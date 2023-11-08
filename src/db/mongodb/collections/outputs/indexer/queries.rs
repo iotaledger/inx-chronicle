@@ -234,22 +234,22 @@ impl AppendToQuery for ExpirationQuery {
     fn append_to(self, queries: &mut Vec<Document>) {
         if let Some(has_expiration_condition) = self.has_expiration_condition {
             queries.push(doc! {
-                "output.expiration_unlock_condition": { "$exists": has_expiration_condition }
+                "details.expiration": { "$exists": has_expiration_condition }
             });
         }
         if let Some(expires_before) = self.expires_before {
             queries.push(doc! {
-                "output.expiration_unlock_condition.timestamp": { "$lt": expires_before.0 }
+                "details.expiration": { "$lt": expires_before.0 }
             });
         }
         if let Some(expires_after) = self.expires_after {
             queries.push(doc! {
-                "output.expiration_unlock_condition.timestamp": { "$gt": expires_after.0 }
+                "details.expiration": { "$gt": expires_after.0 }
             });
         }
         if let Some(address) = self.expiration_return_address {
             queries.push(doc! {
-                "output.expiration_unlock_condition.return_address": AddressDto::from(address)
+                "details.expiration_return_address": AddressDto::from(address)
             });
         }
     }

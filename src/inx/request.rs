@@ -1,7 +1,7 @@
 // Copyright 2023 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-//! This module offers convenience functionality to request per-milestone information via INX.
+//! This module offers convenience functionality to request per-slot information via INX.
 
 use std::ops::{Bound, RangeBounds};
 

@@ -110,25 +110,25 @@ pub struct LedgerUpdatesBySlotPagination {
 
 #[derive(Clone, Deserialize, Default)]
 #[serde(default, deny_unknown_fields, rename_all = "camelCase")]
-pub struct LedgerUpdatesByMilestonePaginationQuery {
+pub struct LedgerUpdatesBySlotPaginationQuery {
     pub page_size: Option<usize>,
     pub cursor: Option<String>,
 }
 
 #[derive(Clone)]
-pub struct LedgerUpdatesByMilestoneCursor {
+pub struct LedgerUpdatesBySlotCursor {
     pub output_id: OutputId,
     pub is_spent: bool,
     pub page_size: usize,
 }
 
-impl FromStr for LedgerUpdatesByMilestoneCursor {
+impl FromStr for LedgerUpdatesBySlotCursor {
     type Err = ApiError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let parts: Vec<_> = s.split('.').collect();
         Ok(match parts[..] {
-            [o, sp, ps] => LedgerUpdatesByMilestoneCursor {
+            [o, sp, ps] => LedgerUpdatesBySlotCursor {
                 output_id: o.parse().map_err(RequestError::from)?,
                 is_spent: sp.parse().map_err(RequestError::from)?,
                 page_size: ps.parse().map_err(RequestError::from)?,
@@ -138,7 +138,7 @@ impl FromStr for LedgerUpdatesByMilestoneCursor {
     }
 }
 
-impl Display for LedgerUpdatesByMilestoneCursor {
+impl Display for LedgerUpdatesBySlotCursor {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}.{}.{}", self.output_id, self.is_spent, self.page_size)
     }
@@ -149,13 +149,13 @@ impl<B: Send> FromRequest<B> for LedgerUpdatesBySlotPagination {
     type Rejection = ApiError;
 
     async fn from_request(req: &mut axum::extract::RequestParts<B>) -> Result<Self, Self::Rejection> {
-        let Query(query) = Query::<LedgerUpdatesByMilestonePaginationQuery>::from_request(req)
+        let Query(query) = Query::<LedgerUpdatesBySlotPaginationQuery>::from_request(req)
             .await
             .map_err(RequestError::from)?;
         let Extension(config) = Extension::<ApiConfigData>::from_request(req).await?;
 
         let (page_size, cursor) = if let Some(cursor) = query.cursor {
-            let cursor: LedgerUpdatesByMilestoneCursor = cursor.parse()?;
+            let cursor: LedgerUpdatesBySlotCursor = cursor.parse()?;
             (cursor.page_size, Some((cursor.output_id, cursor.is_spent)))
         } else {
             (query.page_size.unwrap_or(DEFAULT_PAGE_SIZE), None)
@@ -394,7 +394,7 @@ impl<B: Send> FromRequest<B> for BlocksBySlotIndexPagination {
     }
 }
 
-pub struct BlocksByMilestoneIdPagination {
+pub struct BlocksBySlotCommitmentIdPagination {
     pub sort: SortOrder,
     pub page_size: usize,
     pub cursor: Option<BlockId>,
@@ -402,18 +402,18 @@ pub struct BlocksByMilestoneIdPagination {
 
 #[derive(Clone, Deserialize, Default)]
 #[serde(default, deny_unknown_fields, rename_all = "camelCase")]
-pub struct BlocksByMilestoneIdPaginationQuery {
+pub struct BlocksBySlotCommitmentIdPaginationQuery {
     pub sort: Option<String>,
     pub page_size: Option<usize>,
     pub cursor: Option<String>,
 }
 
 #[async_trait]
-impl<B: Send> FromRequest<B> for BlocksByMilestoneIdPagination {
+impl<B: Send> FromRequest<B> for BlocksBySlotCommitmentIdPagination {
     type Rejection = ApiError;
 
     async fn from_request(req: &mut axum::extract::RequestParts<B>) -> Result<Self, Self::Rejection> {
-        let Query(query) = Query::<BlocksByMilestoneIdPaginationQuery>::from_request(req)
+        let Query(query) = Query::<BlocksBySlotCommitmentIdPaginationQuery>::from_request(req)
             .await
             .map_err(RequestError::from)?;
         let Extension(config) = Extension::<ApiConfigData>::from_request(req).await?;
@@ -431,7 +431,7 @@ impl<B: Send> FromRequest<B> for BlocksByMilestoneIdPagination {
             (query.page_size.unwrap_or(DEFAULT_PAGE_SIZE), None)
         };
 
-        Ok(BlocksByMilestoneIdPagination {
+        Ok(BlocksBySlotCommitmentIdPagination {
             sort,
             page_size: page_size.min(config.max_page_size),
             cursor,
@@ -466,7 +466,7 @@ mod test {
         let page_size_str = "1337";
 
         let cursor = format!("{output_id_str}.{is_spent_str}.{page_size_str}",);
-        let parsed: LedgerUpdatesByMilestoneCursor = cursor.parse().unwrap();
+        let parsed: LedgerUpdatesBySlotCursor = cursor.parse().unwrap();
         assert_eq!(parsed.to_string(), cursor);
     }
 

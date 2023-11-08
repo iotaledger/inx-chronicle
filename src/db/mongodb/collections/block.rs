@@ -429,7 +429,7 @@ pub struct BlocksBySlotResult {
 }
 
 impl BlockCollection {
-    /// Get the [`Block`]s in a milestone by index as a stream of [`BlockId`]s.
+    /// Get the blocks in a slot by index as a stream of [`BlockId`]s.
     pub async fn get_blocks_by_slot_index(
         &self,
         slot_index: SlotIndex,

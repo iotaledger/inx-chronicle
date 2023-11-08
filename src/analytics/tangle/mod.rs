@@ -4,14 +4,13 @@
 //! Statistics about the tangle.
 
 pub(crate) use self::{
-    block_activity::BlockActivityMeasurement, milestone_size::MilestoneSizeMeasurement,
-    protocol_params::ProtocolParamsAnalytics,
+    block_activity::BlockActivityMeasurement, protocol_params::ProtocolParamsAnalytics, slot_size::SlotSizeMeasurement,
 };
 use crate::analytics::{Analytics, AnalyticsContext};
 
 mod block_activity;
-mod milestone_size;
 mod protocol_params;
+mod slot_size;
 
 // #[cfg(test)]
 // mod test {

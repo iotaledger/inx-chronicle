@@ -36,7 +36,7 @@ pub struct NftOutputsQuery {
 impl From<NftOutputsQuery> for bson::Document {
     fn from(query: NftOutputsQuery) -> Self {
         let mut queries = Vec::new();
-        queries.push(doc! { "output.kind": "nft" });
+        queries.push(doc! { "details.kind": "nft" });
         queries.append_query(AddressQuery(query.address));
         queries.append_query(IssuerQuery(query.issuer));
         queries.append_query(SenderQuery(query.sender));
@@ -103,7 +103,7 @@ impl From<NftOutputsQuery> for bson::Document {
 //         };
 //         let query_doc = doc! {
 //             "$and": [
-//                 { "output.kind": "nft" },
+//                 { "details.kind": "nft" },
 //                 { "details.address": address },
 //                 { "output.features": { "$elemMatch": {
 //                     "kind": "issuer",
@@ -169,7 +169,7 @@ impl From<NftOutputsQuery> for bson::Document {
 //         };
 //         let query_doc = doc! {
 //             "$and": [
-//                 { "output.kind": "nft" },
+//                 { "details.kind": "nft" },
 //                 { "details.address": address },
 //                 { "output.native_tokens": { "$eq": [] } },
 //                 { "output.storage_deposit_return_unlock_condition": { "$exists": false } },
@@ -203,7 +203,7 @@ impl From<NftOutputsQuery> for bson::Document {
 //         };
 //         let query_doc = doc! {
 //             "$and": [
-//                 { "output.kind": "nft" },
+//                 { "details.kind": "nft" },
 //                 { "output.native_tokens": { "$ne": [] } },
 //                 { "output.storage_deposit_return_unlock_condition": { "$exists": true } },
 //                 { "output.timelock_unlock_condition": { "$exists": true } },

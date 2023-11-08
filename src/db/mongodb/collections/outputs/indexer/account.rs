@@ -20,7 +20,7 @@ pub struct AccountOutputsQuery {
 impl From<AccountOutputsQuery> for bson::Document {
     fn from(query: AccountOutputsQuery) -> Self {
         let mut queries = Vec::new();
-        queries.push(doc! { "output.kind": "account" });
+        queries.push(doc! { "details.kind": "account" });
         queries.append_query(AddressQuery(query.address));
         queries.append_query(IssuerQuery(query.issuer));
         queries.append_query(SenderQuery(query.sender));
@@ -54,7 +54,7 @@ impl From<AccountOutputsQuery> for bson::Document {
 //         let address = AddressDto::from(address);
 //         let query_doc = doc! {
 //             "$and": [
-//                 { "output.kind": "account" },
+//                 { "details.kind": "account" },
 //                 { "details.address": address.clone() },
 //                 { "details.issuer": address.clone() },
 //                 { "details.sender": address },
@@ -73,7 +73,7 @@ impl From<AccountOutputsQuery> for bson::Document {
 //         };
 //         let query_doc = doc! {
 //             "$and": [
-//                 { "output.kind": "account" },
+//                 { "details.kind": "account" },
 //                 { "metadata.booked.milestone_timestamp": { "$lt": 10000 } }
 //             ]
 //         };

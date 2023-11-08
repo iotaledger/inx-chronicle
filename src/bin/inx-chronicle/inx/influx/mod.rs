@@ -13,7 +13,7 @@ impl InxWorker {
         &self,
         slot: &Slot<'a, Inx>,
         #[cfg(feature = "analytics")] analytics_info: Option<&mut analytics::AnalyticsInfo>,
-        #[cfg(feature = "metrics")] milestone_start_time: std::time::Instant,
+        #[cfg(feature = "metrics")] slot_start_time: std::time::Instant,
     ) -> eyre::Result<()> {
         #[cfg(all(feature = "analytics", feature = "metrics"))]
         let analytics_start_time = std::time::Instant::now();
@@ -44,7 +44,7 @@ impl InxWorker {
         #[cfg(feature = "metrics")]
         if let Some(influx_db) = &self.influx_db {
             if influx_db.config().metrics_enabled {
-                let elapsed = milestone_start_time.elapsed();
+                let elapsed = slot_start_time.elapsed();
                 influx_db
                     .metrics()
                     .insert(chronicle::metrics::SyncMetrics {

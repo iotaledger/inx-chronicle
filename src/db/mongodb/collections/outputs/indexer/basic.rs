@@ -35,7 +35,7 @@ pub struct BasicOutputsQuery {
 impl From<BasicOutputsQuery> for bson::Document {
     fn from(query: BasicOutputsQuery) -> Self {
         let mut queries = Vec::new();
-        queries.push(doc! { "output.kind": "basic" });
+        queries.push(doc! { "details.kind": "basic" });
         queries.append_query(AddressQuery(query.address));
         queries.append_query(NativeTokensQuery {
             has_native_tokens: query.has_native_tokens,
@@ -103,7 +103,7 @@ impl From<BasicOutputsQuery> for bson::Document {
 //         };
 //         let query_doc = doc! {
 //             "$and": [
-//                 { "output.kind": "basic" },
+//                 { "details.kind": "basic" },
 //                 { "details.address": address },
 //                 { "output.native_tokens": { "$ne": [] } },
 //                 { "output.native_tokens": { "$not": {
@@ -164,7 +164,7 @@ impl From<BasicOutputsQuery> for bson::Document {
 //         };
 //         let query_doc = doc! {
 //             "$and": [
-//                 { "output.kind": "basic" },
+//                 { "details.kind": "basic" },
 //                 { "details.address": address },
 //                 { "output.native_tokens": { "$eq": [] } },
 //                 { "output.storage_deposit_return_unlock_condition": { "$exists": false } },
@@ -198,7 +198,7 @@ impl From<BasicOutputsQuery> for bson::Document {
 //         };
 //         let query_doc = doc! {
 //             "$and": [
-//                 { "output.kind": "basic" },
+//                 { "details.kind": "basic" },
 //                 { "output.native_tokens": { "$ne": [] } },
 //                 { "output.storage_deposit_return_unlock_condition": { "$exists": true } },
 //                 { "output.timelock_unlock_condition": { "$exists": true } },

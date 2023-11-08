@@ -232,7 +232,7 @@ impl LedgerUpdateCollection {
             }))
     }
 
-    /// Streams updates to the ledger for a given milestone index (sorted by [`OutputId`]).
+    /// Streams updates to the ledger for a given slot index (sorted by [`OutputId`]).
     pub async fn get_ledger_updates_by_slot(
         &self,
         slot_index: SlotIndex,

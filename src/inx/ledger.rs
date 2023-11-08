@@ -122,7 +122,7 @@ impl TryConvertFrom<proto::LedgerSpent> for LedgerSpent {
     }
 }
 
-/// Holds the ledger updates that happened during a milestone.
+/// Holds the ledger updates that happened during a slot.
 ///
 /// Note: For now we store all of these in memory. At some point we might need to retrieve them from an async
 /// datasource.
@@ -158,14 +158,14 @@ impl LedgerUpdateStore {
 
     /// Retrieves a [`LedgerOutput`] by [`OutputId`].
     ///
-    /// Note: Only outputs that were touched in the current milestone (either as inputs or outputs) are present.
+    /// Note: Only outputs that were touched in the current slot (either as inputs or outputs) are present.
     pub fn get_created(&self, output_id: &OutputId) -> Option<&LedgerOutput> {
         self.created_index.get(output_id).map(|&idx| &self.created[idx])
     }
 
     /// Retrieves a [`LedgerSpent`] by [`OutputId`].
     ///
-    /// Note: Only outputs that were touched in the current milestone (either as inputs or outputs) are present.
+    /// Note: Only outputs that were touched in the current slot (either as inputs or outputs) are present.
     pub fn get_consumed(&self, output_id: &OutputId) -> Option<&LedgerSpent> {
         self.consumed_index.get(output_id).map(|&idx| &self.consumed[idx])
     }
@@ -222,7 +222,7 @@ impl LedgerUpdate {
         }
     }
 
-    /// If present, returns the `Marker` that denotes the beginning of a milestone while consuming `self`.
+    /// If present, returns the `Marker` that denotes the beginning of a slot while consuming `self`.
     pub fn begin(self) -> Option<MarkerMessage> {
         match self {
             Self::Begin(marker) => Some(marker),

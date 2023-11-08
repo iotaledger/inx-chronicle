@@ -8,8 +8,6 @@ use thiserror::Error;
 pub enum RequestError {
     #[error("Invalid JSON representation of given block")]
     MalformedJsonBlock,
-    #[error("Invalid JSON representation of given milestone")]
-    MalformedJsonMilestone,
     #[error("Invalid JSON representation of given audit path")]
     MalformedJsonAuditPath,
     #[error("Block '{0}' was not referenced by a milestone")]
@@ -21,10 +19,6 @@ pub enum RequestError {
 #[derive(Error, Debug)]
 #[allow(missing_docs)]
 pub enum CorruptStateError {
-    #[error("No milestone cone in the database")]
-    NoMilestoneCone,
-    #[error("Incomplete milestone cone in the database")]
-    IncompleteMilestoneCone,
     #[error("Creating proof failed: {0}")]
     CreateProof(#[from] CreateProofError),
     #[error("Error decoding public key")]

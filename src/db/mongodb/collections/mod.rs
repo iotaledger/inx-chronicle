@@ -35,7 +35,6 @@ pub use self::{
     },
     protocol_update::ProtocolUpdateCollection,
 };
-// use crate::model::utxo::{AliasOutput, BasicOutput, FoundryOutput, NftOutput, Output};
 
 /// Helper to specify a kind for an output type.
 pub trait OutputKindQuery {
@@ -60,10 +59,10 @@ macro_rules! impl_output_kind_query {
 }
 impl_output_kind_query!(BasicOutput, "basic");
 impl_output_kind_query!(AccountOutput, "account");
+impl_output_kind_query!(AnchorOutput, "anchor");
 impl_output_kind_query!(FoundryOutput, "foundry");
 impl_output_kind_query!(NftOutput, "nft");
 impl_output_kind_query!(DelegationOutput, "delegation");
-impl_output_kind_query!(AnchorOutput, "anchor");
 
 #[allow(missing_docs)]
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]

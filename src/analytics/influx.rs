@@ -12,7 +12,7 @@ use super::{
         LedgerSizeMeasurement, OutputActivityMeasurement, TransactionSizeMeasurement, UnclaimedTokenMeasurement,
         UnlockConditionMeasurement,
     },
-    tangle::{BlockActivityMeasurement, MilestoneSizeMeasurement},
+    tangle::{BlockActivityMeasurement, SlotSizeMeasurement},
     AnalyticsInterval, PerInterval, PerSlot,
 };
 use crate::db::influxdb::InfluxDb;
@@ -195,16 +195,16 @@ impl Measurement for LedgerOutputMeasurement {
         query
             .add_field("basic_count", self.basic.count as u64)
             .add_field("basic_amount", self.basic.amount)
-            .add_field("alias_count", self.account.count as u64)
-            .add_field("alias_amount", self.account.amount)
-            .add_field("alias_count", self.anchor.count as u64)
-            .add_field("alias_amount", self.anchor.amount)
+            .add_field("account_count", self.account.count as u64)
+            .add_field("account_amount", self.account.amount)
+            .add_field("anchor_count", self.anchor.count as u64)
+            .add_field("anchor_amount", self.anchor.amount)
             .add_field("foundry_count", self.foundry.count as u64)
             .add_field("foundry_amount", self.foundry.amount)
             .add_field("nft_count", self.nft.count as u64)
             .add_field("nft_amount", self.nft.amount)
-            .add_field("alias_count", self.delegation.count as u64)
-            .add_field("alias_amount", self.delegation.amount)
+            .add_field("delegation_count", self.delegation.count as u64)
+            .add_field("delegation_amount", self.delegation.amount)
     }
 }
 
@@ -219,8 +219,8 @@ impl Measurement for LedgerSizeMeasurement {
     }
 }
 
-impl Measurement for MilestoneSizeMeasurement {
-    const NAME: &'static str = "iota_milestone_size";
+impl Measurement for SlotSizeMeasurement {
+    const NAME: &'static str = "iota_slot_size";
 
     fn add_fields(&self, query: WriteQuery) -> WriteQuery {
         query

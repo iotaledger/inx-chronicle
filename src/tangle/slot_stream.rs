@@ -45,7 +45,7 @@ impl<'a, I: InputSource> Slot<'a, I> {
 }
 
 impl<'a, I: InputSource> Slot<'a, I> {
-    /// Returns the blocks of a milestone in white-flag order.
+    /// Returns the confirmed blocks of a slot.
     pub async fn confirmed_block_stream(&self) -> Result<BoxStream<Result<BlockData, I::Error>>, I::Error> {
         self.source.confirmed_blocks(self.index()).await
     }

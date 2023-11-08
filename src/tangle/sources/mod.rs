@@ -36,7 +36,7 @@ pub struct BlockData {
     pub metadata: BlockMetadata,
 }
 
-/// Defines a type as a source for milestone and cone stream data.
+/// Defines a type as a source for block and ledger update data.
 #[async_trait]
 pub trait InputSource: Send + Sync {
     /// The error type for this input source.

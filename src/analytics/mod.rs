@@ -17,7 +17,7 @@ use self::{
         LedgerOutputMeasurement, LedgerSizeAnalytics, OutputActivityMeasurement, TransactionSizeMeasurement,
         UnclaimedTokenMeasurement, UnlockConditionMeasurement,
     },
-    tangle::{BlockActivityMeasurement, MilestoneSizeMeasurement, ProtocolParamsAnalytics},
+    tangle::{BlockActivityMeasurement, ProtocolParamsAnalytics, SlotSizeMeasurement},
 };
 use crate::{
     db::{
@@ -74,7 +74,7 @@ pub trait Analytics {
         _ctx: &dyn AnalyticsContext,
     ) {
     }
-    /// Take the measurement from the analytic. This should prepare the analytic for the next milestone.
+    /// Take the measurement from the analytic. This should prepare the analytic for the next slot.
     fn take_measurement(&mut self, ctx: &dyn AnalyticsContext) -> Self::Measurement;
 }
 
@@ -187,7 +187,7 @@ impl Analytic {
             AnalyticsChoice::LedgerSize => {
                 Box::new(LedgerSizeAnalytics::init(protocol_params.clone(), unspent_outputs)) as _
             }
-            AnalyticsChoice::MilestoneSize => Box::<MilestoneSizeMeasurement>::default() as _,
+            AnalyticsChoice::SlotSize => Box::<SlotSizeMeasurement>::default() as _,
             AnalyticsChoice::OutputActivity => Box::<OutputActivityMeasurement>::default() as _,
             AnalyticsChoice::ProtocolParameters => Box::<ProtocolParamsAnalytics>::default() as _,
             AnalyticsChoice::TransactionSizeDistribution => Box::<TransactionSizeMeasurement>::default() as _,
@@ -248,7 +248,7 @@ pub enum AnalyticsError {
 }
 
 impl<'a, I: InputSource> Slot<'a, I> {
-    /// Update a list of analytics with this milestone
+    /// Update a list of analytics with this slot
     pub async fn update_analytics<A: Analytics + Send>(
         &self,
         analytics: &mut A,
@@ -422,7 +422,7 @@ mod test {
             OutputActivityMeasurement, TransactionSizeMeasurement, UnclaimedTokenMeasurement,
             UnlockConditionMeasurement,
         },
-        tangle::{BlockActivityMeasurement, MilestoneSizeMeasurement},
+        tangle::{BlockActivityMeasurement, SlotSizeMeasurement},
         Analytics, AnalyticsContext,
     };
     use crate::{
@@ -470,7 +470,7 @@ mod test {
         #[serde(skip)]
         block_activity: BlockActivityMeasurement,
         #[serde(skip)]
-        milestone_size: MilestoneSizeMeasurement,
+        slot_size: SlotSizeMeasurement,
     }
 
     impl TestAnalytics {
@@ -490,7 +490,7 @@ mod test {
                 unclaimed_tokens: UnclaimedTokenMeasurement::init(unspent_outputs),
                 unlock_conditions: UnlockConditionMeasurement::init(unspent_outputs),
                 block_activity: Default::default(),
-                milestone_size: Default::default(),
+                slot_size: Default::default(),
             }
         }
     }
@@ -507,7 +507,7 @@ mod test {
         unclaimed_tokens: UnclaimedTokenMeasurement,
         unlock_conditions: UnlockConditionMeasurement,
         block_activity: BlockActivityMeasurement,
-        milestone_size: MilestoneSizeMeasurement,
+        slot_size: SlotSizeMeasurement,
     }
 
     impl Analytics for TestAnalytics {
@@ -530,7 +530,7 @@ mod test {
             self.unclaimed_tokens.handle_block(block_id, block, metadata, ctx);
             self.unlock_conditions.handle_block(block_id, block, metadata, ctx);
             self.block_activity.handle_block(block_id, block, metadata, ctx);
-            self.milestone_size.handle_block(block_id, block, metadata, ctx);
+            self.slot_size.handle_block(block_id, block, metadata, ctx);
         }
 
         fn handle_transaction(
@@ -549,7 +549,7 @@ mod test {
             self.unclaimed_tokens.handle_transaction(consumed, created, ctx);
             self.unlock_conditions.handle_transaction(consumed, created, ctx);
             self.block_activity.handle_transaction(consumed, created, ctx);
-            self.milestone_size.handle_transaction(consumed, created, ctx);
+            self.slot_size.handle_transaction(consumed, created, ctx);
         }
 
         fn take_measurement(&mut self, ctx: &dyn AnalyticsContext) -> Self::Measurement {
@@ -564,7 +564,7 @@ mod test {
                 unclaimed_tokens: self.unclaimed_tokens.take_measurement(ctx),
                 unlock_conditions: self.unlock_conditions.take_measurement(ctx),
                 block_activity: self.block_activity.take_measurement(ctx),
-                milestone_size: self.milestone_size.take_measurement(ctx),
+                slot_size: self.slot_size.take_measurement(ctx),
             }
         }
     }
@@ -574,8 +574,8 @@ mod test {
         let analytics_map = gather_in_memory_analytics().await.unwrap();
         let expected: HashMap<SlotIndex, HashMap<String, usize>> =
             ron::de::from_reader(File::open("tests/data/measurements.ron").unwrap()).unwrap();
-        for (milestone, analytics) in analytics_map {
-            let expected = &expected[&milestone];
+        for (slot_index, analytics) in analytics_map {
+            let expected = &expected[&slot_index];
 
             macro_rules! assert_expected {
                 ($path:expr) => {
@@ -665,10 +665,10 @@ mod test {
             assert_expected!(analytics.block_activity.rejected_count);
             assert_expected!(analytics.block_activity.failed_count);
 
-            assert_expected!(analytics.milestone_size.total_tagged_data_payload_bytes);
-            assert_expected!(analytics.milestone_size.total_transaction_payload_bytes);
-            assert_expected!(analytics.milestone_size.total_candidacy_announcement_payload_bytes);
-            assert_expected!(analytics.milestone_size.total_slot_bytes);
+            assert_expected!(analytics.slot_size.total_tagged_data_payload_bytes);
+            assert_expected!(analytics.slot_size.total_transaction_payload_bytes);
+            assert_expected!(analytics.slot_size.total_candidacy_announcement_payload_bytes);
+            assert_expected!(analytics.slot_size.total_slot_bytes);
         }
     }
 

@@ -23,7 +23,7 @@ pub struct AnchorOutputsQuery {
 impl From<AnchorOutputsQuery> for bson::Document {
     fn from(query: AnchorOutputsQuery) -> Self {
         let mut queries = Vec::new();
-        queries.push(doc! { "output.kind": "anchor" });
+        queries.push(doc! { "details.kind": "anchor" });
         queries.append_query(StateControllerQuery(query.state_controller));
         queries.append_query(GovernorQuery(query.governor));
         queries.append_query(IssuerQuery(query.issuer));
@@ -61,7 +61,7 @@ impl From<AnchorOutputsQuery> for bson::Document {
 //         let address = AddressDto::from(address);
 //         let query_doc = doc! {
 //             "$and": [
-//                 { "output.kind": "anchor" },
+//                 { "details.kind": "anchor" },
 //                 { "details.state_controller_address": address.clone() },
 //                 { "details.governor_address": address.clone() },
 //                 { "details.issuer": address.clone() },
@@ -82,7 +82,7 @@ impl From<AnchorOutputsQuery> for bson::Document {
 //         };
 //         let query_doc = doc! {
 //             "$and": [
-//                 { "output.kind": "anchor" },
+//                 { "details.kind": "anchor" },
 //                 { "metadata.booked.milestone_timestamp": { "$lt": 10000 } }
 //             ]
 //         };

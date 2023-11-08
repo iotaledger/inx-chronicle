@@ -99,7 +99,7 @@ impl OutputCollection {
             .aggregate(
                 [
                     doc! { "$match": {
-                        "output.kind": id.kind(),
+                        "kind": id.kind(),
                         "details.indexed_id": id,
                         "metadata.slot_booked": { "$lte": ledger_index.0 },
                         "metadata.spent_metadata.slot_spent": { "$not": { "$lte": ledger_index.0 } }
@@ -184,7 +184,7 @@ impl OutputCollection {
     pub async fn create_indexer_indexes(&self) -> Result<(), DbError> {
         self.create_index(
             IndexModel::builder()
-                .keys(doc! { "output.kind": 1 })
+                .keys(doc! { "details.kind": 1 })
                 .options(IndexOptions::builder().name("output_kind_index".to_string()).build())
                 .build(),
             None,
@@ -212,7 +212,7 @@ impl OutputCollection {
                 .keys(doc! { "details.address": 1 })
                 .options(
                     IndexOptions::builder()
-                        .name("output_owning_address_index".to_string())
+                        .name("output_address_index".to_string())
                         .partial_filter_expression(doc! {
                             "details.address": { "$exists": true },
                         })
@@ -225,12 +225,12 @@ impl OutputCollection {
 
         self.create_index(
             IndexModel::builder()
-                .keys(doc! { "output.storage_deposit_return_unlock_condition.return_address": 1 })
+                .keys(doc! { "details.storage_deposit_return_address": 1 })
                 .options(
                     IndexOptions::builder()
-                        .name("output_storage_deposit_return_unlock_return_address_index".to_string())
+                        .name("output_storage_deposit_return_address_index".to_string())
                         .partial_filter_expression(doc! {
-                            "output.storage_deposit_return_unlock_condition": { "$exists": true },
+                            "details.storage_deposit_return_address": { "$exists": true },
                         })
                         .build(),
                 )
@@ -241,12 +241,12 @@ impl OutputCollection {
 
         self.create_index(
             IndexModel::builder()
-                .keys(doc! { "output.timelock_unlock_condition.timestamp": 1 })
+                .keys(doc! { "details.timelock": 1 })
                 .options(
                     IndexOptions::builder()
-                        .name("output_timelock_unlock_timestamp_index".to_string())
+                        .name("output_timelock_index".to_string())
                         .partial_filter_expression(doc! {
-                            "output.timelock_unlock_condition": { "$exists": true },
+                            "details.timelock": { "$exists": true },
                         })
                         .build(),
                 )
@@ -257,12 +257,12 @@ impl OutputCollection {
 
         self.create_index(
             IndexModel::builder()
-                .keys(doc! { "output.expiration_unlock_condition.return_address": 1 })
+                .keys(doc! { "details.expiration_return_address": 1 })
                 .options(
                     IndexOptions::builder()
-                        .name("output_expiration_unlock_return_address_index".to_string())
+                        .name("output_expiration_return_address_index".to_string())
                         .partial_filter_expression(doc! {
-                            "output.expiration_unlock_condition": { "$exists": true },
+                            "details.expiration_return_address": { "$exists": true },
                         })
                         .build(),
                 )
@@ -273,12 +273,12 @@ impl OutputCollection {
 
         self.create_index(
             IndexModel::builder()
-                .keys(doc! { "output.expiration_unlock_condition.timestamp": 1 })
+                .keys(doc! { "details.expiration": 1 })
                 .options(
                     IndexOptions::builder()
-                        .name("output_expiration_unlock_timestamp_index".to_string())
+                        .name("output_expiration_index".to_string())
                         .partial_filter_expression(doc! {
-                            "output.expiration_unlock_condition": { "$exists": true },
+                            "details.expiration": { "$exists": true },
                         })
                         .build(),
                 )
@@ -289,12 +289,12 @@ impl OutputCollection {
 
         self.create_index(
             IndexModel::builder()
-                .keys(doc! { "output.governor_address_unlock_condition.address": 1 })
+                .keys(doc! { "details.governor_address": 1 })
                 .options(
                     IndexOptions::builder()
-                        .name("output_governor_address_unlock_address_index".to_string())
+                        .name("output_governor_address_index".to_string())
                         .partial_filter_expression(doc! {
-                            "output.governor_address_unlock_condition": { "$exists": true },
+                            "details.governor_address": { "$exists": true },
                         })
                         .build(),
                 )
@@ -305,8 +305,15 @@ impl OutputCollection {
 
         self.create_index(
             IndexModel::builder()
-                .keys(doc! { "output.features": 1 })
-                .options(IndexOptions::builder().name("output_feature_index".to_string()).build())
+                .keys(doc! { "details.issuer": 1 })
+                .options(
+                    IndexOptions::builder()
+                        .name("output_issuer_index".to_string())
+                        .partial_filter_expression(doc! {
+                            "details.issuer": { "$exists": true },
+                        })
+                        .build(),
+                )
                 .build(),
             None,
         )
@@ -314,7 +321,87 @@ impl OutputCollection {
 
         self.create_index(
             IndexModel::builder()
-                .keys(doc! { "output.native_tokens": 1 })
+                .keys(doc! { "details.sender": 1 })
+                .options(
+                    IndexOptions::builder()
+                        .name("output_sender_index".to_string())
+                        .partial_filter_expression(doc! {
+                            "details.sender": { "$exists": true },
+                        })
+                        .build(),
+                )
+                .build(),
+            None,
+        )
+        .await?;
+
+        self.create_index(
+            IndexModel::builder()
+                .keys(doc! { "details.tag": 1 })
+                .options(
+                    IndexOptions::builder()
+                        .name("output_tag_index".to_string())
+                        .partial_filter_expression(doc! {
+                            "details.tag": { "$exists": true },
+                        })
+                        .build(),
+                )
+                .build(),
+            None,
+        )
+        .await?;
+
+        self.create_index(
+            IndexModel::builder()
+                .keys(doc! { "details.block_issuer_expiry": 1 })
+                .options(
+                    IndexOptions::builder()
+                        .name("output_block_issuer_expiry_index".to_string())
+                        .partial_filter_expression(doc! {
+                            "details.block_issuer_expiry": { "$exists": true },
+                        })
+                        .build(),
+                )
+                .build(),
+            None,
+        )
+        .await?;
+
+        self.create_index(
+            IndexModel::builder()
+                .keys(doc! { "details.validator": 1 })
+                .options(
+                    IndexOptions::builder()
+                        .name("output_validator_index".to_string())
+                        .partial_filter_expression(doc! {
+                            "details.validator": { "$exists": true },
+                        })
+                        .build(),
+                )
+                .build(),
+            None,
+        )
+        .await?;
+
+        self.create_index(
+            IndexModel::builder()
+                .keys(doc! { "details.account_address": 1 })
+                .options(
+                    IndexOptions::builder()
+                        .name("output_account_address_index".to_string())
+                        .partial_filter_expression(doc! {
+                            "details.account_address": { "$exists": true },
+                        })
+                        .build(),
+                )
+                .build(),
+            None,
+        )
+        .await?;
+
+        self.create_index(
+            IndexModel::builder()
+                .keys(doc! { "details.native_tokens": 1 })
                 .options(
                     IndexOptions::builder()
                         .name("output_native_tokens_index".to_string())
@@ -336,9 +423,7 @@ impl OutputCollection {
 
         self.create_index(
             IndexModel::builder()
-                .keys(
-                    doc! { "metadata.spent_metadata.slot_spent": -1, "metadata.slot_booked": 1,  "details.address": 1 },
-                )
+                .keys(doc! { "metadata.spent_metadata.slot_spent": -1, "metadata.slot_booked": 1 })
                 .options(
                     IndexOptions::builder()
                         .name("output_spent_slot_comp".to_string())

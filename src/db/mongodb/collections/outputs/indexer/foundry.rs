@@ -22,7 +22,7 @@ pub struct FoundryOutputsQuery {
 impl From<FoundryOutputsQuery> for bson::Document {
     fn from(query: FoundryOutputsQuery) -> Self {
         let mut queries = Vec::new();
-        queries.push(doc! { "output.kind": "foundry" });
+        queries.push(doc! { "details.kind": "foundry" });
         queries.append_query(AccountAddressQuery(query.account));
         queries.append_query(NativeTokensQuery {
             has_native_tokens: query.has_native_tokens,
@@ -57,7 +57,7 @@ impl From<FoundryOutputsQuery> for bson::Document {
 //         };
 //         let query_doc = doc! {
 //             "$and": [
-//                 { "output.kind": "foundry" },
+//                 { "details.kind": "foundry" },
 //                 { "details.address": address },
 //                 { "output.native_tokens": { "$ne": [] } },
 //                 { "output.native_tokens": { "$not": {
@@ -89,7 +89,7 @@ impl From<FoundryOutputsQuery> for bson::Document {
 //         };
 //         let query_doc = doc! {
 //             "$and": [
-//                 { "output.kind": "foundry" },
+//                 { "details.kind": "foundry" },
 //                 { "output.native_tokens": { "$eq": [] } },
 //                 { "metadata.booked.milestone_timestamp": { "$lt": 10000 } },
 //                 { "metadata.booked.milestone_timestamp": { "$gt": 1000 } },
@@ -106,7 +106,7 @@ impl From<FoundryOutputsQuery> for bson::Document {
 //         };
 //         let query_doc = doc! {
 //             "$and": [
-//                 { "output.kind": "foundry" },
+//                 { "details.kind": "foundry" },
 //                 { "output.native_tokens": { "$ne": [] } },
 //             ]
 //         };

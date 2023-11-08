@@ -47,13 +47,13 @@ pub struct FillAnalyticsCommand {
     /// The inclusive ending date (YYYY-MM-DD).
     #[arg(long, value_parser = parse_date)]
     end_date: Option<Date>,
-    /// The number of parallel tasks to use when filling per-milestone analytics.
+    /// The number of parallel tasks to use when filling per-slot analytics.
     #[arg(short, long, default_value_t = 1)]
     num_tasks: usize,
-    /// Select a subset of per-milestone analytics to compute.
+    /// Select a subset of per-slot analytics to compute.
     #[arg(long, value_enum, default_values_t = all_analytics())]
     analytics: Vec<AnalyticsChoice>,
-    /// The input source to use for filling per-milestone analytics.
+    /// The input source to use for filling per-slot analytics.
     #[arg(short, long, value_name = "INPUT_SOURCE", default_value = "mongo-db")]
     input_source: InputSourceChoice,
     /// The interval to use for interval analytics.
@@ -218,7 +218,7 @@ pub async fn fill_analytics<I: 'static + InputSource + Clone>(
 
         let actual_chunk_size = chunk_size + (i < remainder as usize) as u32;
         debug!(
-            "Task {i} chunk {chunk_start_slot}..{}, {actual_chunk_size} milestones",
+            "Task {i} chunk {chunk_start_slot}..{}, {actual_chunk_size} slots",
             chunk_start_slot + actual_chunk_size,
         );
 
@@ -235,8 +235,8 @@ pub async fn fill_analytics<I: 'static + InputSource + Clone>(
                 if let Some(slot) = slot_stream.try_next().await? {
                     // Check if the protocol params changed (or we just started)
                     if !matches!(&state, Some(state) if state.prev_protocol_params == slot.protocol_params.parameters) {
-                        // Only get the ledger state for milestones after the genesis since it requires
-                        // getting the previous milestone data.
+                        // Only get the ledger state for slots after the genesis since it requires
+                        // getting the previous slot data.
                         let ledger_state = if slot.slot_index().0 > 0 {
                             db.collection::<OutputCollection>()
                                 .get_unspent_output_stream(slot.slot_index() - 1)
@@ -244,7 +244,7 @@ pub async fn fill_analytics<I: 'static + InputSource + Clone>(
                                 .try_collect::<Vec<_>>()
                                 .await?
                         } else {
-                            panic!("There should be no milestone with index 0.");
+                            panic!("There should be no slots with index 0.");
                         };
 
                         let analytics = analytics_choices

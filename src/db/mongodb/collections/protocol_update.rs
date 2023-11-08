@@ -17,7 +17,7 @@ use crate::{
     model::SerializeToBson,
 };
 
-/// A milestone's metadata.
+/// A protocol update document.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct ProtocolUpdateDocument {
     #[serde(rename = "_id")]

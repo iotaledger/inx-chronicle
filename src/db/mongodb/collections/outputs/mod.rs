@@ -472,7 +472,7 @@ impl OutputCollection {
             .map_ok(Into::into))
     }
 
-    /// Get all created [`LedgerOutput`]s for the given milestone.
+    /// Get all created [`LedgerOutput`]s for the given slot index.
     pub async fn get_created_outputs(
         &self,
         slot_index: SlotIndex,
@@ -498,7 +498,7 @@ impl OutputCollection {
             .map_ok(Into::into))
     }
 
-    /// Get all consumed [`LedgerSpent`]s for the given milestone.
+    /// Get all consumed [`LedgerSpent`]s for the given slot index.
     pub async fn get_consumed_outputs(
         &self,
         slot_index: SlotIndex,
@@ -527,7 +527,7 @@ impl OutputCollection {
             .map_ok(Into::into))
     }
 
-    /// Get all ledger updates (i.e. consumed [`Output`]s) for the given milestone.
+    /// Get all ledger updates (i.e. consumed [`Output`]s) for the given slot index.
     pub async fn get_ledger_update_stream(
         &self,
         slot_index: SlotIndex,
@@ -626,7 +626,7 @@ impl OutputCollection {
 
     /// Returns the changes to the UTXO ledger (as consumed and created output ids) that were applied at the given
     /// `index`. It returns `None` if the provided `index` is out of bounds (beyond Chronicle's ledger index). If
-    /// the associated milestone did not perform any changes to the ledger, the returned `Vec`s will be empty.
+    /// the associated slot did not perform any changes to the ledger, the returned `Vec`s will be empty.
     pub async fn get_utxo_changes(
         &self,
         slot_index: SlotIndex,
@@ -693,11 +693,11 @@ impl OutputCollection {
             .aggregate::<Res>(
                 [
                     doc! { "$match": { "$or": [
-                        { "metadata.booked.milestone_timestamp": {
+                        { "metadata.slot_booked": {
                             "$gte": start_slot.0,
                             "$lt": end_slot.0
                         } },
-                        { "metadata.spent_metadata.spent.milestone_timestamp": {
+                        { "metadata.spent_metadata.slot_spent": {
                             "$gte": start_slot.0,
                             "$lt": end_slot.0
                         } },
