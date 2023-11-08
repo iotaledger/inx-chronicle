@@ -43,7 +43,7 @@ mod test {
     use crate::model::{address::AddressDto, SerializeToBson};
 
     #[test]
-    fn test_alias_query_everything() {
+    fn test_delegation_query_everything() {
         let address = Address::from(rand_ed25519_address());
         let validator = rand_account_id();
         let query = DelegationOutputsQuery {
@@ -55,7 +55,7 @@ mod test {
         let address = AddressDto::from(address);
         let query_doc = doc! {
             "$and": [
-                { "details.kind": "alias" },
+                { "details.kind": "delegation" },
                 { "details.address": address.clone() },
                 { "details.validator": validator.to_bson() },
                 { "metadata.slot_booked": { "$lt": 10000 } },
@@ -66,14 +66,14 @@ mod test {
     }
 
     #[test]
-    fn test_alias_query_all_false() {
+    fn test_delegation_query_all_false() {
         let query = DelegationOutputsQuery {
             created_before: Some(10000.into()),
             ..Default::default()
         };
         let query_doc = doc! {
             "$and": [
-                { "details.kind": "alias" },
+                { "details.kind": "delegation" },
                 { "metadata.slot_booked": { "$lt": 10000 } }
             ]
         };

@@ -447,7 +447,7 @@ mod test {
     #[test]
     fn indexed_outputs_cursor_from_to_str() {
         let slot_index = SlotIndex(164338324);
-        let output_id_str = "0xfa0de75d225cca2799395e5fc340702fc7eac821d2bdd79911126f131ae097a20100";
+        let output_id_str = "0xfa0de75d225cca2799395e5fc340702fc7eac821d2bdd79911126f131ae097a2010000000000";
         let page_size_str = "1337";
 
         let cursor = format!("{slot_index}.{output_id_str}.{page_size_str}",);

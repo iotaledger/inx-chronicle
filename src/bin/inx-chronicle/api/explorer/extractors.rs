@@ -450,7 +450,7 @@ mod test {
     #[test]
     fn ledger_updates_by_address_cursor_from_to_str() {
         let slot_index = 164338324u32;
-        let output_id_str = "0xfa0de75d225cca2799395e5fc340702fc7eac821d2bdd79911126f131ae097a20100";
+        let output_id_str = "0xfa0de75d225cca2799395e5fc340702fc7eac821d2bdd79911126f131ae097a2010000000000";
         let is_spent_str = "false";
         let page_size_str = "1337";
 
@@ -461,7 +461,7 @@ mod test {
 
     #[test]
     fn ledger_updates_by_slot_cursor_from_to_str() {
-        let output_id_str = "0xfa0de75d225cca2799395e5fc340702fc7eac821d2bdd79911126f131ae097a20100";
+        let output_id_str = "0xfa0de75d225cca2799395e5fc340702fc7eac821d2bdd79911126f131ae097a2010000000000";
         let is_spent_str = "false";
         let page_size_str = "1337";
 
