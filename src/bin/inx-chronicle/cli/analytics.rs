@@ -4,7 +4,7 @@
 use std::collections::HashSet;
 
 use chronicle::{
-    analytics::{Analytic, AnalyticsContext, AnalyticsInterval, IntervalAnalytic},
+    analytics::{Analytic, AnalyticsInterval, IntervalAnalytic},
     db::{
         influxdb::{
             config::{all_analytics, all_interval_analytics, IntervalAnalyticsChoice},
@@ -17,7 +17,7 @@ use chronicle::{
 };
 use clap::Parser;
 use futures::TryStreamExt;
-use iota_sdk::types::block::{protocol::ProtocolParameters, slot::SlotIndex};
+use iota_sdk::types::block::slot::SlotIndex;
 use time::{Date, OffsetDateTime};
 use tracing::{debug, info};
 
@@ -221,8 +221,14 @@ pub async fn fill_analytics<I: 'static + InputSource + Clone>(
             chunk_start_slot + actual_chunk_size,
         );
 
+        let protocol_params = db
+            .collection::<ApplicationStateCollection>()
+            .get_protocol_parameters()
+            .await?
+            .ok_or_else(|| eyre::eyre!("Missing protocol parameters."))?;
+
         join_set.spawn(async move {
-            let mut state: Option<AnalyticsState> = None;
+            let mut state: Option<Vec<Analytic>> = None;
 
             let mut slot_stream = tangle
                 .slot_stream(chunk_start_slot..chunk_start_slot + actual_chunk_size)
@@ -232,13 +238,13 @@ pub async fn fill_analytics<I: 'static + InputSource + Clone>(
                 let start_time = std::time::Instant::now();
 
                 if let Some(slot) = slot_stream.try_next().await? {
-                    // Check if the protocol params changed (or we just started)
-                    if !matches!(&state, Some(state) if state.prev_protocol_params == slot.protocol_parameters) {
+                    // Check if we just started
+                    if state.is_none() {
                         // Only get the ledger state for slots after the genesis since it requires
                         // getting the previous slot data.
-                        let ledger_state = if slot.slot_index().0 > 0 {
+                        let ledger_state = if slot.index().0 > 0 {
                             db.collection::<OutputCollection>()
-                                .get_unspent_output_stream(slot.slot_index() - 1)
+                                .get_unspent_output_stream(slot.index() - 1)
                                 .await?
                                 .try_collect::<Vec<_>>()
                                 .await?
@@ -246,18 +252,16 @@ pub async fn fill_analytics<I: 'static + InputSource + Clone>(
                             panic!("There should be no slots with index 0.");
                         };
 
-                        let analytics = analytics_choices
-                            .iter()
-                            .map(|choice| Analytic::init(choice, &slot.protocol_parameters, &ledger_state))
-                            .collect::<Vec<_>>();
-                        state = Some(AnalyticsState {
-                            analytics,
-                            prev_protocol_params: slot.protocol_parameters.clone(),
-                        });
+                        state = Some(
+                            analytics_choices
+                                .iter()
+                                .map(|choice| Analytic::init(choice, &protocol_params, &ledger_state))
+                                .collect(),
+                        );
                     }
 
                     // Unwrap: safe because we guarantee it is initialized above
-                    slot.update_analytics(&mut state.as_mut().unwrap().analytics, &influx_db)
+                    slot.update_analytics(&protocol_params, &mut state.as_mut().unwrap(), &influx_db)
                         .await?;
 
                     let elapsed = start_time.elapsed();
@@ -267,7 +271,7 @@ pub async fn fill_analytics<I: 'static + InputSource + Clone>(
                             .metrics()
                             .insert(chronicle::metrics::AnalyticsMetrics {
                                 time: chrono::Utc::now(),
-                                slot_index: slot.slot_index().0,
+                                slot_index: slot.index().0,
                                 analytics_time: elapsed.as_millis() as u64,
                                 chronicle_version: std::env!("CARGO_PKG_VERSION").to_string(),
                             })
@@ -275,7 +279,7 @@ pub async fn fill_analytics<I: 'static + InputSource + Clone>(
                     }
                     info!(
                         "Task {i} finished analytics for slot {} in {}ms.",
-                        slot.slot_index(),
+                        slot.index(),
                         elapsed.as_millis()
                     );
                 } else {
@@ -349,9 +353,4 @@ pub async fn fill_interval_analytics(
         res.unwrap()?;
     }
     Ok(())
-}
-
-pub struct AnalyticsState {
-    pub analytics: Vec<Analytic>,
-    pub prev_protocol_params: ProtocolParameters,
 }

@@ -92,12 +92,4 @@ impl InputSource for MongoDb {
 
         Ok(LedgerUpdateStore::init(consumed, created))
     }
-
-    async fn protocol_parameters(&self, index: SlotIndex) -> Result<ProtocolParameters, Self::Error> {
-        Ok(self
-            .collection::<ApplicationStateCollection>()
-            .get_protocol_parameters()
-            .await?
-            .ok_or_else(|| MongoDbInputSourceError::MissingProtocolParams(index))?)
-    }
 }

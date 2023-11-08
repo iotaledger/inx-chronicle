@@ -77,10 +77,10 @@ pub fn routes() -> Router {
         .nest(
             "/commitments",
             Router::new()
-                .route("/:commitment_id", not_implemented.into_service())
-                .route("/:commitment_id/utxo-changes", not_implemented.into_service())
-                .route("/by-index/:index", not_implemented.into_service())
-                .route("/by-index/:index/utxo-changes", not_implemented.into_service()),
+                .route("/:commitment_id", get(commitment))
+                .route("/:commitment_id/utxo-changes", get(utxo_changes))
+                .route("/by-index/:index", get(commitment_by_index))
+                .route("/by-index/:index/utxo-changes", get(utxo_changes_by_index)),
         )
         .route("/control/database/prune", not_implemented.into_service())
         .route("/control/snapshot/create", not_implemented.into_service())

@@ -85,18 +85,4 @@ impl InputSource for Inx {
 
         Ok(LedgerUpdateStore::init(consumed, created))
     }
-
-    async fn protocol_parameters(&self, _index: SlotIndex) -> Result<ProtocolParameters, Self::Error> {
-        let mut inx = self.clone();
-        // TODO: eventually we'll have to do this right
-        Ok(inx
-            .get_node_configuration()
-            .await?
-            .protocol_parameters
-            .into_iter()
-            .rev()
-            .next()
-            .unwrap()
-            .parameters)
-    }
 }

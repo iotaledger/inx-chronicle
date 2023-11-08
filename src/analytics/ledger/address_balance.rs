@@ -48,7 +48,7 @@ impl AddressBalancesAnalytics {
 impl Analytics for AddressBalancesAnalytics {
     type Measurement = AddressBalanceMeasurement;
 
-    fn handle_transaction(&mut self, consumed: &[LedgerSpent], created: &[LedgerOutput], ctx: &dyn AnalyticsContext) {
+    fn handle_transaction(&mut self, consumed: &[LedgerSpent], created: &[LedgerOutput], _ctx: &dyn AnalyticsContext) {
         for output in consumed {
             if let Some(a) = output.address() {
                 // All inputs should be present in `addresses`. If not, we skip it's value.

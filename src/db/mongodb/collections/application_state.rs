@@ -107,7 +107,7 @@ impl ApplicationStateCollection {
     }
 
     /// Set the node_config in the singleton application state.
-    pub async fn set_node_config(&self, node_config: NodeConfiguration) -> Result<(), DbError> {
+    pub async fn set_node_config(&self, node_config: &NodeConfiguration) -> Result<(), DbError> {
         self.update_one(
             doc! {},
             doc! {

@@ -43,16 +43,6 @@ pub trait AnalyticsContext: Send + Sync {
     fn slot_index(&self) -> SlotIndex;
 }
 
-impl<'a, I: InputSource> AnalyticsContext for Slot<'a, I> {
-    fn protocol_params(&self) -> &ProtocolParameters {
-        &self.protocol_parameters
-    }
-
-    fn slot_index(&self) -> SlotIndex {
-        self.index()
-    }
-}
-
 /// Defines how analytics are gathered.
 pub trait Analytics {
     /// The resulting measurement.
@@ -224,26 +214,37 @@ impl<'a, I: InputSource> Slot<'a, I> {
     /// Update a list of analytics with this slot
     pub async fn update_analytics<A: Analytics + Send>(
         &self,
+        protocol_parameters: &ProtocolParameters,
         analytics: &mut A,
         influxdb: &InfluxDb,
     ) -> eyre::Result<()>
     where
         PerSlot<A::Measurement>: 'static + PrepareQuery,
     {
+        let ctx = BasicContext {
+            slot_index: self.index(),
+            protocol_parameters,
+        };
+
         let mut block_stream = self.accepted_block_stream().await?;
 
         while let Some(block_data) = block_stream.try_next().await? {
-            self.handle_block(analytics, &block_data)?;
+            self.handle_block(analytics, &block_data, &ctx)?;
         }
 
         influxdb
-            .insert_measurement((analytics as &mut dyn DynAnalytics).take_measurement(self))
+            .insert_measurement((analytics as &mut dyn DynAnalytics).take_measurement(&ctx))
             .await?;
 
         Ok(())
     }
 
-    fn handle_block<A: Analytics + Send>(&self, analytics: &mut A, block_data: &BlockWithMetadata) -> eyre::Result<()> {
+    fn handle_block<A: Analytics + Send>(
+        &self,
+        analytics: &mut A,
+        block_data: &BlockWithMetadata,
+        ctx: &BasicContext,
+    ) -> eyre::Result<()> {
         let block = block_data.block.inner();
         if block_data.metadata.block_state == BlockState::Confirmed {
             if let Some(payload) = block
@@ -285,11 +286,26 @@ impl<'a, I: InputSource> Slot<'a, I> {
                             .clone())
                     })
                     .collect::<eyre::Result<Vec<_>>>()?;
-                analytics.handle_transaction(&consumed, &created, self)
+                analytics.handle_transaction(&consumed, &created, ctx)
             }
         }
-        analytics.handle_block(&block, &block_data.metadata, self);
+        analytics.handle_block(&block, &block_data.metadata, ctx);
         Ok(())
+    }
+}
+
+struct BasicContext<'a> {
+    slot_index: SlotIndex,
+    protocol_parameters: &'a ProtocolParameters,
+}
+
+impl<'a> AnalyticsContext for BasicContext<'a> {
+    fn protocol_params(&self) -> &ProtocolParameters {
+        &self.protocol_parameters
+    }
+
+    fn slot_index(&self) -> SlotIndex {
+        self.slot_index
     }
 }
 
@@ -390,7 +406,7 @@ mod test {
             UnlockConditionMeasurement,
         },
         tangle::{BlockActivityMeasurement, SlotSizeMeasurement},
-        Analytics, AnalyticsContext,
+        Analytics, AnalyticsContext, BasicContext,
     };
     use crate::{
         model::{
@@ -634,14 +650,20 @@ mod test {
         let data = get_in_memory_data();
         let mut stream = data.slot_stream(..).await?;
         let mut res = BTreeMap::new();
+        let protocol_parameters = ProtocolParameters::default();
         while let Some(slot) = stream.try_next().await? {
+            let ctx = BasicContext {
+                slot_index: slot.index(),
+                protocol_parameters: &protocol_parameters,
+            };
+
             let mut blocks_stream = slot.accepted_block_stream().await?;
 
             while let Some(block_data) = blocks_stream.try_next().await? {
-                slot.handle_block(&mut analytics, &block_data)?;
+                slot.handle_block(&mut analytics, &block_data, &ctx)?;
             }
 
-            res.insert(slot.slot_index(), analytics.take_measurement(&slot));
+            res.insert(ctx.slot_index(), analytics.take_measurement(&ctx));
         }
 
         Ok(res)

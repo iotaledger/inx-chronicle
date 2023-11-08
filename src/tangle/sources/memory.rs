@@ -57,8 +57,4 @@ impl InputSource for BTreeMap<SlotIndex, InMemoryData> {
             .ledger_updates
             .clone())
     }
-
-    async fn protocol_parameters(&self, index: SlotIndex) -> Result<ProtocolParameters, Self::Error> {
-        todo!()
-    }
 }

@@ -41,7 +41,4 @@ pub trait InputSource: Send + Sync {
 
     /// Retrieves the updates to the ledger for a given range of slots.
     async fn ledger_updates(&self, index: SlotIndex) -> Result<LedgerUpdateStore, Self::Error>;
-
-    /// Retrieves the protocol parameters for the given slot index.
-    async fn protocol_parameters(&self, index: SlotIndex) -> Result<ProtocolParameters, Self::Error>;
 }

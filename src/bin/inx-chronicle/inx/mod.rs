@@ -22,7 +22,7 @@ use chronicle::{
 };
 use eyre::{bail, Result};
 use futures::{StreamExt, TryStreamExt};
-use iota_sdk::types::block::slot::SlotIndex;
+use iota_sdk::types::block::{protocol::ProtocolParameters, slot::SlotIndex};
 use tokio::{task::JoinSet, try_join};
 use tracing::{debug, info, instrument, trace_span, Instrument};
 
@@ -65,7 +65,7 @@ impl InxWorker {
     }
 
     pub async fn run(&mut self) -> Result<()> {
-        let (start_index, inx) = self.init().await?;
+        let (start_index, inx, protocol_params) = self.init().await?;
 
         let tangle = Tangle::from(inx);
 
@@ -79,6 +79,7 @@ impl InxWorker {
         while let Some(slot) = stream.try_next().await? {
             self.handle_ledger_update(
                 slot,
+                &protocol_params,
                 #[cfg(feature = "analytics")]
                 analytics_info.as_mut(),
             )
@@ -91,7 +92,7 @@ impl InxWorker {
     }
 
     #[instrument(skip_all, err, level = "trace")]
-    async fn init(&mut self) -> Result<(SlotIndex, Inx)> {
+    async fn init(&mut self) -> Result<(SlotIndex, Inx, ProtocolParameters)> {
         info!("Connecting to INX at bind address `{}`.", &self.config.url);
         let mut inx = self.connect().await?;
         info!("Connected to INX.");
@@ -240,16 +241,17 @@ impl InxWorker {
         debug!("Updating node configuration.");
         self.db
             .collection::<ApplicationStateCollection>()
-            .set_node_config(node_configuration)
+            .set_node_config(&node_configuration)
             .await?;
 
-        Ok((start_index, inx))
+        Ok((start_index, inx, node_configuration.latest_parameters().clone()))
     }
 
     #[instrument(skip_all, fields(slot_index, created, consumed), err, level = "debug")]
     async fn handle_ledger_update<'a>(
         &mut self,
         slot: Slot<'a, Inx>,
+        protocol_parameters: &ProtocolParameters,
         #[cfg(feature = "analytics")] analytics_info: Option<&mut influx::analytics::AnalyticsInfo>,
     ) -> Result<()> {
         #[cfg(feature = "metrics")]
@@ -283,6 +285,7 @@ impl InxWorker {
         #[cfg(feature = "influx")]
         self.update_influx(
             &slot,
+            protocol_parameters,
             #[cfg(feature = "analytics")]
             analytics_info,
             #[cfg(feature = "metrics")]

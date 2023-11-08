@@ -4,7 +4,8 @@
 #[cfg(feature = "analytics")]
 pub mod analytics;
 
-use chronicle::{analytics::AnalyticsContext, inx::Inx, tangle::Slot};
+use chronicle::{inx::Inx, tangle::Slot};
+use iota_sdk::types::block::protocol::ProtocolParameters;
 
 use super::{InxWorker, InxWorkerError};
 
@@ -12,6 +13,7 @@ impl InxWorker {
     pub async fn update_influx<'a>(
         &self,
         slot: &Slot<'a, Inx>,
+        protocol_parameters: &ProtocolParameters,
         #[cfg(feature = "analytics")] analytics_info: Option<&mut analytics::AnalyticsInfo>,
         #[cfg(feature = "metrics")] slot_start_time: std::time::Instant,
     ) -> eyre::Result<()> {
@@ -19,8 +21,8 @@ impl InxWorker {
         let analytics_start_time = std::time::Instant::now();
         #[cfg(feature = "analytics")]
         if let Some(analytics_info) = analytics_info {
-            if slot.slot_index() >= analytics_info.synced_index {
-                self.update_analytics(slot, analytics_info).await?;
+            if slot.index() >= analytics_info.synced_index {
+                self.update_analytics(slot, protocol_parameters, analytics_info).await?;
             }
         }
         #[cfg(all(feature = "analytics", feature = "metrics"))]
@@ -32,7 +34,7 @@ impl InxWorker {
                         .metrics()
                         .insert(chronicle::metrics::AnalyticsMetrics {
                             time: chrono::Utc::now(),
-                            slot_index: slot.slot_index().0,
+                            slot_index: slot.index().0,
                             analytics_time: analytics_elapsed.as_millis() as u64,
                             chronicle_version: std::env!("CARGO_PKG_VERSION").to_string(),
                         })
@@ -49,7 +51,7 @@ impl InxWorker {
                     .metrics()
                     .insert(chronicle::metrics::SyncMetrics {
                         time: chrono::Utc::now(),
-                        slot_index: slot.slot_index().0,
+                        slot_index: slot.index().0,
                         slot_time: elapsed.as_millis() as u64,
                         chronicle_version: std::env!("CARGO_PKG_VERSION").to_string(),
                     })

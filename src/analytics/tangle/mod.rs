@@ -6,7 +6,6 @@
 pub(crate) use self::{
     block_activity::BlockActivityMeasurement, protocol_params::ProtocolParamsAnalytics, slot_size::SlotSizeMeasurement,
 };
-use crate::analytics::{Analytics, AnalyticsContext};
 
 mod block_activity;
 mod protocol_params;
