@@ -76,15 +76,12 @@ impl TryConvertFrom<proto::NodeStatus> for NodeStatus {
     {
         Ok(Self {
             is_healthy: proto.is_healthy,
-            accepted_tangle_time: todo!(),
-            relative_accepted_tangle_time: todo!(),
-            confirmed_tangle_time: todo!(),
-            relative_confirmed_tangle_time: todo!(),
-            latest_commitment_id: todo!(),
-            latest_finalized_slot: todo!(),
-            latest_accepted_block_slot: todo!(),
-            latest_confirmed_block_slot: todo!(),
-            pruning_epoch: todo!(),
+            last_accepted_block_slot: proto.last_accepted_block_slot.into(),
+            last_confirmed_block_slot: proto.last_confirmed_block_slot.into(),
+            latest_commitment: maybe_missing!(proto.latest_commitment).try_convert()?,
+            latest_finalized_commitment_id: maybe_missing!(proto.latest_finalized_commitment_id).try_convert()?,
+            pruning_epoch: proto.pruning_epoch.into(),
+            is_bootstrapped: proto.is_bootstrapped,
         })
     }
 }

@@ -1,9 +1,12 @@
 // Copyright 2023 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
+//! Module that contains the raw bytes helper type.
+
 use packable::{Packable, PackableExt};
 use serde::{Deserialize, Serialize};
 
+/// An error that indicates that raw bytes were invalid.
 #[derive(Debug, thiserror::Error)]
 #[error("{0}")]
 pub struct InvalidRawBytesError(pub String);

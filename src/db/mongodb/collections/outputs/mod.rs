@@ -5,16 +5,13 @@ mod indexer;
 
 use std::borrow::Borrow;
 
-use futures::{Stream, StreamExt, TryStreamExt};
-use iota_sdk::types::{
-    block::{
-        address::Address,
-        output::{dto::OutputDto, AccountId, Output, OutputId},
-        payload::signed_transaction::TransactionId,
-        slot::{SlotCommitmentId, SlotIndex},
-        BlockId,
-    },
-    TryFromDto,
+use futures::{Stream, TryStreamExt};
+use iota_sdk::types::block::{
+    address::Address,
+    output::{AccountId, Output, OutputId},
+    payload::signed_transaction::TransactionId,
+    slot::{SlotCommitmentId, SlotIndex},
+    BlockId,
 };
 use mongodb::{
     bson::{doc, to_bson, to_document},
@@ -168,7 +165,7 @@ impl From<&LedgerOutput> for OutputDocument {
     fn from(rec: &LedgerOutput) -> Self {
         Self {
             output_id: rec.output_id,
-            output: rec.output.clone().into(),
+            output: rec.output.clone(),
             metadata: OutputMetadata {
                 block_id: rec.block_id,
                 slot_booked: rec.slot_booked,
@@ -277,6 +274,13 @@ impl From<&LedgerSpent> for OutputDocument {
     }
 }
 
+#[derive(Clone, Debug, PartialEq, Eq)]
+#[allow(missing_docs)]
+pub struct OutputResult {
+    pub output_id: OutputId,
+    pub output: Output,
+}
+
 #[derive(Clone, Debug, PartialEq, Eq, Deserialize)]
 #[allow(missing_docs)]
 pub struct OutputMetadataResult {
@@ -308,8 +312,7 @@ pub struct UtxoChangesResult {
 
 /// Implements the queries for the core API.
 impl OutputCollection {
-    /// Upserts [`Outputs`](crate::model::utxo::Output) with their
-    /// [`OutputMetadata`](crate::model::metadata::OutputMetadata).
+    /// Upserts spent ledger outputs.
     #[instrument(skip_all, err, level = "trace")]
     pub async fn update_spent_outputs(&self, outputs: impl IntoIterator<Item = &LedgerSpent>) -> Result<(), DbError> {
         // TODO: Replace `db.run_command` once the `BulkWrite` API lands in the Rust driver.
@@ -339,8 +342,7 @@ impl OutputCollection {
         Ok(())
     }
 
-    /// Inserts [`Outputs`](crate::model::utxo::Output) with their
-    /// [`OutputMetadata`](crate::model::metadata::OutputMetadata).
+    /// Inserts unspent ledger outputs.
     #[instrument(skip_all, err, level = "trace")]
     pub async fn insert_unspent_outputs<I, B>(&self, outputs: I) -> Result<(), DbError>
     where
@@ -359,19 +361,25 @@ impl OutputCollection {
 
     /// Get an [`Output`] by [`OutputId`].
     pub async fn get_output(&self, output_id: &OutputId) -> Result<Option<Output>, DbError> {
+        #[derive(Deserialize)]
+        struct Res {
+            output: Raw<Output>,
+        }
+
         Ok(self
-            .aggregate::<OutputDto>(
+            .aggregate::<Res>(
                 [
                     doc! { "$match": { "_id": output_id.to_bson() } },
-                    doc! { "$replaceWith": "$output" },
+                    doc! { "$project": {
+                        "output": 1
+                    } },
                 ],
                 None,
             )
             .await?
             .try_next()
             .await?
-            .map(|o| Output::try_from_dto(o))
-            .transpose()?)
+            .map(|res| res.output.into_inner()))
     }
 
     /// Get an [`Output`] with its [`OutputMetadata`] by [`OutputId`].
@@ -381,49 +389,48 @@ impl OutputCollection {
         slot_index: SlotIndex,
     ) -> Result<Option<OutputWithMetadataResult>, DbError> {
         #[derive(Deserialize)]
-        struct OutputWithMetadataRes {
+        struct Res {
             #[serde(rename = "_id")]
             output_id: OutputId,
-            output: OutputDto,
+            output: Raw<Output>,
             metadata: OutputMetadata,
         }
 
-        Ok(self
-            .aggregate(
-                [
-                    doc! { "$match": {
-                        "_id": output_id.to_bson(),
-                        "metadata.slot_booked": { "$lte": slot_index.0 }
-                    } },
-                    doc! { "$project": {
-                        "output": "$output",
-                        "metadata": {
-                            "output_id": "$_id",
-                            "block_id": "$metadata.block_id",
-                            "booked": "$metadata.booked",
-                            "spent_metadata": "$metadata.spent_metadata",
-                        },
-                    } },
-                ],
-                None,
-            )
-            .await?
-            .try_next()
-            .await?
-            .map(
-                |OutputWithMetadataRes {
-                     output_id,
-                     output,
-                     metadata,
-                 }| {
-                    Result::<_, DbError>::Ok(OutputWithMetadataResult {
-                        output_id,
-                        output: Output::try_from_dto(output)?,
-                        metadata,
-                    })
-                },
-            )
-            .transpose()?)
+        self.aggregate(
+            [
+                doc! { "$match": {
+                    "_id": output_id.to_bson(),
+                    "metadata.slot_booked": { "$lte": slot_index.0 }
+                } },
+                doc! { "$project": {
+                    "output": "$output",
+                    "metadata": {
+                        "output_id": "$_id",
+                        "block_id": "$metadata.block_id",
+                        "booked": "$metadata.booked",
+                        "spent_metadata": "$metadata.spent_metadata",
+                    },
+                } },
+            ],
+            None,
+        )
+        .await?
+        .try_next()
+        .await?
+        .map(
+            |Res {
+                 output_id,
+                 output,
+                 metadata,
+             }| {
+                Result::<_, DbError>::Ok(OutputWithMetadataResult {
+                    output_id,
+                    output: output.into_inner(),
+                    metadata,
+                })
+            },
+        )
+        .transpose()
     }
 
     /// Get an [`OutputMetadata`] by [`OutputId`].
@@ -537,11 +544,11 @@ impl OutputCollection {
     pub async fn get_ledger_update_stream(
         &self,
         slot_index: SlotIndex,
-    ) -> Result<impl Stream<Item = Result<(OutputId, Output), DbError>>, DbError> {
+    ) -> Result<impl Stream<Item = Result<OutputResult, DbError>>, DbError> {
         #[derive(Deserialize)]
         struct Res {
             output_id: OutputId,
-            output: OutputDto,
+            output: Raw<Output>,
         }
         Ok(self
             .aggregate::<Res>(
@@ -557,9 +564,10 @@ impl OutputCollection {
                 None,
             )
             .await?
-            .then(|res| async move {
-                let res = res?;
-                Ok((res.output_id, Output::try_from_dto(res.output)?))
+            .map_err(Into::into)
+            .map_ok(|Res { output_id, output }| OutputResult {
+                output_id,
+                output: output.into_inner(),
             }))
     }
 
@@ -591,43 +599,43 @@ impl OutputCollection {
         slot_index: SlotIndex,
     ) -> Result<Option<BalanceResult>, DbError> {
         #[derive(Deserialize)]
-        struct BalanceRes {
+        struct Res {
             total_balance: String,
             sig_locked_balance: String,
         }
 
         Ok(self
-                .aggregate::<BalanceRes>(
-                    [
-                        // Look at all (at slot index o'clock) unspent output documents for the given address.
-                        doc! { "$match": {
-                            "details.address": address.to_bson(),
-                            "metadata.slot_booked": { "$lte": slot_index.0 },
-                            "metadata.spent_metadata.slot_spent": { "$not": { "$lte": slot_index.0 } }
+            .aggregate::<Res>(
+                [
+                    // Look at all (at slot index o'clock) unspent output documents for the given address.
+                    doc! { "$match": {
+                        "details.address": address.to_bson(),
+                        "metadata.slot_booked": { "$lte": slot_index.0 },
+                        "metadata.spent_metadata.slot_spent": { "$not": { "$lte": slot_index.0 } }
+                    } },
+                    doc! { "$group": {
+                        "_id": null,
+                        "total_balance": { "$sum": { "$toDecimal": "$output.amount" } },
+                        "sig_locked_balance": { "$sum": { 
+                            "$cond": [ { "$eq": [ "$details.is_trivial_unlock", true] }, { "$toDecimal": "$output.amount" }, 0 ]
                         } },
-                        doc! { "$group": {
-                            "_id": null,
-                            "total_balance": { "$sum": { "$toDecimal": "$output.amount" } },
-                            "sig_locked_balance": { "$sum": { 
-                                "$cond": [ { "$eq": [ "$details.is_trivial_unlock", true] }, { "$toDecimal": "$output.amount" }, 0 ]
-                            } },
-                        } },
-                        doc! { "$project": {
-                            "total_balance": { "$toString": "$total_balance" },
-                            "sig_locked_balance": { "$toString": "$sig_locked_balance" },
-                        } },
-                    ],
-                    None,
-                )
-                .await?
-                .try_next()
-                .await?
-                .map(|res|
-                    BalanceResult {
-                        total_balance: res.total_balance.parse().unwrap(),
-                        sig_locked_balance: res.sig_locked_balance.parse().unwrap(),
-                    }
-                ))
+                    } },
+                    doc! { "$project": {
+                        "total_balance": { "$toString": "$total_balance" },
+                        "sig_locked_balance": { "$toString": "$sig_locked_balance" },
+                    } },
+                ],
+                None,
+            )
+            .await?
+            .try_next()
+            .await?
+            .map(|res|
+                BalanceResult {
+                    total_balance: res.total_balance.parse().unwrap(),
+                    sig_locked_balance: res.sig_locked_balance.parse().unwrap(),
+                }
+            ))
     }
 
     /// Returns the changes to the UTXO ledger (as consumed and created output ids) that were applied at the given

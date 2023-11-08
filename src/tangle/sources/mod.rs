@@ -10,16 +10,9 @@ use core::ops::RangeBounds;
 
 use async_trait::async_trait;
 use futures::stream::BoxStream;
-use iota_sdk::types::block::{protocol::ProtocolParameters, slot::SlotIndex};
-use serde::{Deserialize, Serialize};
+use iota_sdk::types::block::slot::SlotIndex;
 
 use crate::model::{block_metadata::BlockWithMetadata, ledger::LedgerUpdateStore, slot::Commitment};
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[allow(missing_docs)]
-pub struct SlotData {
-    pub commitment: Commitment,
-}
 
 /// Defines a type as a source for block and ledger update data.
 #[async_trait]
@@ -28,10 +21,10 @@ pub trait InputSource: Send + Sync {
     type Error: 'static + std::error::Error + std::fmt::Debug + Send + Sync;
 
     /// A stream of slots and their commitment data.
-    async fn slot_stream(
+    async fn commitment_stream(
         &self,
         range: impl RangeBounds<SlotIndex> + Send,
-    ) -> Result<BoxStream<Result<SlotData, Self::Error>>, Self::Error>;
+    ) -> Result<BoxStream<Result<Commitment, Self::Error>>, Self::Error>;
 
     /// A stream of accepted blocks for a given slot index.
     async fn accepted_blocks(

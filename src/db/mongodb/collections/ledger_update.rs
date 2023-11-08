@@ -141,9 +141,9 @@ fn oldest() -> Document {
     doc! { "address": 1, "_id.slot_index": 1, "_id.output_id": 1, "_id.is_spent": 1 }
 }
 
-/// Queries that are related to [`Output`](crate::model::utxo::Output)s.
+/// Queries that are related to ledger updates.
 impl LedgerUpdateCollection {
-    /// Inserts [`LedgerSpent`] updates.
+    /// Inserts spent ledger updates.
     #[instrument(skip_all, err, level = "trace")]
     pub async fn insert_spent_ledger_updates<'a, I>(&self, outputs: I) -> Result<(), DbError>
     where
@@ -167,7 +167,7 @@ impl LedgerUpdateCollection {
         Ok(())
     }
 
-    /// Inserts unspent [`LedgerOutput`] updates.
+    /// Inserts unspent ledger updates.
     #[instrument(skip_all, err, level = "trace")]
     pub async fn insert_unspent_ledger_updates<'a, I>(&self, outputs: I) -> Result<(), DbError>
     where
@@ -264,7 +264,7 @@ impl LedgerUpdateCollection {
             .await?
             .map_err(Into::into)
             .map_ok(|doc| LedgerUpdateBySlotRecord {
-                address: doc.address.into(),
+                address: doc.address,
                 output_id: doc._id.output_id,
                 is_spent: doc._id.is_spent,
             }))

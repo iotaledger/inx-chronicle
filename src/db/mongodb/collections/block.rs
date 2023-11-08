@@ -4,11 +4,7 @@
 use futures::{Stream, TryStreamExt};
 use iota_sdk::types::{
     api::core::BlockState,
-    block::{
-        output::OutputId, payload::signed_transaction::TransactionId, slot::SlotIndex, BlockId, SignedBlock,
-        SignedBlockDto,
-    },
-    TryFromDto,
+    block::{output::OutputId, payload::signed_transaction::TransactionId, slot::SlotIndex, BlockId, SignedBlock},
 };
 use mongodb::{
     bson::doc,
@@ -126,7 +122,7 @@ impl MongoDbCollection for BlockCollection {
 
         self.create_index(
             IndexModel::builder()
-                .keys(doc! { "slot_index": -1, "metadata.inclusion_state": 1 })
+                .keys(doc! { "slot_index": -1, "metadata.block_state": 1 })
                 .options(
                     IndexOptions::builder()
                         .name("block_slot_index_comp".to_string())
@@ -159,20 +155,20 @@ struct RawResult {
     block: Raw<SignedBlock>,
 }
 
-#[derive(Deserialize)]
-struct BlockIdResult {
-    #[serde(rename = "_id")]
-    block_id: BlockId,
-}
+// #[derive(Deserialize)]
+// struct BlockIdResult {
+//     #[serde(rename = "_id")]
+//     block_id: BlockId,
+// }
 
 /// Implements the queries for the core API.
 impl BlockCollection {
-    /// Get a [`Block`] by its [`BlockId`].
+    /// Get a [`SignedBlock`] by its [`BlockId`].
     pub async fn get_block(&self, block_id: &BlockId) -> Result<Option<SignedBlock>, DbError> {
         Ok(self.get_block_raw(block_id).await?.map(|raw| raw.into_inner()))
     }
 
-    /// Get the raw bytes of a [`Block`] by its [`BlockId`].
+    /// Get the raw bytes of a [`SignedBlock`] by its [`BlockId`].
     pub async fn get_block_raw(&self, block_id: &BlockId) -> Result<Option<Raw<SignedBlock>>, DbError> {
         Ok(self
             .aggregate(
@@ -188,7 +184,7 @@ impl BlockCollection {
             .map(|RawResult { block }| block))
     }
 
-    /// Get the metadata of a [`Block`] by its [`BlockId`].
+    /// Get the metadata of a [`SignedBlock`] by its [`BlockId`].
     pub async fn get_block_metadata(&self, block_id: &BlockId) -> Result<Option<BlockMetadata>, DbError> {
         Ok(self
             .aggregate(
@@ -235,69 +231,31 @@ impl BlockCollection {
     //         .map_ok(|BlockIdResult { block_id }| block_id))
     // }
 
-    // /// Get the blocks that were referenced by the specified milestone (in White-Flag order).
-    // pub async fn get_referenced_blocks_in_white_flag_order(
-    //     &self,
-    //     index: MilestoneIndex,
-    // ) -> Result<Vec<BlockId>, Error> { let block_ids = self .aggregate::<BlockIdResult>( [ doc! { "$match": {
-    //   "metadata.referenced_by_milestone_index": index } }, doc! { "$sort": { "metadata.white_flag_index": 1 } }, doc!
-    //   { "$project": { "_id": 1 } }, ], None, ) .await? .map_ok(|res| res.block_id) .try_collect() .await?;
+    /// Get the accepted blocks from a slot.
+    pub async fn get_accepted_blocks(
+        &self,
+        index: SlotIndex,
+    ) -> Result<impl Stream<Item = Result<BlockWithMetadata, DbError>>, DbError> {
+        Ok(self
+            .aggregate(
+                [
+                    doc! { "$match": {
+                        "slot_index": index.0,
+                        "metadata.block_state": BlockState::Confirmed.to_bson()
+                    } },
+                    doc! { "$sort": { "_id": 1 } },
+                    doc! { "$project": {
+                        "block": 1,
+                        "metadata": 1
+                    } },
+                ],
+                None,
+            )
+            .await?
+            .map_err(Into::into))
+    }
 
-    //     Ok(block_ids)
-    // }
-
-    // /// Get the blocks that were referenced by the specified milestone (in White-Flag order).
-    // pub async fn get_referenced_blocks_in_white_flag_order_stream(
-    //     &self,
-    //     index: MilestoneIndex,
-    // ) -> Result<impl Stream<Item = Result<(BlockId, Block, Vec<u8>, BlockMetadata), Error>>, Error> { #[derive(Debug,
-    //   Deserialize)] struct QueryRes { #[serde(rename = "_id")] block_id: BlockId, #[serde(with = "serde_bytes")] raw:
-    //   Vec<u8>, metadata: BlockMetadata, }
-
-    //     Ok(self
-    //         .aggregate::<QueryRes>(
-    //             [
-    //                 doc! { "$match": { "metadata.referenced_by_milestone_index": index } },
-    //                 doc! { "$sort": { "metadata.white_flag_index": 1 } },
-    //             ],
-    //             None,
-    //         )
-    //         .await?
-    //         .map_ok(|r| {
-    //             (
-    //                 r.block_id,
-    //                 iota_sdk::types::block::Block::unpack_unverified(r.raw.clone())
-    //                     .unwrap()
-    //                     .into(),
-    //                 r.raw,
-    //                 r.metadata,
-    //             )
-    //         }))
-    // }
-
-    // /// Get the blocks that were applied by the specified milestone (in White-Flag order).
-    // pub async fn get_applied_blocks_in_white_flag_order(&self, index: MilestoneIndex) -> Result<Vec<BlockId>, Error>
-    // {     let block_ids = self
-    //         .aggregate::<BlockIdResult>(
-    //             [
-    //                 doc! { "$match": {
-    //                     "metadata.referenced_by_milestone_index": index,
-    //                     "metadata.inclusion_state": LedgerInclusionState::Included,
-    //                 } },
-    //                 doc! { "$sort": { "metadata.white_flag_index": 1 } },
-    //                 doc! { "$project": { "_id": 1 } },
-    //             ],
-    //             None,
-    //         )
-    //         .await?
-    //         .map_ok(|res| res.block_id)
-    //         .try_collect()
-    //         .await?;
-
-    //     Ok(block_ids)
-    // }
-
-    /// Inserts [`Block`]s together with their associated [`BlockMetadata`].
+    /// Inserts [`SignedBlock`]s together with their associated [`BlockMetadata`].
     #[instrument(skip_all, err, level = "trace")]
     pub async fn insert_blocks_with_metadata<I, B>(&self, blocks_with_metadata: I) -> Result<(), DbError>
     where
@@ -316,16 +274,16 @@ impl BlockCollection {
         Ok(())
     }
 
-    /// Finds the [`Block`] that included a transaction by [`TransactionId`].
+    /// Finds the [`SignedBlock`] that included a transaction by [`TransactionId`].
     pub async fn get_block_for_transaction(
         &self,
         transaction_id: &TransactionId,
     ) -> Result<Option<IncludedBlockResult>, DbError> {
         #[derive(Deserialize)]
-        struct IncludedBlockRes {
+        struct Res {
             #[serde(rename = "_id")]
             block_id: BlockId,
-            block: SignedBlockDto,
+            block: Raw<SignedBlock>,
         }
 
         Ok(self
@@ -342,9 +300,9 @@ impl BlockCollection {
             .await?
             .try_next()
             .await?
-            .map(|IncludedBlockRes { block_id, block }| IncludedBlockResult {
+            .map(|Res { block_id, block }| IncludedBlockResult {
                 block_id,
-                block: SignedBlock::try_from_dto(block).unwrap(),
+                block: block.into_inner(),
             }))
     }
 
@@ -394,7 +352,7 @@ impl BlockCollection {
             .await?)
     }
 
-    /// Gets the spending transaction of an [`Output`](crate::model::utxo::Output) by [`OutputId`].
+    /// Gets the block containing the spending transaction of an output by [`OutputId`].
     pub async fn get_spending_transaction(&self, output_id: &OutputId) -> Result<Option<SignedBlock>, DbError> {
         Ok(self
             .aggregate(

@@ -91,9 +91,9 @@ impl IntoResponse for ApiError {
 #[derive(Error, Debug)]
 #[allow(missing_docs)]
 pub enum CorruptStateError {
-    #[cfg(feature = "poi")]
-    #[error(transparent)]
-    PoI(#[from] crate::api::poi::CorruptStateError),
+    // #[cfg(feature = "poi")]
+    // #[error(transparent)]
+    // PoI(#[from] crate::api::poi::CorruptStateError),
     #[error("no node configuration in the database")]
     NodeConfig,
     #[error("no protocol parameters in the database")]
@@ -180,9 +180,9 @@ pub enum RequestError {
     InvalidAuthHeader(#[from] TypedHeaderRejection),
     #[error("invalid query parameters provided: {0}")]
     InvalidQueryParams(#[from] QueryRejection),
-    #[cfg(feature = "poi")]
-    #[error(transparent)]
-    PoI(#[from] crate::api::poi::RequestError),
+    // #[cfg(feature = "poi")]
+    // #[error(transparent)]
+    // PoI(#[from] crate::api::poi::RequestError),
     #[error("invalid sort order provided: {0}")]
     SortOrder(#[from] ParseSortError),
 }

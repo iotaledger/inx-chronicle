@@ -44,10 +44,10 @@ pub fn routes() -> Router {
         .nest("/explorer/v3", super::explorer::routes())
         .nest("/indexer/v2", super::indexer::routes());
 
-    #[cfg(feature = "poi")]
-    {
-        router = router.nest("/poi/v1", super::poi::routes());
-    }
+    // #[cfg(feature = "poi")]
+    // {
+    //     router = router.nest("/poi/v1", super::poi::routes());
+    // }
 
     Router::new()
         .route("/health", get(health))

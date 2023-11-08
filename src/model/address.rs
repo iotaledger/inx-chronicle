@@ -15,7 +15,7 @@ use iota_sdk::types::block::{
 use mongodb::bson::{doc, Bson};
 use serde::{Deserialize, Serialize};
 
-/// The different [`Address`] types supported by the network.
+/// The different address types supported by the network.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Hash)]
 #[serde(rename_all = "snake_case")]
 pub enum AddressDto {
@@ -40,7 +40,7 @@ pub enum AddressDto {
     Multi(MultiAddressDto),
 }
 
-/// The different [`Address`] types supported by restricted addresses.
+/// The different address types supported by restricted addresses.
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Hash)]
 #[serde(rename_all = "snake_case")]
 pub enum CoreAddressDto {
@@ -75,14 +75,14 @@ pub struct MultiAddressDto {
 impl<T: Borrow<iota::Address>> From<T> for AddressDto {
     fn from(value: T) -> Self {
         match value.borrow() {
-            iota::Address::Ed25519(a) => Self::Ed25519(a.clone()),
+            iota::Address::Ed25519(a) => Self::Ed25519(*a),
             iota::Address::Account(a) => Self::Account(a.into_account_id()),
             iota::Address::Nft(a) => Self::Nft(a.into_nft_id()),
             iota::Address::Anchor(a) => Self::Anchor(a.into_anchor_id()),
-            iota::Address::ImplicitAccountCreation(a) => Self::ImplicitAccountCreation(a.clone()),
+            iota::Address::ImplicitAccountCreation(a) => Self::ImplicitAccountCreation(*a),
             iota::Address::Restricted(a) => Self::Restricted {
                 address: match a.address() {
-                    iota::Address::Ed25519(a) => CoreAddressDto::Ed25519(a.clone()),
+                    iota::Address::Ed25519(a) => CoreAddressDto::Ed25519(*a),
                     iota::Address::Account(a) => CoreAddressDto::Account(a.into_account_id()),
                     iota::Address::Nft(a) => CoreAddressDto::Nft(a.into_nft_id()),
                     iota::Address::Anchor(a) => CoreAddressDto::Anchor(a.into_anchor_id()),
@@ -96,7 +96,7 @@ impl<T: Borrow<iota::Address>> From<T> for AddressDto {
                     .iter()
                     .map(|a| WeightedAddressDto {
                         address: match a.address() {
-                            iota::Address::Ed25519(a) => CoreAddressDto::Ed25519(a.clone()),
+                            iota::Address::Ed25519(a) => CoreAddressDto::Ed25519(*a),
                             iota::Address::Account(a) => CoreAddressDto::Account(a.into_account_id()),
                             iota::Address::Nft(a) => CoreAddressDto::Nft(a.into_nft_id()),
                             iota::Address::Anchor(a) => CoreAddressDto::Anchor(a.into_anchor_id()),
@@ -134,7 +134,7 @@ impl From<AddressDto> for iota::Address {
             )),
             AddressDto::Multi(a) => Self::Multi(
                 MultiAddress::new(
-                    a.addresses.into_iter().map(|a| {
+                    a.addresses.into_iter().map(|_a| {
                         todo!()
                         // WeightedAddress::new(
                         //     match address {

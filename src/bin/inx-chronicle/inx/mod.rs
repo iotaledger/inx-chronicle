@@ -65,7 +65,7 @@ impl InxWorker {
     }
 
     pub async fn run(&mut self) -> Result<()> {
-        let (start_index, inx, protocol_params) = self.init().await?;
+        let (start_index, inx, _protocol_params) = self.init().await?;
 
         let tangle = Tangle::from(inx);
 
@@ -79,7 +79,8 @@ impl InxWorker {
         while let Some(slot) = stream.try_next().await? {
             self.handle_ledger_update(
                 slot,
-                &protocol_params,
+                #[cfg(feature = "influx")]
+                &_protocol_params,
                 #[cfg(feature = "analytics")]
                 analytics_info.as_mut(),
             )
@@ -111,7 +112,7 @@ impl InxWorker {
         debug!(
             "The node has a pruning epoch index of `{}` and a latest confirmed slot index of `{}`.",
             node_status.pruning_epoch,
-            node_status.latest_commitment_id.slot_index()
+            node_status.latest_commitment.commitment_id.slot_index()
         );
 
         let start_index = if let Some(latest_committed_slot) = self
@@ -145,6 +146,7 @@ impl InxWorker {
             .get_node_config()
             .await?
         {
+            #[allow(clippy::collapsible_if)]
             if db_node_config != node_configuration {
                 if db_node_config.latest_parameters().network_name()
                     != node_configuration.latest_parameters().network_name()
@@ -251,7 +253,7 @@ impl InxWorker {
     async fn handle_ledger_update<'a>(
         &mut self,
         slot: Slot<'a, Inx>,
-        protocol_parameters: &ProtocolParameters,
+        #[cfg(feature = "influx")] protocol_parameters: &ProtocolParameters,
         #[cfg(feature = "analytics")] analytics_info: Option<&mut influx::analytics::AnalyticsInfo>,
     ) -> Result<()> {
         #[cfg(feature = "metrics")]

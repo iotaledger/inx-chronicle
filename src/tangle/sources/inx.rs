@@ -5,13 +5,13 @@ use core::ops::RangeBounds;
 
 use async_trait::async_trait;
 use futures::{stream::BoxStream, StreamExt, TryStreamExt};
-use iota_sdk::types::block::{protocol::ProtocolParameters, slot::SlotIndex};
+use iota_sdk::types::block::slot::SlotIndex;
 use thiserror::Error;
 
-use super::{InputSource, SlotData};
+use super::InputSource;
 use crate::{
     inx::{ledger::MarkerMessage, Inx, InxError, SlotRangeRequest},
-    model::{block_metadata::BlockWithMetadata, ledger::LedgerUpdateStore},
+    model::{block_metadata::BlockWithMetadata, ledger::LedgerUpdateStore, slot::Commitment},
 };
 
 #[derive(Debug, Error)]
@@ -28,19 +28,15 @@ pub enum InxInputSourceError {
 impl InputSource for Inx {
     type Error = InxInputSourceError;
 
-    async fn slot_stream(
+    async fn commitment_stream(
         &self,
         range: impl RangeBounds<SlotIndex> + Send,
-    ) -> Result<BoxStream<Result<SlotData, Self::Error>>, Self::Error> {
+    ) -> Result<BoxStream<Result<Commitment, Self::Error>>, Self::Error> {
         let mut inx = self.clone();
         Ok(Box::pin(
             inx.get_committed_slots(SlotRangeRequest::from_range(range))
                 .await?
-                .map_err(Self::Error::from)
-                .and_then(move |commitment| {
-                    let mut inx = inx.clone();
-                    async move { Ok(SlotData { commitment }) }
-                }),
+                .map_err(Self::Error::from),
         ))
     }
 

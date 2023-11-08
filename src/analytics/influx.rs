@@ -63,7 +63,7 @@ where
 {
     fn prepare_query(&self) -> Vec<WriteQuery> {
         vec![
-            influxdb::Timestamp::from(influxdb::Timestamp::Nanoseconds(self.slot_timestamp as _))
+            influxdb::Timestamp::Nanoseconds(self.slot_timestamp as _)
                 .into_query(M::NAME)
                 .add_field("slot_index", self.slot_index.0)
                 .add_fields(&self.inner),
@@ -212,10 +212,7 @@ impl Measurement for LedgerSizeMeasurement {
     const NAME: &'static str = "iota_ledger_size";
 
     fn add_fields(&self, query: WriteQuery) -> WriteQuery {
-        query
-            .add_field("total_key_bytes", self.total_key_bytes)
-            .add_field("total_data_bytes", self.total_data_bytes)
-            .add_field("total_storage_deposit_amount", self.total_storage_deposit_amount)
+        query.add_field("total_storage_cost", self.total_storage_cost)
     }
 }
 

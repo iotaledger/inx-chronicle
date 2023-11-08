@@ -38,19 +38,17 @@ impl<I: InputSource> From<I> for Tangle<I> {
 impl<I: InputSource + Sync> Tangle<I> {
     /// Returns a stream of slots in a given range.
     pub async fn slot_stream(&self, range: impl RangeBounds<SlotIndex> + Send) -> Result<SlotStream<'_, I>, I::Error> {
-        let stream = self.source.slot_stream(range).await?;
+        let stream = self.source.commitment_stream(range).await?;
         Ok(SlotStream {
             inner: stream
-                .and_then(|data| {
+                .and_then(|commitment| {
                     #[allow(clippy::borrow_deref_ref)]
                     let source = &self.source;
                     async move {
                         Ok(Slot {
-                            ledger_updates: source
-                                .ledger_updates(data.commitment.commitment_id.slot_index())
-                                .await?,
+                            ledger_updates: source.ledger_updates(commitment.commitment_id.slot_index()).await?,
                             source,
-                            commitment: data.commitment,
+                            commitment,
                         })
                     }
                 })

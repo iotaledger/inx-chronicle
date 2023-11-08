@@ -1,7 +1,7 @@
 // Copyright 2023 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-//! Module that contains the types.
+//! Module that contains model types.
 
 pub mod address;
 pub mod block_metadata;

@@ -19,9 +19,7 @@ trait LedgerSize {
 impl LedgerSize for Output {
     fn ledger_size(&self, protocol_params: &ProtocolParameters) -> LedgerSizeMeasurement {
         LedgerSizeMeasurement {
-            total_storage_deposit_amount: self.rent_cost(protocol_params.rent_structure()),
-            total_key_bytes: todo!(),
-            total_data_bytes: todo!(),
+            total_storage_cost: self.rent_cost(protocol_params.rent_structure()),
         }
     }
 }
@@ -29,29 +27,19 @@ impl LedgerSize for Output {
 /// Ledger size statistics.
 #[derive(Copy, Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub(crate) struct LedgerSizeMeasurement {
-    pub(crate) total_key_bytes: u64,
-    pub(crate) total_data_bytes: u64,
-    pub(crate) total_storage_deposit_amount: u64,
+    pub(crate) total_storage_cost: u64,
 }
 
 impl LedgerSizeMeasurement {
     fn wrapping_add(&mut self, rhs: Self) {
         *self = Self {
-            total_key_bytes: self.total_key_bytes.wrapping_add(rhs.total_key_bytes),
-            total_data_bytes: self.total_data_bytes.wrapping_add(rhs.total_data_bytes),
-            total_storage_deposit_amount: self
-                .total_storage_deposit_amount
-                .wrapping_add(rhs.total_storage_deposit_amount),
+            total_storage_cost: self.total_storage_cost.wrapping_add(rhs.total_storage_cost),
         }
     }
 
     fn wrapping_sub(&mut self, rhs: Self) {
         *self = Self {
-            total_key_bytes: self.total_key_bytes.wrapping_sub(rhs.total_key_bytes),
-            total_data_bytes: self.total_data_bytes.wrapping_sub(rhs.total_data_bytes),
-            total_storage_deposit_amount: self
-                .total_storage_deposit_amount
-                .wrapping_sub(rhs.total_storage_deposit_amount),
+            total_storage_cost: self.total_storage_cost.wrapping_sub(rhs.total_storage_cost),
         }
     }
 }

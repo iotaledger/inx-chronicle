@@ -1,6 +1,8 @@
 // Copyright 2023 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
+//! Module that contains ledger types.
+
 use std::collections::HashMap;
 
 use iota_sdk::types::block::{
@@ -75,7 +77,7 @@ impl LedgerSpent {
     }
 
     pub fn output(&self) -> &Output {
-        &self.output.output()
+        self.output.output()
     }
 
     pub fn amount(&self) -> u64 {

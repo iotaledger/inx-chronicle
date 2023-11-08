@@ -1,12 +1,15 @@
 // Copyright 2023 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
+//! Module that contains the native token.
+
 use core::borrow::Borrow;
 
 use iota_sdk::types::block::output::{NativeToken, TokenId};
 use primitive_types::U256;
 use serde::{Deserialize, Serialize};
 
+/// A native token.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct NativeTokenDto {
     /// The corresponding token id.
@@ -28,6 +31,6 @@ impl TryFrom<NativeTokenDto> for NativeToken {
     type Error = iota_sdk::types::block::Error;
 
     fn try_from(value: NativeTokenDto) -> Result<Self, Self::Error> {
-        Self::new(value.token_id.into(), value.amount)
+        Self::new(value.token_id, value.amount)
     }
 }

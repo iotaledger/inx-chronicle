@@ -1,12 +1,14 @@
 // Copyright 2023 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
+//! Module that contains the tag helper type.
+
 use core::str::FromStr;
 
 use mongodb::bson::Bson;
 use serde::{Deserialize, Serialize};
 
-/// A [`Tag`] associated with an [`Output`].
+/// A [`Tag`] which can be used to index data.
 #[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(transparent)]
 pub struct Tag(#[serde(with = "serde_bytes")] Vec<u8>);

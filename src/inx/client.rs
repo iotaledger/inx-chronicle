@@ -36,7 +36,7 @@ impl Inx {
 
     /// Get the status of the node.
     pub async fn get_node_status(&mut self) -> Result<NodeStatus, InxError> {
-        Ok(self.inx.read_node_status(proto::NoParams {}).await?.try_convert()?)
+        self.inx.read_node_status(proto::NoParams {}).await?.try_convert()
     }
 
     // /// Stream status updates from the node.
@@ -50,11 +50,10 @@ impl Inx {
 
     /// Get the configuration of the node.
     pub async fn get_node_configuration(&mut self) -> Result<NodeConfiguration, InxError> {
-        Ok(self
-            .inx
+        self.inx
             .read_node_configuration(proto::NoParams {})
             .await?
-            .try_convert()?)
+            .try_convert()
     }
 
     // /// Get the active root blocks of the node.
@@ -68,14 +67,13 @@ impl Inx {
 
     /// Get a commitment from a slot index.
     pub async fn get_commitment(&mut self, slot_index: SlotIndex) -> Result<Commitment, InxError> {
-        Ok(self
-            .inx
+        self.inx
             .read_commitment(proto::CommitmentRequest {
                 commitment_slot: slot_index.0,
                 commitment_id: None,
             })
             .await?
-            .try_convert()?)
+            .try_convert()
     }
 
     /// Get a stream of committed slots.
@@ -103,11 +101,10 @@ impl Inx {
 
     /// Get a block's metadata using a block id.
     pub async fn get_block_metadata(&mut self, block_id: BlockId) -> Result<BlockMetadata, InxError> {
-        Ok(self
-            .inx
+        self.inx
             .read_block_metadata(proto::BlockId { id: block_id.to_vec() })
             .await?
-            .try_convert()?)
+            .try_convert()
     }
 
     /// Convenience wrapper that gets all blocks.
@@ -196,12 +193,11 @@ impl Inx {
 
     /// Get an output using an output id.
     pub async fn get_output(&mut self, output_id: OutputId) -> Result<Output, InxError> {
-        Ok(self
-            .inx
+        self.inx
             .read_output(proto::OutputId {
                 id: output_id.pack_to_vec(),
             })
             .await?
-            .try_convert()?)
+            .try_convert()
     }
 }

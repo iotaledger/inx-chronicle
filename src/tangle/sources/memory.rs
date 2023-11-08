@@ -6,16 +6,16 @@ use std::collections::BTreeMap;
 
 use async_trait::async_trait;
 use futures::stream::BoxStream;
-use iota_sdk::types::block::{protocol::ProtocolParameters, slot::SlotIndex, BlockId};
+use iota_sdk::types::block::{slot::SlotIndex, BlockId};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
-use super::{InputSource, SlotData};
-use crate::model::{block_metadata::BlockWithMetadata, ledger::LedgerUpdateStore};
+use super::InputSource;
+use crate::model::{block_metadata::BlockWithMetadata, ledger::LedgerUpdateStore, slot::Commitment};
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct InMemoryData {
-    pub slot_data: SlotData,
+    pub commitment: Commitment,
     pub confirmed_blocks: BTreeMap<BlockId, BlockWithMetadata>,
     pub ledger_updates: LedgerUpdateStore,
 }
@@ -30,12 +30,12 @@ pub enum InMemoryInputSourceError {
 impl InputSource for BTreeMap<SlotIndex, InMemoryData> {
     type Error = InMemoryInputSourceError;
 
-    async fn slot_stream(
+    async fn commitment_stream(
         &self,
         range: impl RangeBounds<SlotIndex> + Send,
-    ) -> Result<BoxStream<Result<SlotData, Self::Error>>, Self::Error> {
+    ) -> Result<BoxStream<Result<Commitment, Self::Error>>, Self::Error> {
         Ok(Box::pin(futures::stream::iter(
-            self.range(range).map(|(_, v)| Ok(v.slot_data.clone())),
+            self.range(range).map(|(_, v)| Ok(v.commitment.clone())),
         )))
     }
 

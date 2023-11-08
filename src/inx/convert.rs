@@ -92,9 +92,12 @@ macro_rules! impl_id_convert {
             where
                 Self: Sized,
             {
-                Ok(Self::new(proto.id.try_into().map_err(|e| {
-                    InvalidRawBytesError(format!("{}", hex::encode(e)))
-                })?))
+                Ok(Self::new(
+                    proto
+                        .id
+                        .try_into()
+                        .map_err(|e| InvalidRawBytesError(hex::encode(e)))?,
+                ))
             }
         }
     };
@@ -110,10 +113,7 @@ impl TryConvertFrom<proto::CommitmentId> for SlotCommitmentId {
         Self: Sized,
     {
         Ok(Self::new(
-            proto
-                .id
-                .try_into()
-                .map_err(|e| InvalidRawBytesError(format!("{}", hex::encode(e))))?,
+            proto.id.try_into().map_err(|e| InvalidRawBytesError(hex::encode(e)))?,
         ))
     }
 }
@@ -126,8 +126,7 @@ impl TryConvertFrom<proto::OutputId> for OutputId {
         Self: Sized,
     {
         Ok(Self::try_from(
-            <[u8; Self::LENGTH]>::try_from(proto.id)
-                .map_err(|e| InvalidRawBytesError(format!("{}", hex::encode(e))))?,
+            <[u8; Self::LENGTH]>::try_from(proto.id).map_err(|e| InvalidRawBytesError(hex::encode(e)))?,
         )?)
     }
 }

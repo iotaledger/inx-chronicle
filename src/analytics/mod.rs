@@ -289,7 +289,7 @@ impl<'a, I: InputSource> Slot<'a, I> {
                 analytics.handle_transaction(&consumed, &created, ctx)
             }
         }
-        analytics.handle_block(&block, &block_data.metadata, ctx);
+        analytics.handle_block(block, &block_data.metadata, ctx);
         Ok(())
     }
 }
@@ -301,7 +301,7 @@ struct BasicContext<'a> {
 
 impl<'a> AnalyticsContext for BasicContext<'a> {
     fn protocol_params(&self) -> &ProtocolParameters {
-        &self.protocol_parameters
+        self.protocol_parameters
     }
 
     fn slot_index(&self) -> SlotIndex {
@@ -575,9 +575,7 @@ mod test {
             assert_expected!(analytics.ledger_outputs.delegation.count);
             assert_expected!(analytics.ledger_outputs.delegation.amount);
 
-            assert_expected!(analytics.ledger_size.total_key_bytes);
-            assert_expected!(analytics.ledger_size.total_data_bytes);
-            assert_expected!(analytics.ledger_size.total_storage_deposit_amount);
+            assert_expected!(analytics.ledger_size.total_storage_cost);
 
             assert_expected!(analytics.output_activity.nft.created_count);
             assert_expected!(analytics.output_activity.nft.transferred_count);
@@ -676,7 +674,7 @@ mod test {
             mongodb::bson::from_bson::<BTreeMap<String, InMemoryData>>(test_data)
                 .unwrap()
                 .into_iter()
-                .map(|(k, v)| (k.parse().unwrap(), v.into()))
+                .map(|(k, v)| (k.parse().unwrap(), v))
                 .collect::<BTreeMap<_, _>>(),
         )
     }

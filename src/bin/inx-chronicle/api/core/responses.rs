@@ -24,7 +24,7 @@ pub struct InfoResponse {
 impl_success_response!(InfoResponse);
 
 /// A wrapper struct that allows us to implement [`IntoResponse`](axum::response::IntoResponse) for the foreign
-/// responses from [`iota_types`](iota_sdk::types::api::core::response).
+/// responses from [`iota_sdk`](iota_sdk::types::api::core).
 #[derive(Clone, Debug, Serialize, derive_more::From)]
 pub struct IotaResponse<T: Serialize>(T);
 
@@ -35,7 +35,7 @@ impl<T: Serialize> axum::response::IntoResponse for IotaResponse<T> {
 }
 
 /// A wrapper struct that allows us to implement [`IntoResponse`](axum::response::IntoResponse) for the foreign
-/// raw responses from [`iota_types`](iota_sdk::types::api::core::response).
+/// raw responses from [`iota_sdk`](iota_sdk::types::api::core).
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum IotaRawResponse<T: Serialize> {
