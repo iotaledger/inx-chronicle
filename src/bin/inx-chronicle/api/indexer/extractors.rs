@@ -1,12 +1,12 @@
 // Copyright 2023 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-use std::{fmt::Display, str::FromStr};
+use std::{fmt::Display, str::FromStr, sync::Arc};
 
 use async_trait::async_trait;
 use axum::{
-    extract::{FromRequest, Query},
-    Extension,
+    extract::{FromRef, FromRequestParts, Query},
+    http::request::Parts,
 };
 use chronicle::{
     db::mongodb::collections::{
@@ -93,14 +93,17 @@ pub struct BasicOutputsPaginationQuery {
 }
 
 #[async_trait]
-impl<B: Send> FromRequest<B> for IndexedOutputsPagination<BasicOutputsQuery> {
+impl<S: Send + Sync> FromRequestParts<S> for IndexedOutputsPagination<BasicOutputsQuery>
+where
+    Arc<ApiConfigData>: FromRef<S>,
+{
     type Rejection = ApiError;
 
-    async fn from_request(req: &mut axum::extract::RequestParts<B>) -> Result<Self, Self::Rejection> {
-        let Query(query) = Query::<BasicOutputsPaginationQuery>::from_request(req)
+    async fn from_request_parts(parts: &mut Parts, state: &S) -> Result<Self, Self::Rejection> {
+        let Query(query) = Query::<BasicOutputsPaginationQuery>::from_request_parts(parts, state)
             .await
             .map_err(RequestError::from)?;
-        let Extension(config) = Extension::<ApiConfigData>::from_request(req).await?;
+        let config = Arc::<ApiConfigData>::from_ref(state);
 
         let (cursor, page_size) = if let Some(cursor) = query.cursor {
             let cursor: IndexedOutputsCursor = cursor.parse()?;
@@ -158,14 +161,17 @@ pub struct AccountOutputsPaginationQuery {
 }
 
 #[async_trait]
-impl<B: Send> FromRequest<B> for IndexedOutputsPagination<AccountOutputsQuery> {
+impl<S: Send + Sync> FromRequestParts<S> for IndexedOutputsPagination<AccountOutputsQuery>
+where
+    Arc<ApiConfigData>: FromRef<S>,
+{
     type Rejection = ApiError;
 
-    async fn from_request(req: &mut axum::extract::RequestParts<B>) -> Result<Self, Self::Rejection> {
-        let Query(query) = Query::<AccountOutputsPaginationQuery>::from_request(req)
+    async fn from_request_parts(parts: &mut Parts, state: &S) -> Result<Self, Self::Rejection> {
+        let Query(query) = Query::<AccountOutputsPaginationQuery>::from_request_parts(parts, state)
             .await
             .map_err(RequestError::from)?;
-        let Extension(config) = Extension::<ApiConfigData>::from_request(req).await?;
+        let config = Arc::<ApiConfigData>::from_ref(state);
 
         let (cursor, page_size) = if let Some(cursor) = query.cursor {
             let cursor: IndexedOutputsCursor = cursor.parse()?;
@@ -213,14 +219,17 @@ pub struct AnchorOutputsPaginationQuery {
 }
 
 #[async_trait]
-impl<B: Send> FromRequest<B> for IndexedOutputsPagination<AnchorOutputsQuery> {
+impl<S: Send + Sync> FromRequestParts<S> for IndexedOutputsPagination<AnchorOutputsQuery>
+where
+    Arc<ApiConfigData>: FromRef<S>,
+{
     type Rejection = ApiError;
 
-    async fn from_request(req: &mut axum::extract::RequestParts<B>) -> Result<Self, Self::Rejection> {
-        let Query(query) = Query::<AnchorOutputsPaginationQuery>::from_request(req)
+    async fn from_request_parts(parts: &mut Parts, state: &S) -> Result<Self, Self::Rejection> {
+        let Query(query) = Query::<AnchorOutputsPaginationQuery>::from_request_parts(parts, state)
             .await
             .map_err(RequestError::from)?;
-        let Extension(config) = Extension::<ApiConfigData>::from_request(req).await?;
+        let config = Arc::<ApiConfigData>::from_ref(state);
 
         let (cursor, page_size) = if let Some(cursor) = query.cursor {
             let cursor: IndexedOutputsCursor = cursor.parse()?;
@@ -268,14 +277,17 @@ pub struct FoundryOutputsPaginationQuery {
 }
 
 #[async_trait]
-impl<B: Send> FromRequest<B> for IndexedOutputsPagination<FoundryOutputsQuery> {
+impl<S: Send + Sync> FromRequestParts<S> for IndexedOutputsPagination<FoundryOutputsQuery>
+where
+    Arc<ApiConfigData>: FromRef<S>,
+{
     type Rejection = ApiError;
 
-    async fn from_request(req: &mut axum::extract::RequestParts<B>) -> Result<Self, Self::Rejection> {
-        let Query(query) = Query::<FoundryOutputsPaginationQuery>::from_request(req)
+    async fn from_request_parts(parts: &mut Parts, state: &S) -> Result<Self, Self::Rejection> {
+        let Query(query) = Query::<FoundryOutputsPaginationQuery>::from_request_parts(parts, state)
             .await
             .map_err(RequestError::from)?;
-        let Extension(config) = Extension::<ApiConfigData>::from_request(req).await?;
+        let config = Arc::<ApiConfigData>::from_ref(state);
 
         let (cursor, page_size) = if let Some(cursor) = query.cursor {
             let cursor: IndexedOutputsCursor = cursor.parse()?;
@@ -334,14 +346,17 @@ pub struct NftOutputsPaginationQuery {
 }
 
 #[async_trait]
-impl<B: Send> FromRequest<B> for IndexedOutputsPagination<NftOutputsQuery> {
+impl<S: Send + Sync> FromRequestParts<S> for IndexedOutputsPagination<NftOutputsQuery>
+where
+    Arc<ApiConfigData>: FromRef<S>,
+{
     type Rejection = ApiError;
 
-    async fn from_request(req: &mut axum::extract::RequestParts<B>) -> Result<Self, Self::Rejection> {
-        let Query(query) = Query::<NftOutputsPaginationQuery>::from_request(req)
+    async fn from_request_parts(parts: &mut Parts, state: &S) -> Result<Self, Self::Rejection> {
+        let Query(query) = Query::<NftOutputsPaginationQuery>::from_request_parts(parts, state)
             .await
             .map_err(RequestError::from)?;
-        let Extension(config) = Extension::<ApiConfigData>::from_request(req).await?;
+        let config = Arc::<ApiConfigData>::from_ref(state);
 
         let (cursor, page_size) = if let Some(cursor) = query.cursor {
             let cursor: IndexedOutputsCursor = cursor.parse()?;
@@ -399,14 +414,17 @@ pub struct DelegationOutputsPaginationQuery {
 }
 
 #[async_trait]
-impl<B: Send> FromRequest<B> for IndexedOutputsPagination<DelegationOutputsQuery> {
+impl<S: Send + Sync> FromRequestParts<S> for IndexedOutputsPagination<DelegationOutputsQuery>
+where
+    Arc<ApiConfigData>: FromRef<S>,
+{
     type Rejection = ApiError;
 
-    async fn from_request(req: &mut axum::extract::RequestParts<B>) -> Result<Self, Self::Rejection> {
-        let Query(query) = Query::<DelegationOutputsPaginationQuery>::from_request(req)
+    async fn from_request_parts(parts: &mut Parts, state: &S) -> Result<Self, Self::Rejection> {
+        let Query(query) = Query::<DelegationOutputsPaginationQuery>::from_request_parts(parts, state)
             .await
             .map_err(RequestError::from)?;
-        let Extension(config) = Extension::<ApiConfigData>::from_request(req).await?;
+        let config = Arc::<ApiConfigData>::from_ref(state);
 
         let (cursor, page_size) = if let Some(cursor) = query.cursor {
             let cursor: IndexedOutputsCursor = cursor.parse()?;
@@ -438,7 +456,7 @@ impl<B: Send> FromRequest<B> for IndexedOutputsPagination<DelegationOutputsQuery
 
 #[cfg(test)]
 mod test {
-    use axum::{extract::RequestParts, http::Request};
+    use axum::{extract::FromRequest, http::Request};
     use pretty_assertions::assert_eq;
 
     use super::*;
@@ -457,16 +475,19 @@ mod test {
 
     #[tokio::test]
     async fn page_size_clamped() {
-        let mut req = RequestParts::new(
+        let state = Arc::new(ApiConfigData::try_from(ApiConfig::default()).unwrap());
+        let mut req = Parts::from_request(
             Request::builder()
                 .method("GET")
                 .uri("/outputs/basic?pageSize=9999999")
-                .extension(ApiConfigData::try_from(ApiConfig::default()).unwrap())
                 .body(())
                 .unwrap(),
-        );
+            &state,
+        )
+        .await
+        .unwrap();
         assert_eq!(
-            IndexedOutputsPagination::<BasicOutputsQuery>::from_request(&mut req)
+            IndexedOutputsPagination::<BasicOutputsQuery>::from_request_parts(&mut req, &state)
                 .await
                 .unwrap(),
             IndexedOutputsPagination {

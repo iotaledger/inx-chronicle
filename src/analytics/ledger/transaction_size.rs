@@ -34,14 +34,14 @@ impl TransactionSizeBuckets {
         }
     }
 
-    /// Get the single bucket for the given value.
-    ///
-    /// NOTE: only values 1 to 7 are valid.
-    #[cfg(test)]
-    pub(crate) const fn single(&self, i: usize) -> usize {
-        debug_assert!(i > 0 && i < 8);
-        self.single[i - 1]
-    }
+    // /// Get the single bucket for the given value.
+    // ///
+    // /// NOTE: only values 1 to 7 are valid.
+    // #[cfg(test)]
+    // pub(crate) const fn single(&self, i: usize) -> usize {
+    //     debug_assert!(i > 0 && i < 8);
+    //     self.single[i - 1]
+    // }
 
     /// Gets an enumerated iterator over the single buckets.
     pub(crate) fn single_buckets(&self) -> impl Iterator<Item = (usize, usize)> {

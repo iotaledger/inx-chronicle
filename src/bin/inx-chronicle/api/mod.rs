@@ -19,7 +19,9 @@ mod indexer;
 mod router;
 mod routes;
 
-use axum::{Extension, Server};
+use std::sync::Arc;
+
+use axum::{extract::FromRef, Server};
 use chronicle::db::MongoDb;
 use futures::Future;
 use hyper::Method;
@@ -30,6 +32,7 @@ use tower_http::{
 };
 use tracing::info;
 
+use self::router::RouteNode;
 pub use self::{
     config::{ApiConfig, ApiConfigData},
     error::{ApiError, ApiResult, AuthError, ConfigError},
@@ -38,41 +41,47 @@ pub use self::{
 
 pub const DEFAULT_PAGE_SIZE: usize = 100;
 
-/// The Chronicle API actor
-#[derive(Debug)]
-pub struct ApiWorker {
+#[derive(Clone, Debug, FromRef)]
+pub struct ApiState {
     db: MongoDb,
-    api_data: ApiConfigData,
+    api_data: Arc<ApiConfigData>,
+    routes: Arc<RouteNode>,
 }
 
+/// The Chronicle API actor
+#[derive(Default, Clone, Debug)]
+pub struct ApiWorker;
+
 impl ApiWorker {
-    /// Create a new Chronicle API actor from a mongo connection.
-    pub fn new(db: MongoDb, config: ApiConfig) -> Result<Self, ConfigError> {
-        Ok(Self {
-            db,
-            api_data: config.try_into()?,
-        })
-    }
+    /// Run the API with a provided mongodb connection and config.
+    pub async fn run(db: MongoDb, config: ApiConfig, shutdown_handle: impl Future<Output = ()>) -> eyre::Result<()> {
+        let api_data = Arc::new(ApiConfigData::try_from(config)?);
+        info!("Starting API server on port `{}`", api_data.port);
 
-    pub async fn run(&self, shutdown_handle: impl Future<Output = ()>) -> eyre::Result<()> {
-        info!("Starting API server on port `{}`", self.api_data.port);
-
-        let port = self.api_data.port;
-        let routes = routes::routes()
-            .layer(Extension(self.db.clone()))
-            .layer(Extension(self.api_data.clone()))
+        let port = api_data.port;
+        let router = routes::routes(api_data.clone())
             .layer(CatchPanicLayer::new())
             .layer(TraceLayer::new_for_http())
             .layer(
                 CorsLayer::new()
-                    .allow_origin(self.api_data.allow_origins.clone())
+                    .allow_origin(api_data.allow_origins.clone())
                     .allow_methods(vec![Method::GET, Method::OPTIONS])
                     .allow_headers(Any)
                     .allow_credentials(false),
             );
 
+        let (routes, router) = router.finish();
+
         Server::bind(&([0, 0, 0, 0], port).into())
-            .serve(routes.into_make_service())
+            .serve(
+                router
+                    .with_state(ApiState {
+                        db,
+                        api_data,
+                        routes: Arc::new(routes),
+                    })
+                    .into_make_service(),
+            )
             .with_graceful_shutdown(shutdown_handle)
             .await?;
 

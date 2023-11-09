@@ -101,10 +101,10 @@ async fn main() -> eyre::Result<()> {
     #[cfg(feature = "api")]
     if config.api.enabled {
         use futures::FutureExt;
-        let worker = api::ApiWorker::new(db.clone(), config.api.clone())?;
         let mut handle = shutdown_signal.subscribe();
+        let (db, config) = (db.clone(), config.api.clone());
         tasks.spawn(async move {
-            worker.run(handle.recv().then(|_| async {})).await?;
+            api::ApiWorker::run(db, config, handle.recv().then(|_| async {})).await?;
             Ok(())
         });
     }

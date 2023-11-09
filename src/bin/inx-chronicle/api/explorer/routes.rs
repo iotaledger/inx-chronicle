@@ -29,10 +29,10 @@ use super::{
 use crate::api::{
     error::{CorruptStateError, MissingError},
     router::Router,
-    ApiResult,
+    ApiResult, ApiState,
 };
 
-pub fn routes() -> Router {
+pub fn routes() -> Router<ApiState> {
     Router::new()
         .route("/balance/:address", get(balance))
         // .route("/blocks/:block_id/children", get(block_children))

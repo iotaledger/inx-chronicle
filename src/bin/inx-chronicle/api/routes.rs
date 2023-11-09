@@ -1,14 +1,16 @@
 // Copyright 2023 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
+use std::sync::Arc;
+
 use auth_helper::jwt::{BuildValidation, Claims, JsonWebToken, Validation};
 use axum::{
-    handler::Handler,
+    extract::State,
     headers::{authorization::Bearer, Authorization},
     http::HeaderValue,
-    middleware::from_extractor,
+    middleware::from_extractor_with_state,
     routing::{get, post},
-    Extension, Json, TypedHeader,
+    Json, TypedHeader,
 };
 use chronicle::db::{
     mongodb::collections::{ApplicationStateCollection, CommittedSlotCollection},
@@ -26,7 +28,7 @@ use super::{
     extractors::ListRoutesQuery,
     responses::RoutesResponse,
     router::{RouteNode, Router},
-    ApiResult, AuthError,
+    ApiResult, ApiState, AuthError,
 };
 
 pub(crate) static BYTE_CONTENT_HEADER: HeaderValue = HeaderValue::from_static("application/vnd.iota.serializer-v1");
@@ -37,9 +39,9 @@ const ALWAYS_AVAILABLE_ROUTES: &[&str] = &["/health", "/login", "/routes"];
 // sufficient time to catch up with the node that it is connected too.
 const STALE_SLOT_DURATION: Duration = Duration::minutes(5);
 
-pub fn routes() -> Router {
+pub fn routes(config: Arc<ApiConfigData>) -> Router<ApiState> {
     #[allow(unused_mut)]
-    let mut router = Router::new()
+    let mut router = Router::<ApiState>::new()
         .nest("/core/v3", super::core::routes())
         .nest("/explorer/v3", super::explorer::routes())
         .nest("/indexer/v2", super::indexer::routes());
@@ -49,12 +51,12 @@ pub fn routes() -> Router {
     //     router = router.nest("/poi/v1", super::poi::routes());
     // }
 
-    Router::new()
+    Router::<ApiState>::new()
         .route("/health", get(health))
         .route("/login", post(login))
         .route("/routes", get(list_routes))
-        .nest("/api", router.route_layer(from_extractor::<Auth>()))
-        .fallback(not_found.into_service())
+        .nest("/api", router.route_layer(from_extractor_with_state::<Auth, _>(config)))
+        .fallback(get(not_found))
 }
 
 #[derive(Deserialize)]
@@ -62,9 +64,10 @@ struct LoginInfo {
     password: String,
 }
 
+#[axum::debug_handler]
 async fn login(
+    State(config): State<Arc<ApiConfigData>>,
     Json(LoginInfo { password }): Json<LoginInfo>,
-    Extension(config): Extension<ApiConfigData>,
 ) -> ApiResult<String> {
     if password_verify(
         password.as_bytes(),
@@ -106,8 +109,8 @@ fn is_new_enough(slot_timestamp: u64) -> bool {
 
 async fn list_routes(
     ListRoutesQuery { depth }: ListRoutesQuery,
-    Extension(config): Extension<ApiConfigData>,
-    Extension(root): Extension<RouteNode>,
+    State(config): State<Arc<ApiConfigData>>,
+    State(root): State<Arc<RouteNode>>,
     bearer_header: Option<TypedHeader<Authorization<Bearer>>>,
 ) -> ApiResult<RoutesResponse> {
     let depth = depth.or(Some(3));
@@ -162,7 +165,7 @@ pub async fn is_healthy(database: &MongoDb) -> ApiResult<bool> {
     Ok(false)
 }
 
-pub async fn health(database: Extension<MongoDb>) -> StatusCode {
+pub async fn health(database: State<MongoDb>) -> StatusCode {
     let handle_error = |ApiError { error, .. }| {
         tracing::error!("An error occured during health check: {error}");
         false

@@ -5,7 +5,6 @@ use std::str::FromStr;
 
 use axum::{
     extract::{Extension, Path},
-    handler::Handler,
     http::header::HeaderMap,
     routing::get,
 };
@@ -38,35 +37,35 @@ use crate::api::{
     error::{ApiError, CorruptStateError, MissingError, RequestError},
     router::Router,
     routes::{is_healthy, not_implemented, BYTE_CONTENT_HEADER},
-    ApiResult,
+    ApiResult, ApiState,
 };
 
-pub fn routes() -> Router {
+pub fn routes() -> Router<ApiState> {
     Router::new()
         .route("/info", get(info))
-        .route("/accounts/:account_id/congestion", not_implemented.into_service())
-        .route("/rewards/:output_id", not_implemented.into_service())
+        .route("/accounts/:account_id/congestion", get(not_implemented))
+        .route("/rewards/:output_id", get(not_implemented))
         .nest(
             "/validators",
             Router::new()
-                .route("/", not_implemented.into_service())
-                .route("/:account_id", not_implemented.into_service()),
+                .route("/", get(not_implemented))
+                .route("/:account_id", get(not_implemented)),
         )
-        .route("/committee", not_implemented.into_service())
+        .route("/committee", get(not_implemented))
         .nest(
             "/blocks",
             Router::new()
-                .route("/", not_implemented.into_service())
+                .route("/", get(not_implemented))
                 .route("/:block_id", get(block))
                 .route("/:block_id/metadata", get(block_metadata))
-                .route("/issuance", not_implemented.into_service()),
+                .route("/issuance", get(not_implemented)),
         )
         .nest(
             "/outputs",
             Router::new()
                 .route("/:output_id", get(output))
                 .route("/:output_id/metadata", get(output_metadata))
-                .route("/:output_id/full", not_implemented.into_service()),
+                .route("/:output_id/full", get(not_implemented)),
         )
         .nest(
             "/transactions",
@@ -82,8 +81,8 @@ pub fn routes() -> Router {
                 .route("/by-index/:index", get(commitment_by_index))
                 .route("/by-index/:index/utxo-changes", get(utxo_changes_by_index)),
         )
-        .route("/control/database/prune", not_implemented.into_service())
-        .route("/control/snapshot/create", not_implemented.into_service())
+        .route("/control/database/prune", get(not_implemented))
+        .route("/control/snapshot/create", get(not_implemented))
 }
 
 pub async fn info(database: Extension<MongoDb>) -> ApiResult<InfoResponse> {

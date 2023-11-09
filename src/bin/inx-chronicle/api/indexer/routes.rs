@@ -19,10 +19,10 @@ use crate::api::{
     error::{MissingError, RequestError},
     indexer::extractors::IndexedOutputsCursor,
     router::Router,
-    ApiResult,
+    ApiResult, ApiState,
 };
 
-pub fn routes() -> Router {
+pub fn routes() -> Router<ApiState> {
     Router::new().nest(
         "/outputs",
         Router::new()

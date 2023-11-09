@@ -1,12 +1,12 @@
 // Copyright 2023 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-use std::{fmt::Display, str::FromStr};
+use std::{fmt::Display, str::FromStr, sync::Arc};
 
 use async_trait::async_trait;
 use axum::{
-    extract::{FromRequest, Query},
-    Extension,
+    extract::{FromRef, FromRequestParts, Query},
+    http::request::Parts,
 };
 use chronicle::{self, db::mongodb::collections::SortOrder};
 use iota_sdk::types::block::{output::OutputId, slot::SlotIndex, BlockId};
@@ -66,14 +66,17 @@ impl Display for LedgerUpdatesByAddressCursor {
 }
 
 #[async_trait]
-impl<B: Send> FromRequest<B> for LedgerUpdatesByAddressPagination {
+impl<S: Send + Sync> FromRequestParts<S> for LedgerUpdatesByAddressPagination
+where
+    Arc<ApiConfigData>: FromRef<S>,
+{
     type Rejection = ApiError;
 
-    async fn from_request(req: &mut axum::extract::RequestParts<B>) -> Result<Self, Self::Rejection> {
-        let Query(query) = Query::<LedgerUpdatesByAddressPaginationQuery>::from_request(req)
+    async fn from_request_parts(parts: &mut Parts, state: &S) -> Result<Self, Self::Rejection> {
+        let Query(query) = Query::<LedgerUpdatesByAddressPaginationQuery>::from_request_parts(parts, state)
             .await
             .map_err(RequestError::from)?;
-        let Extension(config) = Extension::<ApiConfigData>::from_request(req).await?;
+        let config = Arc::<ApiConfigData>::from_ref(state);
 
         let sort = query
             .sort
@@ -145,14 +148,17 @@ impl Display for LedgerUpdatesBySlotCursor {
 }
 
 #[async_trait]
-impl<B: Send> FromRequest<B> for LedgerUpdatesBySlotPagination {
+impl<S: Send + Sync> FromRequestParts<S> for LedgerUpdatesBySlotPagination
+where
+    Arc<ApiConfigData>: FromRef<S>,
+{
     type Rejection = ApiError;
 
-    async fn from_request(req: &mut axum::extract::RequestParts<B>) -> Result<Self, Self::Rejection> {
-        let Query(query) = Query::<LedgerUpdatesBySlotPaginationQuery>::from_request(req)
+    async fn from_request_parts(parts: &mut Parts, state: &S) -> Result<Self, Self::Rejection> {
+        let Query(query) = Query::<LedgerUpdatesBySlotPaginationQuery>::from_request_parts(parts, state)
             .await
             .map_err(RequestError::from)?;
-        let Extension(config) = Extension::<ApiConfigData>::from_request(req).await?;
+        let config = Arc::<ApiConfigData>::from_ref(state);
 
         let (page_size, cursor) = if let Some(cursor) = query.cursor {
             let cursor: LedgerUpdatesBySlotCursor = cursor.parse()?;
@@ -214,14 +220,17 @@ impl Display for SlotsCursor {
 }
 
 #[async_trait]
-impl<B: Send> FromRequest<B> for SlotsPagination {
+impl<S: Send + Sync> FromRequestParts<S> for SlotsPagination
+where
+    Arc<ApiConfigData>: FromRef<S>,
+{
     type Rejection = ApiError;
 
-    async fn from_request(req: &mut axum::extract::RequestParts<B>) -> Result<Self, Self::Rejection> {
-        let Query(query) = Query::<SlotsPaginationQuery>::from_request(req)
+    async fn from_request_parts(parts: &mut Parts, state: &S) -> Result<Self, Self::Rejection> {
+        let Query(query) = Query::<SlotsPaginationQuery>::from_request_parts(parts, state)
             .await
             .map_err(RequestError::from)?;
-        let Extension(config) = Extension::<ApiConfigData>::from_request(req).await?;
+        let config = Arc::<ApiConfigData>::from_ref(state);
 
         if matches!((query.start_index, query.end_index), (Some(start), Some(end)) if end < start) {
             return Err(ApiError::from(RequestError::BadTimeRange));
@@ -269,14 +278,18 @@ impl Default for RichestAddressesQuery {
 }
 
 #[async_trait]
-impl<B: Send> FromRequest<B> for RichestAddressesQuery {
+impl<S: Send + Sync> FromRequestParts<S> for RichestAddressesQuery
+where
+    Arc<ApiConfigData>: FromRef<S>,
+{
     type Rejection = ApiError;
 
-    async fn from_request(req: &mut axum::extract::RequestParts<B>) -> Result<Self, Self::Rejection> {
-        let Query(mut query) = Query::<RichestAddressesQuery>::from_request(req)
+    async fn from_request_parts(parts: &mut Parts, state: &S) -> Result<Self, Self::Rejection> {
+        let Query(mut query) = Query::<RichestAddressesQuery>::from_request_parts(parts, state)
             .await
             .map_err(RequestError::from)?;
-        let Extension(config) = Extension::<ApiConfigData>::from_request(req).await?;
+        let config = Arc::<ApiConfigData>::from_ref(state);
+
         query.top = query.top.min(config.max_page_size);
         Ok(query)
     }
@@ -289,11 +302,11 @@ pub struct LedgerIndex {
 }
 
 #[async_trait]
-impl<B: Send> FromRequest<B> for LedgerIndex {
+impl<S: Send + Sync> FromRequestParts<S> for LedgerIndex {
     type Rejection = ApiError;
 
-    async fn from_request(req: &mut axum::extract::RequestParts<B>) -> Result<Self, Self::Rejection> {
-        let Query(query) = Query::<LedgerIndex>::from_request(req)
+    async fn from_request_parts(parts: &mut Parts, state: &S) -> Result<Self, Self::Rejection> {
+        let Query(query) = Query::<LedgerIndex>::from_request_parts(parts, state)
             .await
             .map_err(RequestError::from)?;
         Ok(query)
@@ -308,11 +321,11 @@ pub struct SlotRange {
 }
 
 #[async_trait]
-impl<B: Send> FromRequest<B> for SlotRange {
+impl<S: Send + Sync> FromRequestParts<S> for SlotRange {
     type Rejection = ApiError;
 
-    async fn from_request(req: &mut axum::extract::RequestParts<B>) -> Result<Self, Self::Rejection> {
-        let Query(SlotRange { start_index, end_index }) = Query::<SlotRange>::from_request(req)
+    async fn from_request_parts(parts: &mut Parts, state: &S) -> Result<Self, Self::Rejection> {
+        let Query(SlotRange { start_index, end_index }) = Query::<SlotRange>::from_request_parts(parts, state)
             .await
             .map_err(RequestError::from)?;
         if matches!((start_index, end_index), (Some(start), Some(end)) if end < start) {
@@ -364,14 +377,17 @@ impl Display for BlocksBySlotCursor {
 }
 
 #[async_trait]
-impl<B: Send> FromRequest<B> for BlocksBySlotIndexPagination {
+impl<S: Send + Sync> FromRequestParts<S> for BlocksBySlotIndexPagination
+where
+    Arc<ApiConfigData>: FromRef<S>,
+{
     type Rejection = ApiError;
 
-    async fn from_request(req: &mut axum::extract::RequestParts<B>) -> Result<Self, Self::Rejection> {
-        let Query(query) = Query::<BlocksBySlotIndexPaginationQuery>::from_request(req)
+    async fn from_request_parts(parts: &mut Parts, state: &S) -> Result<Self, Self::Rejection> {
+        let Query(query) = Query::<BlocksBySlotIndexPaginationQuery>::from_request_parts(parts, state)
             .await
             .map_err(RequestError::from)?;
-        let Extension(config) = Extension::<ApiConfigData>::from_request(req).await?;
+        let config = Arc::<ApiConfigData>::from_ref(state);
 
         let sort = query
             .sort
@@ -409,14 +425,17 @@ pub struct BlocksBySlotCommitmentIdPaginationQuery {
 }
 
 #[async_trait]
-impl<B: Send> FromRequest<B> for BlocksBySlotCommitmentIdPagination {
+impl<S: Send + Sync> FromRequestParts<S> for BlocksBySlotCommitmentIdPagination
+where
+    Arc<ApiConfigData>: FromRef<S>,
+{
     type Rejection = ApiError;
 
-    async fn from_request(req: &mut axum::extract::RequestParts<B>) -> Result<Self, Self::Rejection> {
-        let Query(query) = Query::<BlocksBySlotCommitmentIdPaginationQuery>::from_request(req)
+    async fn from_request_parts(parts: &mut Parts, state: &S) -> Result<Self, Self::Rejection> {
+        let Query(query) = Query::<BlocksBySlotCommitmentIdPaginationQuery>::from_request_parts(parts, state)
             .await
             .map_err(RequestError::from)?;
-        let Extension(config) = Extension::<ApiConfigData>::from_request(req).await?;
+        let config = Arc::<ApiConfigData>::from_ref(state);
 
         let sort = query
             .sort
@@ -441,7 +460,7 @@ impl<B: Send> FromRequest<B> for BlocksBySlotCommitmentIdPagination {
 
 #[cfg(test)]
 mod test {
-    use axum::{extract::RequestParts, http::Request};
+    use axum::{extract::FromRequest, http::Request};
     use pretty_assertions::assert_eq;
 
     use super::*;
@@ -472,16 +491,21 @@ mod test {
 
     #[tokio::test]
     async fn page_size_clamped() {
-        let mut req = RequestParts::new(
+        let state = Arc::new(ApiConfigData::try_from(ApiConfig::default()).unwrap());
+        let mut req = Parts::from_request(
             Request::builder()
                 .method("GET")
                 .uri("/ledger/updates/by-address/0x00?pageSize=9999999")
-                .extension(ApiConfigData::try_from(ApiConfig::default()).unwrap())
                 .body(())
                 .unwrap(),
-        );
+            &state,
+        )
+        .await
+        .unwrap();
         assert_eq!(
-            LedgerUpdatesByAddressPagination::from_request(&mut req).await.unwrap(),
+            LedgerUpdatesByAddressPagination::from_request_parts(&mut req, &state)
+                .await
+                .unwrap(),
             LedgerUpdatesByAddressPagination {
                 page_size: 1000,
                 sort: Default::default(),
@@ -489,16 +513,20 @@ mod test {
             }
         );
 
-        let mut req = RequestParts::new(
+        let mut req = Parts::from_request(
             Request::builder()
                 .method("GET")
                 .uri("/ledger/updates/by-slot-index/0?pageSize=9999999")
-                .extension(ApiConfigData::try_from(ApiConfig::default()).unwrap())
                 .body(())
                 .unwrap(),
-        );
+            &state,
+        )
+        .await
+        .unwrap();
         assert_eq!(
-            LedgerUpdatesBySlotPagination::from_request(&mut req).await.unwrap(),
+            LedgerUpdatesBySlotPagination::from_request_parts(&mut req, &state)
+                .await
+                .unwrap(),
             LedgerUpdatesBySlotPagination {
                 page_size: 1000,
                 cursor: Default::default()
