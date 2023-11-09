@@ -8,7 +8,7 @@ use core::borrow::Borrow;
 use iota_sdk::types::block::{
     address::{
         self as iota, AddressCapabilities, Ed25519Address, ImplicitAccountCreationAddress, MultiAddress,
-        RestrictedAddress,
+        RestrictedAddress, WeightedAddress,
     },
     output::{AccountId, AnchorId, NftId},
 };
@@ -134,17 +134,17 @@ impl From<AddressDto> for iota::Address {
             )),
             AddressDto::Multi(a) => Self::Multi(
                 MultiAddress::new(
-                    a.addresses.into_iter().map(|_a| {
-                        todo!()
-                        // WeightedAddress::new(
-                        //     match address {
-                        //         CoreAddressDto::Ed25519(a) => Self::Ed25519(a),
-                        //         CoreAddressDto::Account(a) => Self::Account(a.into()),
-                        //         CoreAddressDto::Nft(a) => Self::Nft(a.into()),
-                        //         CoreAddressDto::Anchor(a) => Self::Anchor(a.into()),
-                        //     },
-                        //     a.weight,
-                        // )
+                    a.addresses.into_iter().map(|address| {
+                        WeightedAddress::new(
+                            match address.address {
+                                CoreAddressDto::Ed25519(a) => Self::Ed25519(a),
+                                CoreAddressDto::Account(a) => Self::Account(a.into()),
+                                CoreAddressDto::Nft(a) => Self::Nft(a.into()),
+                                CoreAddressDto::Anchor(a) => Self::Anchor(a.into()),
+                            },
+                            address.weight,
+                        )
+                        .unwrap()
                     }),
                     a.threshold,
                 )

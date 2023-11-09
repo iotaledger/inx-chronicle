@@ -1069,9 +1069,9 @@ dependencies = [
 
 [[package]]
 name = "fiat-crypto"
-version = "0.2.2"
+version = "0.2.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a481586acf778f1b1455424c343f71124b048ffa5f4fc3f8f6ae9dc432dcb3c7"
+checksum = "f69037fe1b785e84986b4f2cbcf647381876a00671d25ceef715d7812dd7e1dd"
 
 [[package]]
 name = "finl_unicode"
@@ -1693,7 +1693,7 @@ dependencies = [
 [[package]]
 name = "iota-sdk"
 version = "1.1.1"
-source = "git+https://github.com/iotaledger/iota-sdk?branch=2.0#0b7f6ae4c35f4bae2deb99b7e1b93429ea7ea62c"
+source = "git+https://github.com/iotaledger/iota-sdk?branch=2.0#b1762a30ed39be7ea3ed6d3718cb28fbc2af1ecb"
 dependencies = [
  "bech32",
  "bitflags 2.4.1",
