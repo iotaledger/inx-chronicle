@@ -24,7 +24,7 @@ impl Analytics for BaseTokenActivityMeasurement {
     type Measurement = Self;
 
     fn handle_transaction(&mut self, consumed: &[LedgerSpent], created: &[LedgerOutput], ctx: &dyn AnalyticsContext) {
-        let hrp = ctx.protocol_params().bech32_hrp();
+        let hrp = ctx.protocol_parameters().bech32_hrp();
         // The idea behind the following code is that we keep track of the deltas that are applied to each account that
         // is represented by an address.
         let mut balance_deltas: HashMap<Bech32Address, i128> = HashMap::new();

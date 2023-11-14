@@ -15,9 +15,9 @@ impl Analytics for ProtocolParamsAnalytics {
 
     fn take_measurement(&mut self, ctx: &dyn AnalyticsContext) -> Self::Measurement {
         // Ensure that we record it if either the protocol changes or we had no params
-        (!matches!(&self.params, Some(last_params) if last_params == ctx.protocol_params())).then(|| {
-            self.params.replace(ctx.protocol_params().clone());
-            ctx.protocol_params().clone()
+        (!matches!(&self.params, Some(last_params) if last_params == ctx.protocol_parameters())).then(|| {
+            self.params.replace(ctx.protocol_parameters().clone());
+            ctx.protocol_parameters().clone()
         })
     }
 }

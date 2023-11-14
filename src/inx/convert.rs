@@ -83,27 +83,31 @@ impl<R: TryConvertTo<U>, U> TryConvertFrom<inx::tonic::Response<R>> for U {
     }
 }
 
-macro_rules! impl_id_convert {
-    ($type:ident) => {
-        impl TryConvertFrom<proto::$type> for $type {
-            type Error = InvalidRawBytesError;
+impl TryConvertFrom<proto::BlockId> for BlockId {
+    type Error = InvalidRawBytesError;
 
-            fn try_convert_from(proto: proto::$type) -> Result<Self, Self::Error>
-            where
-                Self: Sized,
-            {
-                Ok(Self::new(
-                    proto
-                        .id
-                        .try_into()
-                        .map_err(|e| InvalidRawBytesError(hex::encode(e)))?,
-                ))
-            }
-        }
-    };
+    fn try_convert_from(proto: proto::BlockId) -> Result<Self, Self::Error>
+    where
+        Self: Sized,
+    {
+        Ok(Self::new(proto.id.try_into().map_err(|e| {
+            InvalidRawBytesError(format!("invalid block id bytes: {}", hex::encode(e)))
+        })?))
+    }
 }
-impl_id_convert!(BlockId);
-impl_id_convert!(TransactionId);
+
+impl TryConvertFrom<proto::TransactionId> for TransactionId {
+    type Error = InvalidRawBytesError;
+
+    fn try_convert_from(proto: proto::TransactionId) -> Result<Self, Self::Error>
+    where
+        Self: Sized,
+    {
+        Ok(Self::new(proto.id.try_into().map_err(|e| {
+            InvalidRawBytesError(format!("invalid transaction id bytes: {}", hex::encode(e)))
+        })?))
+    }
+}
 
 impl TryConvertFrom<proto::CommitmentId> for SlotCommitmentId {
     type Error = InvalidRawBytesError;
@@ -112,9 +116,9 @@ impl TryConvertFrom<proto::CommitmentId> for SlotCommitmentId {
     where
         Self: Sized,
     {
-        Ok(Self::new(
-            proto.id.try_into().map_err(|e| InvalidRawBytesError(hex::encode(e)))?,
-        ))
+        Ok(Self::new(proto.id.try_into().map_err(|e| {
+            InvalidRawBytesError(format!("invalid commitment id bytes: {}", hex::encode(e)))
+        })?))
     }
 }
 
@@ -125,8 +129,8 @@ impl TryConvertFrom<proto::OutputId> for OutputId {
     where
         Self: Sized,
     {
-        Ok(Self::try_from(
-            <[u8; Self::LENGTH]>::try_from(proto.id).map_err(|e| InvalidRawBytesError(hex::encode(e)))?,
-        )?)
+        Ok(Self::try_from(<[u8; Self::LENGTH]>::try_from(proto.id).map_err(
+            |e| InvalidRawBytesError(format!("invalid output id bytes: {}", hex::encode(e))),
+        )?)?)
     }
 }

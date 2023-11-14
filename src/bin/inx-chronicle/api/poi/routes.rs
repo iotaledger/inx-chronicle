@@ -37,7 +37,7 @@ pub fn routes() -> Router {
 }
 
 // async fn create_proof_for_referenced_blocks(
-//     database: Extension<MongoDb>,
+//     database: State<MongoDb>,
 //     Path(block_id): Path<String>,
 // ) -> ApiResult<CreateProofResponse> { let block_id = BlockId::from_str(&block_id)?; let block_collection =
 //   database.collection::<BlockCollection>(); let slot_collection = database.collection::<CommittedSlotCollection>();
@@ -95,7 +95,7 @@ pub fn routes() -> Router {
 // }
 
 // async fn validate_proof_for_referenced_blocks(
-//     database: Extension<MongoDb>,
+//     database: State<MongoDb>,
 //     Json(CreateProofResponse {
 //         milestone,
 //         block,
@@ -131,7 +131,7 @@ pub fn routes() -> Router {
 // }
 
 // async fn create_proof_for_applied_blocks(
-//     database: Extension<MongoDb>,
+//     database: State<MongoDb>,
 //     Path(block_id): Path<String>,
 // ) -> ApiResult<CreateProofResponse> { let block_id = BlockId::from_str(&block_id)?; let block_collection =
 //   database.collection::<BlockCollection>(); let milestone_collection = database.collection::<MilestoneCollection>();
@@ -195,7 +195,7 @@ pub fn routes() -> Router {
 // }
 
 // async fn validate_proof_for_applied_blocks(
-//     database: Extension<MongoDb>,
+//     database: State<MongoDb>,
 //     Json(CreateProofResponse {
 //         milestone,
 //         block,

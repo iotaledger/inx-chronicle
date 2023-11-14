@@ -45,7 +45,7 @@ impl Analytics for AddressActivityAnalytics {
     type Measurement = AddressActivityMeasurement;
 
     fn handle_transaction(&mut self, consumed: &[LedgerSpent], created: &[LedgerOutput], ctx: &dyn AnalyticsContext) {
-        let hrp = ctx.protocol_params().bech32_hrp();
+        let hrp = ctx.protocol_parameters().bech32_hrp();
         for output in consumed {
             if let Some(a) = output.address() {
                 self.addresses.insert(a.clone().to_bech32(hrp));

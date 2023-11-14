@@ -1,10 +1,14 @@
 // Copyright 2023 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-use axum::{extract::Path, routing::get, Extension};
+use axum::{
+    extract::{Path, State},
+    routing::get,
+};
 use chronicle::db::{
     mongodb::collections::{
         ApplicationStateCollection, BlockCollection, CommittedSlotCollection, LedgerUpdateCollection, OutputCollection,
+        ParentsCollection,
     },
     MongoDb,
 };
@@ -12,6 +16,7 @@ use futures::{StreamExt, TryStreamExt};
 use iota_sdk::types::block::{
     address::{Bech32Address, ToBech32Ext},
     slot::{SlotCommitmentId, SlotIndex},
+    BlockId,
 };
 
 use super::{
@@ -21,13 +26,14 @@ use super::{
         RichestAddressesQuery, SlotsCursor, SlotsPagination,
     },
     responses::{
-        AddressStatDto, BalanceResponse, BlockPayloadTypeDto, BlocksBySlotResponse, LedgerUpdateBySlotDto,
-        LedgerUpdatesByAddressResponse, LedgerUpdatesBySlotResponse, RichestAddressesResponse, SlotDto, SlotsResponse,
-        TokenDistributionResponse,
+        AddressStatDto, BalanceResponse, BlockChildrenResponse, BlockPayloadTypeDto, BlocksBySlotResponse,
+        LedgerUpdateBySlotDto, LedgerUpdatesByAddressResponse, LedgerUpdatesBySlotResponse, RichestAddressesResponse,
+        SlotDto, SlotsResponse, TokenDistributionResponse,
     },
 };
 use crate::api::{
     error::{CorruptStateError, MissingError},
+    extractors::Pagination,
     router::Router,
     ApiResult, ApiState,
 };
@@ -35,7 +41,7 @@ use crate::api::{
 pub fn routes() -> Router<ApiState> {
     Router::new()
         .route("/balance/:address", get(balance))
-        // .route("/blocks/:block_id/children", get(block_children))
+        .route("/blocks/:block_id/children", get(block_children))
         .nest(
             "/commitments",
             Router::new()
@@ -58,7 +64,7 @@ pub fn routes() -> Router<ApiState> {
 }
 
 async fn ledger_updates_by_address(
-    database: Extension<MongoDb>,
+    database: State<MongoDb>,
     Path(address): Path<Bech32Address>,
     LedgerUpdatesByAddressPagination {
         page_size,
@@ -100,7 +106,7 @@ async fn ledger_updates_by_address(
 }
 
 async fn ledger_updates_by_slot(
-    database: Extension<MongoDb>,
+    database: State<MongoDb>,
     Path(index): Path<SlotIndex>,
     LedgerUpdatesBySlotPagination { page_size, cursor }: LedgerUpdatesBySlotPagination,
 ) -> ApiResult<LedgerUpdatesBySlotResponse> {
@@ -145,7 +151,7 @@ async fn ledger_updates_by_slot(
     })
 }
 
-async fn balance(database: Extension<MongoDb>, Path(address): Path<Bech32Address>) -> ApiResult<BalanceResponse> {
+async fn balance(database: State<MongoDb>, Path(address): Path<Bech32Address>) -> ApiResult<BalanceResponse> {
     let latest_slot = database
         .collection::<CommittedSlotCollection>()
         .get_latest_committed_slot()
@@ -165,33 +171,29 @@ async fn balance(database: Extension<MongoDb>, Path(address): Path<Bech32Address
     })
 }
 
-// async fn block_children(
-//     database: Extension<MongoDb>,
-//     Path(block_id): Path<String>,
-//     Pagination { page_size, page }: Pagination,
-// ) -> ApiResult<BlockChildrenResponse> { let block_id = BlockId::from_str(&block_id).map_err(RequestError::from)?; let
-//   block_referenced_index = database .collection::<BlockCollection>() .get_block_metadata(&block_id) .await?
-//   .ok_or(MissingError::NoResults)? .referenced_by_milestone_index; let below_max_depth = database
-//   .collection::<ProtocolUpdateCollection>() .get_protocol_parameters_for_ledger_index(block_referenced_index) .await?
-//   .ok_or(MissingError::NoResults)? .parameters .below_max_depth; let mut block_children = database
-//   .collection::<BlockCollection>() .get_block_children(&block_id, block_referenced_index, below_max_depth, page_size,
-//   page) .await .map_err(|_| MissingError::NoResults)?;
+async fn block_children(
+    database: State<MongoDb>,
+    Path(block_id): Path<BlockId>,
+    Pagination { page_size, page }: Pagination,
+) -> ApiResult<BlockChildrenResponse> {
+    let children = database
+        .collection::<ParentsCollection>()
+        .get_block_children(&block_id, page_size, page)
+        .await
+        .map_err(|_| MissingError::NoResults)?
+        .try_collect::<Vec<_>>()
+        .await?;
 
-//     let mut children = Vec::new();
-//     while let Some(block_id) = block_children.try_next().await? {
-//         children.push(block_id.to_hex());
-//     }
-
-//     Ok(BlockChildrenResponse {
-//         block_id: block_id.to_hex(),
-//         max_results: page_size,
-//         count: children.len(),
-//         children,
-//     })
-// }
+    Ok(BlockChildrenResponse {
+        block_id,
+        max_results: page_size,
+        count: children.len(),
+        children,
+    })
+}
 
 async fn commitments(
-    database: Extension<MongoDb>,
+    database: State<MongoDb>,
     SlotsPagination {
         start_index,
         end_index,
@@ -229,7 +231,7 @@ async fn commitments(
 }
 
 async fn blocks_by_slot_index(
-    database: Extension<MongoDb>,
+    database: State<MongoDb>,
     Path(index): Path<SlotIndex>,
     BlocksBySlotIndexPagination {
         sort,
@@ -266,7 +268,7 @@ async fn blocks_by_slot_index(
 }
 
 async fn blocks_by_commitment_id(
-    database: Extension<MongoDb>,
+    database: State<MongoDb>,
     Path(commitment_id): Path<SlotCommitmentId>,
     BlocksBySlotIndexPagination {
         sort,
@@ -287,7 +289,7 @@ async fn blocks_by_commitment_id(
 }
 
 async fn richest_addresses_ledger_analytics(
-    database: Extension<MongoDb>,
+    database: State<MongoDb>,
     RichestAddressesQuery { top, ledger_index }: RichestAddressesQuery,
 ) -> ApiResult<RichestAddressesResponse> {
     let ledger_index = resolve_ledger_index(&database, ledger_index).await?;
@@ -317,7 +319,7 @@ async fn richest_addresses_ledger_analytics(
 }
 
 async fn token_distribution_ledger_analytics(
-    database: Extension<MongoDb>,
+    database: State<MongoDb>,
     LedgerIndex { ledger_index }: LedgerIndex,
 ) -> ApiResult<TokenDistributionResponse> {
     let ledger_index = resolve_ledger_index(&database, ledger_index).await?;

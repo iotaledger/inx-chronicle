@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 
 /// An error that indicates that raw bytes were invalid.
 #[derive(Debug, thiserror::Error)]
-#[error("{0}")]
+#[error("invalid raw bytes: {0}")]
 pub struct InvalidRawBytesError(pub String);
 
 /// Represents a type as raw bytes.
@@ -23,7 +23,8 @@ impl<T: Packable> Raw<T> {
     pub fn from_bytes(bytes: impl Into<Vec<u8>>) -> Result<Self, InvalidRawBytesError> {
         let data = bytes.into();
         Ok(Self {
-            inner: T::unpack_unverified(&data).map_err(|e| InvalidRawBytesError(format!("{e:?}")))?,
+            inner: T::unpack_unverified(&data)
+                .map_err(|e| InvalidRawBytesError(format!("error unpacking {}: {e:?}", std::any::type_name::<T>())))?,
             data,
         })
     }

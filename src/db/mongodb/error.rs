@@ -15,4 +15,6 @@ pub enum DbError {
     MongoDb(#[from] mongodb::error::Error),
     #[error("SDK type error: {0}")]
     SDK(#[from] iota_sdk::types::block::Error),
+    #[error("missing record: {0}")]
+    MissingRecord(String),
 }

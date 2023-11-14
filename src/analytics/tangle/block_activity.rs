@@ -1,14 +1,11 @@
 // Copyright 2023 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-use iota_sdk::types::{
-    api::core::BlockState,
-    block::{payload::Payload, SignedBlock},
-};
+use iota_sdk::types::block::{payload::Payload, SignedBlock};
 
 use crate::{
     analytics::{Analytics, AnalyticsContext},
-    model::block_metadata::BlockMetadata,
+    model::block_metadata::{BlockMetadata, BlockState},
 };
 
 /// The type of payloads that occured within a single slot.
@@ -19,10 +16,12 @@ pub(crate) struct BlockActivityMeasurement {
     pub(crate) transaction_count: usize,
     pub(crate) candidacy_announcement_count: usize,
     pub(crate) pending_count: usize,
+    pub(crate) accepted_count: usize,
     pub(crate) confirmed_count: usize,
     pub(crate) finalized_count: usize,
     pub(crate) rejected_count: usize,
     pub(crate) failed_count: usize,
+    pub(crate) unknown_count: usize,
 }
 
 impl Analytics for BlockActivityMeasurement {
@@ -37,10 +36,12 @@ impl Analytics for BlockActivityMeasurement {
         }
         match metadata.block_state {
             BlockState::Pending => self.pending_count += 1,
+            BlockState::Accepted => self.accepted_count += 1,
             BlockState::Confirmed => self.confirmed_count += 1,
             BlockState::Finalized => self.finalized_count += 1,
             BlockState::Rejected => self.rejected_count += 1,
             BlockState::Failed => self.failed_count += 1,
+            BlockState::Unknown => self.unknown_count += 1,
         }
     }
 

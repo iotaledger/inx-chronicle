@@ -142,11 +142,13 @@ impl Measurement for BlockActivityMeasurement {
             .add_field("tagged_data_count", self.tagged_data_count as u64)
             .add_field("candidacy_announcement_count", self.candidacy_announcement_count as u64)
             .add_field("no_payload_count", self.no_payload_count as u64)
-            .add_field("confirmed_count", self.pending_count as u64)
+            .add_field("pending_count", self.pending_count as u64)
+            .add_field("accepted_count", self.accepted_count as u64)
             .add_field("confirmed_count", self.confirmed_count as u64)
             .add_field("finalized_count", self.finalized_count as u64)
             .add_field("rejected_count", self.rejected_count as u64)
             .add_field("failed_count", self.failed_count as u64)
+            .add_field("unknown_count", self.unknown_count as u64)
     }
 }
 

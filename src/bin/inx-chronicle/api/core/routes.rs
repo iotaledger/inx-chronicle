@@ -4,7 +4,7 @@
 use std::str::FromStr;
 
 use axum::{
-    extract::{Extension, Path},
+    extract::{Path, State},
     http::header::HeaderMap,
     routing::get,
 };
@@ -81,11 +81,9 @@ pub fn routes() -> Router<ApiState> {
                 .route("/by-index/:index", get(commitment_by_index))
                 .route("/by-index/:index/utxo-changes", get(utxo_changes_by_index)),
         )
-        .route("/control/database/prune", get(not_implemented))
-        .route("/control/snapshot/create", get(not_implemented))
 }
 
-pub async fn info(database: Extension<MongoDb>) -> ApiResult<InfoResponse> {
+pub async fn info(database: State<MongoDb>) -> ApiResult<InfoResponse> {
     let node_config = database
         .collection::<ApplicationStateCollection>()
         .get_node_config()
@@ -132,7 +130,7 @@ pub async fn info(database: Extension<MongoDb>) -> ApiResult<InfoResponse> {
 }
 
 async fn block(
-    database: Extension<MongoDb>,
+    database: State<MongoDb>,
     Path(block_id): Path<BlockId>,
     headers: HeaderMap,
 ) -> ApiResult<IotaRawResponse<SignedBlockDto>> {
@@ -159,15 +157,15 @@ async fn block(
 fn create_block_metadata_response(block_id: BlockId, metadata: BlockMetadata) -> BlockMetadataResponse {
     BlockMetadataResponse {
         block_id,
-        block_state: metadata.block_state,
-        transaction_state: metadata.transaction_state,
-        block_failure_reason: metadata.block_failure_reason,
-        transaction_failure_reason: metadata.transaction_failure_reason,
+        block_state: metadata.block_state.into(),
+        transaction_state: metadata.transaction_state.map(Into::into),
+        block_failure_reason: metadata.block_failure_reason.map(Into::into),
+        transaction_failure_reason: metadata.transaction_failure_reason.map(Into::into),
     }
 }
 
 async fn block_metadata(
-    database: Extension<MongoDb>,
+    database: State<MongoDb>,
     Path(block_id_str): Path<String>,
 ) -> ApiResult<IotaResponse<BlockMetadataResponse>> {
     let block_id = BlockId::from_str(&block_id_str).map_err(RequestError::from)?;
@@ -197,7 +195,7 @@ fn create_output_metadata_response(
 }
 
 async fn output(
-    database: Extension<MongoDb>,
+    database: State<MongoDb>,
     Path(output_id): Path<OutputId>,
     headers: HeaderMap,
 ) -> ApiResult<IotaRawResponse<OutputWithMetadataResponse>> {
@@ -230,7 +228,7 @@ async fn output(
 }
 
 async fn output_metadata(
-    database: Extension<MongoDb>,
+    database: State<MongoDb>,
     Path(output_id): Path<String>,
 ) -> ApiResult<IotaResponse<OutputMetadataResponse>> {
     let latest_slot = database
@@ -249,7 +247,7 @@ async fn output_metadata(
 }
 
 async fn included_block(
-    database: Extension<MongoDb>,
+    database: State<MongoDb>,
     Path(transaction_id): Path<TransactionId>,
     headers: HeaderMap,
 ) -> ApiResult<IotaRawResponse<SignedBlockDto>> {
@@ -275,7 +273,7 @@ async fn included_block(
 }
 
 async fn included_block_metadata(
-    database: Extension<MongoDb>,
+    database: State<MongoDb>,
     Path(transaction_id): Path<String>,
 ) -> ApiResult<IotaResponse<BlockMetadataResponse>> {
     let transaction_id = TransactionId::from_str(&transaction_id).map_err(RequestError::from)?;
@@ -292,7 +290,7 @@ async fn included_block_metadata(
 }
 
 async fn commitment(
-    database: Extension<MongoDb>,
+    database: State<MongoDb>,
     Path(commitment_id): Path<SlotCommitmentId>,
     headers: HeaderMap,
 ) -> ApiResult<IotaRawResponse<SlotCommitment>> {
@@ -300,7 +298,7 @@ async fn commitment(
 }
 
 async fn commitment_by_index(
-    database: Extension<MongoDb>,
+    database: State<MongoDb>,
     Path(index): Path<SlotIndex>,
     headers: HeaderMap,
 ) -> ApiResult<IotaRawResponse<SlotCommitment>> {
@@ -318,14 +316,14 @@ async fn commitment_by_index(
 }
 
 async fn utxo_changes(
-    database: Extension<MongoDb>,
+    database: State<MongoDb>,
     Path(commitment_id): Path<SlotCommitmentId>,
 ) -> ApiResult<IotaResponse<UtxoChangesResponse>> {
     utxo_changes_by_index(database, Path(commitment_id.slot_index())).await
 }
 
 async fn utxo_changes_by_index(
-    database: Extension<MongoDb>,
+    database: State<MongoDb>,
     Path(index): Path<SlotIndex>,
 ) -> ApiResult<IotaResponse<UtxoChangesResponse>> {
     let latest_slot = database

@@ -10,6 +10,8 @@ mod committed_slot;
 mod ledger_update;
 /// Module containing the outputs collection.
 mod outputs;
+/// Module containing the parents collection.
+mod parents;
 
 use std::str::FromStr;
 
@@ -28,6 +30,7 @@ pub use self::{
         DistributionStat, FoundryOutputsQuery, IndexedId, NftOutputsQuery, OutputCollection, OutputMetadata,
         OutputMetadataResult, OutputWithMetadataResult, OutputsResult, UtxoChangesResult,
     },
+    parents::ParentsCollection,
 };
 
 /// Helper to specify a kind for an output type.

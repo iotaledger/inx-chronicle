@@ -2,9 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use futures::{Stream, TryStreamExt};
-use iota_sdk::types::{
-    api::core::BlockState,
-    block::{output::OutputId, payload::signed_transaction::TransactionId, slot::SlotIndex, BlockId, SignedBlock},
+use iota_sdk::types::block::{
+    output::OutputId, payload::signed_transaction::TransactionId, slot::SlotIndex, BlockId, SignedBlock,
 };
 use mongodb::{
     bson::doc,
@@ -21,7 +20,7 @@ use crate::{
         MongoDb,
     },
     model::{
-        block_metadata::{BlockMetadata, BlockWithMetadata},
+        block_metadata::{BlockMetadata, BlockState, BlockWithMetadata},
         raw::Raw,
         SerializeToBson,
     },
@@ -155,12 +154,6 @@ struct RawResult {
     block: Raw<SignedBlock>,
 }
 
-// #[derive(Deserialize)]
-// struct BlockIdResult {
-//     #[serde(rename = "_id")]
-//     block_id: BlockId,
-// }
-
 /// Implements the queries for the core API.
 impl BlockCollection {
     /// Get a [`SignedBlock`] by its [`BlockId`].
@@ -198,38 +191,6 @@ impl BlockCollection {
             .try_next()
             .await?)
     }
-
-    // /// Get the children of a [`Block`] as a stream of [`BlockId`]s.
-    // pub async fn get_block_children(
-    //     &self,
-    //     block_id: &BlockId,
-    //     block_referenced_index: MilestoneIndex,
-    //     below_max_depth: u8,
-    //     page_size: usize,
-    //     page: usize,
-    // ) -> Result<impl Stream<Item = Result<BlockId, Error>>, Error> { let max_referenced_index =
-    //   block_referenced_index + below_max_depth as u32;
-
-    //     Ok(self
-    //         .aggregate(
-    //             [
-    //                 doc! { "$match": {
-    //                     "metadata.referenced_by_milestone_index": {
-    //                         "$gte": block_referenced_index,
-    //                         "$lte": max_referenced_index
-    //                     },
-    //                     "block.parents": block_id,
-    //                 } },
-    //                 doc! { "$sort": {"metadata.referenced_by_milestone_index": -1} },
-    //                 doc! { "$skip": (page_size * page) as i64 },
-    //                 doc! { "$limit": page_size as i64 },
-    //                 doc! { "$project": { "_id": 1 } },
-    //             ],
-    //             None,
-    //         )
-    //         .await?
-    //         .map_ok(|BlockIdResult { block_id }| block_id))
-    // }
 
     /// Get the accepted blocks from a slot.
     pub async fn get_accepted_blocks(

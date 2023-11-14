@@ -70,7 +70,7 @@ impl Analytics for AddressBalancesAnalytics {
     }
 
     fn take_measurement(&mut self, ctx: &dyn AnalyticsContext) -> Self::Measurement {
-        let bucket_max = ctx.protocol_params().token_supply().ilog10() as usize + 1;
+        let bucket_max = ctx.protocol_parameters().token_supply().ilog10() as usize + 1;
         let mut token_distribution = vec![DistributionStat::default(); bucket_max];
 
         for amount in self.balances.values() {

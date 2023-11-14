@@ -4,10 +4,7 @@
 //! Various analytics that give insight into the usage of the tangle.
 
 use futures::TryStreamExt;
-use iota_sdk::types::{
-    api::core::BlockState,
-    block::{output::OutputId, protocol::ProtocolParameters, slot::SlotIndex, SignedBlock},
-};
+use iota_sdk::types::block::{output::OutputId, protocol::ProtocolParameters, slot::SlotIndex, SignedBlock};
 use thiserror::Error;
 
 use self::{
@@ -25,7 +22,7 @@ use crate::{
         MongoDb,
     },
     model::{
-        block_metadata::{BlockMetadata, BlockWithMetadata},
+        block_metadata::{BlockMetadata, BlockState, BlockWithMetadata},
         ledger::{LedgerOutput, LedgerSpent},
     },
     tangle::{InputSource, Slot},
@@ -38,7 +35,7 @@ mod tangle;
 /// Provides an API to access basic information used for analytics
 #[allow(missing_docs)]
 pub trait AnalyticsContext: Send + Sync {
-    fn protocol_params(&self) -> &ProtocolParameters;
+    fn protocol_parameters(&self) -> &ProtocolParameters;
 
     fn slot_index(&self) -> SlotIndex;
 }
@@ -83,8 +80,8 @@ where
     fn take_measurement(&mut self, ctx: &dyn AnalyticsContext) -> Box<dyn PrepareQuery> {
         Box::new(PerSlot {
             slot_timestamp: ctx.slot_index().to_timestamp(
-                ctx.protocol_params().genesis_unix_timestamp(),
-                ctx.protocol_params().slot_duration_in_seconds(),
+                ctx.protocol_parameters().genesis_unix_timestamp(),
+                ctx.protocol_parameters().slot_duration_in_seconds(),
             ),
             slot_index: ctx.slot_index(),
             inner: Analytics::take_measurement(self, ctx),
@@ -153,9 +150,7 @@ impl Analytic {
             AnalyticsChoice::BlockActivity => Box::<BlockActivityMeasurement>::default() as _,
             AnalyticsChoice::ActiveAddresses => Box::<AddressActivityAnalytics>::default() as _,
             AnalyticsChoice::LedgerOutputs => Box::new(LedgerOutputMeasurement::init(unspent_outputs)) as _,
-            AnalyticsChoice::LedgerSize => {
-                Box::new(LedgerSizeAnalytics::init(protocol_params.clone(), unspent_outputs)) as _
-            }
+            AnalyticsChoice::LedgerSize => Box::new(LedgerSizeAnalytics::init(protocol_params, unspent_outputs)) as _,
             AnalyticsChoice::SlotSize => Box::<SlotSizeMeasurement>::default() as _,
             AnalyticsChoice::OutputActivity => Box::<OutputActivityMeasurement>::default() as _,
             AnalyticsChoice::ProtocolParameters => Box::<ProtocolParamsAnalytics>::default() as _,
@@ -246,6 +241,7 @@ impl<'a, I: InputSource> Slot<'a, I> {
         ctx: &BasicContext,
     ) -> eyre::Result<()> {
         let block = block_data.block.inner();
+        // TODO: Is this right?
         if block_data.metadata.block_state == BlockState::Confirmed {
             if let Some(payload) = block
                 .block()
@@ -300,7 +296,7 @@ struct BasicContext<'a> {
 }
 
 impl<'a> AnalyticsContext for BasicContext<'a> {
-    fn protocol_params(&self) -> &ProtocolParameters {
+    fn protocol_parameters(&self) -> &ProtocolParameters {
         self.protocol_parameters
     }
 

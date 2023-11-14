@@ -47,38 +47,34 @@ impl LedgerSizeMeasurement {
 /// Measures the ledger size depending on current protocol parameters.
 #[derive(Serialize, Deserialize)]
 pub(crate) struct LedgerSizeAnalytics {
-    protocol_params: ProtocolParameters,
     measurement: LedgerSizeMeasurement,
 }
 
 impl LedgerSizeAnalytics {
     /// Set the protocol parameters for this analytic.
     pub(crate) fn init<'a>(
-        protocol_params: ProtocolParameters,
+        protocol_params: &ProtocolParameters,
         unspent_outputs: impl IntoIterator<Item = &'a LedgerOutput>,
     ) -> Self {
         let mut measurement = LedgerSizeMeasurement::default();
         for output in unspent_outputs {
-            measurement.wrapping_add(output.output().ledger_size(&protocol_params));
+            measurement.wrapping_add(output.output().ledger_size(protocol_params));
         }
-        Self {
-            protocol_params,
-            measurement,
-        }
+        Self { measurement }
     }
 }
 
 impl Analytics for LedgerSizeAnalytics {
     type Measurement = LedgerSizeMeasurement;
 
-    fn handle_transaction(&mut self, consumed: &[LedgerSpent], created: &[LedgerOutput], _ctx: &dyn AnalyticsContext) {
+    fn handle_transaction(&mut self, consumed: &[LedgerSpent], created: &[LedgerOutput], ctx: &dyn AnalyticsContext) {
         for output in created {
             self.measurement
-                .wrapping_add(output.output().ledger_size(&self.protocol_params));
+                .wrapping_add(output.output().ledger_size(ctx.protocol_parameters()));
         }
         for output in consumed.iter().map(|ledger_spent| &ledger_spent.output) {
             self.measurement
-                .wrapping_sub(output.output().ledger_size(&self.protocol_params));
+                .wrapping_sub(output.output().ledger_size(ctx.protocol_parameters()));
         }
     }
 

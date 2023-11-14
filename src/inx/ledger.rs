@@ -2,13 +2,9 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use inx::proto;
-use iota_sdk::types::{
-    api::core::{BlockFailureReason, BlockState, TransactionState},
-    block::{
-        payload::signed_transaction::TransactionId,
-        semantic::TransactionFailureReason,
-        slot::{SlotCommitmentId, SlotIndex},
-    },
+use iota_sdk::types::block::{
+    payload::signed_transaction::TransactionId,
+    slot::{SlotCommitmentId, SlotIndex},
 };
 
 use super::{
@@ -17,7 +13,10 @@ use super::{
 };
 use crate::{
     maybe_missing,
-    model::ledger::{LedgerOutput, LedgerSpent},
+    model::{
+        block_metadata::{BlockFailureReason, BlockState, TransactionFailureReason, TransactionState},
+        ledger::{LedgerOutput, LedgerSpent},
+    },
 };
 
 impl TryConvertFrom<proto::LedgerOutput> for LedgerOutput {
@@ -188,8 +187,8 @@ impl ConvertFrom<proto::block_metadata::BlockState> for BlockState {
             ProtoState::Finalized => BlockState::Finalized,
             ProtoState::Rejected => BlockState::Rejected,
             ProtoState::Failed => BlockState::Failed,
-            ProtoState::Accepted => todo!(),
-            ProtoState::Unknown => todo!(),
+            ProtoState::Accepted => BlockState::Accepted,
+            ProtoState::Unknown => BlockState::Unknown,
         }
     }
 }
@@ -203,7 +202,7 @@ impl ConvertFrom<proto::block_metadata::TransactionState> for Option<Transaction
             ProtoState::Confirmed => TransactionState::Confirmed,
             ProtoState::Finalized => TransactionState::Finalized,
             ProtoState::Failed => TransactionState::Failed,
-            ProtoState::Accepted => todo!(),
+            ProtoState::Accepted => TransactionState::Accepted,
         })
     }
 }
@@ -215,10 +214,17 @@ impl ConvertFrom<proto::block_metadata::BlockFailureReason> for Option<BlockFail
             ProtoState::None => return None,
             ProtoState::IsTooOld => BlockFailureReason::TooOldToIssue,
             ProtoState::ParentIsTooOld => BlockFailureReason::ParentTooOld,
-            ProtoState::BookingFailure => todo!(),
+            ProtoState::ParentNotFound => BlockFailureReason::ParentDoesNotExist,
+            ProtoState::ParentInvalid => BlockFailureReason::ParentInvalid,
+            ProtoState::IssuerAccountNotFound => BlockFailureReason::IssuerAccountNotFound,
+            ProtoState::VersionInvalid => BlockFailureReason::VersionInvalid,
+            ProtoState::ManaCostCalculationFailed => BlockFailureReason::ManaCostCalculationFailed,
+            ProtoState::BurnedInsufficientMana => BlockFailureReason::BurnedInsufficientMana,
+            ProtoState::AccountInvalid => BlockFailureReason::AccountInvalid,
+            ProtoState::SignatureInvalid => BlockFailureReason::SignatureInvalid,
             ProtoState::DroppedDueToCongestion => BlockFailureReason::DroppedDueToCongestion,
             ProtoState::PayloadInvalid => BlockFailureReason::PayloadInvalid,
-            ProtoState::OrphanedDueNegativeCreditsBalance => todo!(),
+            ProtoState::FailureInvalid => BlockFailureReason::Invalid,
         })
     }
 }

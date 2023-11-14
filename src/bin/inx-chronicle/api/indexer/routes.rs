@@ -3,7 +3,10 @@
 
 use std::str::FromStr;
 
-use axum::{extract::Path, routing::get, Extension};
+use axum::{
+    extract::{Path, State},
+    routing::get,
+};
 use chronicle::db::{
     mongodb::collections::{
         AccountOutputsQuery, AnchorOutputsQuery, BasicOutputsQuery, CommittedSlotCollection, DelegationOutputsQuery,
@@ -60,10 +63,7 @@ pub fn routes() -> Router<ApiState> {
     )
 }
 
-async fn indexed_output_by_id<ID>(
-    database: Extension<MongoDb>,
-    Path(id): Path<String>,
-) -> ApiResult<IndexerOutputsResponse>
+async fn indexed_output_by_id<ID>(database: State<MongoDb>, Path(id): Path<String>) -> ApiResult<IndexerOutputsResponse>
 where
     ID: Into<IndexedId> + FromStr,
     RequestError: From<ID::Err>,
@@ -88,7 +88,7 @@ where
 }
 
 async fn indexed_outputs<Q>(
-    database: Extension<MongoDb>,
+    database: State<MongoDb>,
     IndexedOutputsPagination {
         query,
         page_size,

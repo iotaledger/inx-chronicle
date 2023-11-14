@@ -6,12 +6,15 @@ mod indexer;
 use std::borrow::Borrow;
 
 use futures::{Stream, TryStreamExt};
-use iota_sdk::types::block::{
-    address::Address,
-    output::{AccountId, Output, OutputId},
-    payload::signed_transaction::TransactionId,
-    slot::{SlotCommitmentId, SlotIndex},
-    BlockId,
+use iota_sdk::{
+    types::block::{
+        address::Address,
+        output::{AccountId, Output, OutputId},
+        payload::signed_transaction::TransactionId,
+        slot::{SlotCommitmentId, SlotIndex},
+        BlockId,
+    },
+    utils::serde::string,
 };
 use mongodb::{
     bson::{doc, to_bson, to_document},
@@ -127,6 +130,8 @@ impl MongoDbCollection for OutputCollection {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 struct OutputDetails {
     kind: String,
+    #[serde(with = "string")]
+    amount: u64,
     is_trivial_unlock: bool,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     indexed_id: Option<IndexedId>,
@@ -174,6 +179,7 @@ impl From<&LedgerOutput> for OutputDocument {
             },
             details: OutputDetails {
                 kind: rec.kind().to_owned(),
+                amount: rec.amount(),
                 is_trivial_unlock: rec
                     .output()
                     .unlock_conditions()
@@ -296,10 +302,12 @@ pub struct OutputWithMetadataResult {
     pub metadata: OutputMetadata,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Deserialize)]
 #[allow(missing_docs)]
 pub struct BalanceResult {
+    #[serde(with = "string")]
     pub total_balance: u64,
+    #[serde(with = "string")]
     pub sig_locked_balance: u64,
 }
 
@@ -320,7 +328,7 @@ impl OutputCollection {
             .into_iter()
             .map(|output| {
                 Ok(doc! {
-                    "q": { "_id": output.output.output_id.to_bson() },
+                    "q": { "_id": output.output_id().to_bson() },
                     "u": to_document(&OutputDocument::from(output))?,
                     "upsert": true,
                 })
@@ -403,13 +411,9 @@ impl OutputCollection {
                     "metadata.slot_booked": { "$lte": slot_index.0 }
                 } },
                 doc! { "$project": {
-                    "output": "$output",
-                    "metadata": {
-                        "output_id": "$_id",
-                        "block_id": "$metadata.block_id",
-                        "booked": "$metadata.booked",
-                        "spent_metadata": "$metadata.spent_metadata",
-                    },
+                    "output_id": "$_id",
+                    "output": 1,
+                    "metadata": 1,
                 } },
             ],
             None,
@@ -473,9 +477,9 @@ impl OutputCollection {
                     doc! { "$project": {
                         "output_id": "$_id",
                         "block_id": "$metadata.block_id",
-                        "booked": "$metadata.booked",
+                        "slot_booked": "$metadata.slot_booked",
+                        "commitment_id_included": "metadata.commitment_id_included",
                         "output": "$output",
-                        "rent_structure": "$details.rent_structure",
                     } },
                 ],
                 None,
@@ -499,9 +503,9 @@ impl OutputCollection {
                     doc! { "$project": {
                         "output_id": "$_id",
                         "block_id": "$metadata.block_id",
-                        "booked": "$metadata.booked",
+                        "slot_booked": "$metadata.slot_booked",
+                        "commitment_id_included": "$metadata.commitment_id_included",
                         "output": "$output",
-                        "rent_structure": "$details.rent_structure",
                     } },
                 ],
                 None,
@@ -598,14 +602,8 @@ impl OutputCollection {
         address: Address,
         slot_index: SlotIndex,
     ) -> Result<Option<BalanceResult>, DbError> {
-        #[derive(Deserialize)]
-        struct Res {
-            total_balance: String,
-            sig_locked_balance: String,
-        }
-
         Ok(self
-            .aggregate::<Res>(
+            .aggregate(
                 [
                     // Look at all (at slot index o'clock) unspent output documents for the given address.
                     doc! { "$match": {
@@ -615,9 +613,9 @@ impl OutputCollection {
                     } },
                     doc! { "$group": {
                         "_id": null,
-                        "total_balance": { "$sum": { "$toDecimal": "$output.amount" } },
+                        "total_balance": { "$sum": { "$toDecimal": "$details.amount" } },
                         "sig_locked_balance": { "$sum": { 
-                            "$cond": [ { "$eq": [ "$details.is_trivial_unlock", true] }, { "$toDecimal": "$output.amount" }, 0 ]
+                            "$cond": [ { "$eq": [ "$details.is_trivial_unlock", true] }, { "$toDecimal": "$details.amount" }, 0 ]
                         } },
                     } },
                     doc! { "$project": {
@@ -629,13 +627,7 @@ impl OutputCollection {
             )
             .await?
             .try_next()
-            .await?
-            .map(|res|
-                BalanceResult {
-                    total_balance: res.total_balance.parse().unwrap(),
-                    sig_locked_balance: res.sig_locked_balance.parse().unwrap(),
-                }
-            ))
+            .await?)
     }
 
     /// Returns the changes to the UTXO ledger (as consumed and created output ids) that were applied at the given
@@ -690,12 +682,11 @@ impl OutputCollection {
             count: usize,
         }
 
-        // TODO: handle missing params
         let protocol_params = self
             .app_state
             .get_protocol_parameters()
             .await?
-            .expect("missing protocol parameters");
+            .ok_or_else(|| DbError::MissingRecord("protocol parameters".to_owned()))?;
 
         let (start_slot, end_slot) = (
             protocol_params.slot_index(start_date.midnight().assume_utc().unix_timestamp() as _),
@@ -777,7 +768,7 @@ impl OutputCollection {
                     } },
                     doc! { "$group" : {
                         "_id": "$details.address",
-                        "balance": { "$sum": { "$toDecimal": "$output.amount" } },
+                        "balance": { "$sum": { "$toDecimal": "$details.amount" } },
                     } },
                     doc! { "$sort": { "balance": -1 } },
                     doc! { "$limit": top as i64 },
@@ -806,7 +797,7 @@ impl OutputCollection {
                     } },
                     doc! { "$group" : {
                         "_id": "$details.address",
-                        "balance": { "$sum": { "$toDecimal": "$output.amount" } },
+                        "balance": { "$sum": { "$toDecimal": "$details.amount" } },
                     } },
                     doc! { "$set": { "index": { "$toInt": { "$log10": "$balance" } } } },
                     doc! { "$group" : {
