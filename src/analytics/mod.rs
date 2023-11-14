@@ -12,7 +12,7 @@ use self::{
     ledger::{
         AddressActivityAnalytics, AddressActivityMeasurement, AddressBalancesAnalytics, BaseTokenActivityMeasurement,
         LedgerOutputMeasurement, LedgerSizeAnalytics, OutputActivityMeasurement, TransactionSizeMeasurement,
-        UnclaimedTokenMeasurement, UnlockConditionMeasurement,
+        UnlockConditionMeasurement,
     },
     tangle::{BlockActivityMeasurement, ProtocolParamsAnalytics, SlotSizeMeasurement},
 };
@@ -155,7 +155,6 @@ impl Analytic {
             AnalyticsChoice::OutputActivity => Box::<OutputActivityMeasurement>::default() as _,
             AnalyticsChoice::ProtocolParameters => Box::<ProtocolParamsAnalytics>::default() as _,
             AnalyticsChoice::TransactionSizeDistribution => Box::<TransactionSizeMeasurement>::default() as _,
-            AnalyticsChoice::UnclaimedTokens => Box::new(UnclaimedTokenMeasurement::init(unspent_outputs)) as _,
             AnalyticsChoice::UnlockConditions => Box::new(UnlockConditionMeasurement::init(unspent_outputs)) as _,
         })
     }

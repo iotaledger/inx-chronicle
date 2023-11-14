@@ -9,8 +9,7 @@ use iota_sdk::types::block::protocol::ProtocolParameters;
 use super::{
     ledger::{
         AddressActivityMeasurement, AddressBalanceMeasurement, BaseTokenActivityMeasurement, LedgerOutputMeasurement,
-        LedgerSizeMeasurement, OutputActivityMeasurement, TransactionSizeMeasurement, UnclaimedTokenMeasurement,
-        UnlockConditionMeasurement,
+        LedgerSizeMeasurement, OutputActivityMeasurement, TransactionSizeMeasurement, UnlockConditionMeasurement,
     },
     tangle::{BlockActivityMeasurement, SlotSizeMeasurement},
     AnalyticsInterval, PerInterval, PerSlot,
@@ -270,16 +269,6 @@ impl Measurement for ProtocolParameters {
     fn add_fields(&self, query: WriteQuery) -> WriteQuery {
         // TODO
         query.add_field("token_supply", self.token_supply())
-    }
-}
-
-impl Measurement for UnclaimedTokenMeasurement {
-    const NAME: &'static str = "iota_unclaimed_rewards";
-
-    fn add_fields(&self, query: WriteQuery) -> WriteQuery {
-        query
-            .add_field("unclaimed_count", self.unclaimed_count as u64)
-            .add_field("unclaimed_amount", self.unclaimed_amount)
     }
 }
 
