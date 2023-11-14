@@ -19,7 +19,7 @@ use chronicle::{
     },
 };
 use futures::{StreamExt, TryStreamExt};
-use iota_sdk::types::block::address::ToBech32Ext;
+use iota_sdk::types::block::address::{Hrp, ToBech32Ext};
 
 use super::{
     extractors::{
@@ -356,7 +356,7 @@ async fn richest_addresses_ledger_analytics(
         .get_richest_addresses(ledger_index, top)
         .await?;
 
-    let hrp = database
+    let hrp: Hrp = database
         .collection::<ProtocolUpdateCollection>()
         .get_protocol_parameters_for_ledger_index(ledger_index)
         .await?
@@ -370,7 +370,9 @@ async fn richest_addresses_ledger_analytics(
             .top
             .into_iter()
             .map(|stat| AddressStatDto {
-                address: iota_sdk::types::block::address::Address::from(stat.address).to_bech32(hrp.clone()).to_string(),
+                address: iota_sdk::types::block::address::Address::from(stat.address)
+                    .to_bech32(hrp)
+                    .to_string(),
                 balance: stat.balance,
             })
             .collect(),
