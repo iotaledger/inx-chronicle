@@ -218,19 +218,15 @@ impl BlockCollection {
 
     /// Inserts [`SignedBlock`]s together with their associated [`BlockMetadata`].
     #[instrument(skip_all, err, level = "trace")]
-    pub async fn insert_blocks_with_metadata<I, B>(&self, blocks_with_metadata: I) -> Result<(), DbError>
+    pub async fn insert_blocks_with_metadata<I>(&self, blocks_with_metadata: I) -> Result<(), DbError>
     where
-        I: IntoIterator<Item = B>,
+        I: IntoIterator<Item = BlockWithMetadata>,
         I::IntoIter: Send + Sync,
-        BlockDocument: From<B>,
     {
-        let blocks_with_metadata = blocks_with_metadata.into_iter().map(BlockDocument::from);
+        let docs = blocks_with_metadata.into_iter().map(BlockDocument::from);
 
-        self.insert_many_ignore_duplicates(
-            blocks_with_metadata,
-            InsertManyOptions::builder().ordered(false).build(),
-        )
-        .await?;
+        self.insert_many_ignore_duplicates(docs, InsertManyOptions::builder().ordered(false).build())
+            .await?;
 
         Ok(())
     }

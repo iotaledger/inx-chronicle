@@ -12,7 +12,7 @@ use chronicle::{
     db::{
         mongodb::collections::{
             ApplicationStateCollection, BlockCollection, CommittedSlotCollection, LedgerUpdateCollection,
-            OutputCollection,
+            OutputCollection, ParentsCollection,
         },
         MongoDb,
     },
@@ -314,6 +314,7 @@ impl InxWorker {
             .try_fold(JoinSet::new(), |mut tasks, batch| async {
                 let db = self.db.clone();
                 tasks.spawn(async move {
+                    db.collection::<ParentsCollection>().insert_blocks(&batch).await?;
                     db.collection::<BlockCollection>()
                         .insert_blocks_with_metadata(batch)
                         .await?;

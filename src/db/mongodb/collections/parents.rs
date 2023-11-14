@@ -2,13 +2,21 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use futures::{prelude::stream::TryStreamExt, Stream};
-use iota_sdk::types::block::BlockId;
-use mongodb::{bson::doc, options::IndexOptions, IndexModel};
+use iota_sdk::types::block::{Block, BlockId};
+use mongodb::{
+    bson::doc,
+    options::{IndexOptions, InsertManyOptions},
+    IndexModel,
+};
 use serde::{Deserialize, Serialize};
+use tracing::instrument;
 
 use crate::{
-    db::{mongodb::DbError, MongoDb, MongoDbCollection, MongoDbCollectionExt},
-    model::SerializeToBson,
+    db::{
+        mongodb::{DbError, InsertIgnoreDuplicatesExt},
+        MongoDb, MongoDbCollection, MongoDbCollectionExt,
+    },
+    model::{block_metadata::BlockWithMetadata, SerializeToBson},
 };
 
 /// Chronicle Parents record which relates child to parent.
@@ -58,6 +66,30 @@ impl MongoDbCollection for ParentsCollection {
 }
 
 impl ParentsCollection {
+    /// Inserts [`SignedBlock`]s together with their associated [`BlockMetadata`].
+    #[instrument(skip_all, err, level = "trace")]
+    pub async fn insert_blocks<'a, I>(&self, blocks_with_metadata: I) -> Result<(), DbError>
+    where
+        I: IntoIterator<Item = &'a BlockWithMetadata>,
+        I::IntoIter: Send + Sync,
+    {
+        let docs = blocks_with_metadata.into_iter().flat_map(|b| {
+            match b.block.inner().block() {
+                Block::Basic(b) => b.strong_parents().into_iter(),
+                Block::Validation(b) => b.strong_parents().into_iter(),
+            }
+            .map(|parent_id| ParentsDocument {
+                parent_id: *parent_id,
+                child_id: b.metadata.block_id,
+            })
+        });
+
+        self.insert_many_ignore_duplicates(docs, InsertManyOptions::builder().ordered(false).build())
+            .await?;
+
+        Ok(())
+    }
+
     /// Get the children of a block as a stream of [`BlockId`]s.
     pub async fn get_block_children(
         &self,
