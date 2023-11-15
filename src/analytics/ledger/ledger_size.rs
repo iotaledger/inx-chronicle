@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use iota_sdk::types::block::{
-    output::{Output, Rent},
+    output::{Output, StorageScore},
     protocol::ProtocolParameters,
 };
 use serde::{Deserialize, Serialize};
@@ -19,7 +19,7 @@ trait LedgerSize {
 impl LedgerSize for Output {
     fn ledger_size(&self, protocol_params: &ProtocolParameters) -> LedgerSizeMeasurement {
         LedgerSizeMeasurement {
-            total_storage_cost: self.rent_cost(protocol_params.rent_structure()),
+            total_storage_score: self.storage_score(protocol_params.storage_score_parameters()),
         }
     }
 }
@@ -27,19 +27,19 @@ impl LedgerSize for Output {
 /// Ledger size statistics.
 #[derive(Copy, Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub(crate) struct LedgerSizeMeasurement {
-    pub(crate) total_storage_cost: u64,
+    pub(crate) total_storage_score: u64,
 }
 
 impl LedgerSizeMeasurement {
     fn wrapping_add(&mut self, rhs: Self) {
         *self = Self {
-            total_storage_cost: self.total_storage_cost.wrapping_add(rhs.total_storage_cost),
+            total_storage_score: self.total_storage_score.wrapping_add(rhs.total_storage_score),
         }
     }
 
     fn wrapping_sub(&mut self, rhs: Self) {
         *self = Self {
-            total_storage_cost: self.total_storage_cost.wrapping_sub(rhs.total_storage_cost),
+            total_storage_score: self.total_storage_score.wrapping_sub(rhs.total_storage_score),
         }
     }
 }

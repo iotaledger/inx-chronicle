@@ -213,7 +213,7 @@ impl Measurement for LedgerSizeMeasurement {
     const NAME: &'static str = "iota_ledger_size";
 
     fn add_fields(&self, query: WriteQuery) -> WriteQuery {
-        query.add_field("total_storage_cost", self.total_storage_cost)
+        query.add_field("total_storage_score", self.total_storage_score)
     }
 }
 
