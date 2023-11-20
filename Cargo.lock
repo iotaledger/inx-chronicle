@@ -506,7 +506,7 @@ dependencies = [
  "iota-crypto",
  "iota-sdk",
  "mongodb",
- "packable",
+ "packable 0.10.0",
  "pin-project",
  "prefix-hex",
  "pretty_assertions",
@@ -1686,7 +1686,7 @@ dependencies = [
  "itertools 0.11.0",
  "lazy_static",
  "once_cell",
- "packable",
+ "packable 0.8.3",
  "prefix-hex",
  "primitive-types",
  "rand",
@@ -2080,9 +2080,19 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "11259b086696fc9256f790485d8f14f11f0fa60a60351af9693e3d49fd24fdb6"
 dependencies = [
  "autocfg",
- "packable-derive",
+ "packable-derive 0.7.0",
  "primitive-types",
  "serde",
+]
+
+[[package]]
+name = "packable"
+version = "0.10.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bbe35ea7a5959be5a87d24bcb31ed984580d9cd321c264c266818fff8cd47b3d"
+dependencies = [
+ "autocfg",
+ "packable-derive 0.9.0",
 ]
 
 [[package]]
@@ -2090,6 +2100,19 @@ name = "packable-derive"
 version = "0.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e9567693dd2f9a4339cb0a54adfcc0cb431c0ac88b2e46c6ddfb5f5d11a1cc4f"
+dependencies = [
+ "proc-macro-crate",
+ "proc-macro-error",
+ "proc-macro2",
+ "quote",
+ "syn 1.0.109",
+]
+
+[[package]]
+name = "packable-derive"
+version = "0.9.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "858971e010057f7bcae183e545085b83d41280ca8abe0333613a7135fbb54430"
 dependencies = [
  "proc-macro-crate",
  "proc-macro-error",
