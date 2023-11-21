@@ -350,7 +350,7 @@ async fn richest_addresses_ledger_analytics(
     RichestAddressesQuery { top, ledger_index }: RichestAddressesQuery,
 ) -> ApiResult<RichestAddressesResponse> {
     let ledger_index = resolve_ledger_index(&database, ledger_index).await?;
-    let cache = RICHEST_ADDRESSES_CACHE.write().await;
+    let mut cache = RICHEST_ADDRESSES_CACHE.write().await;
     let seconds_until_midnight = calculate_seconds_until_midnight();
 
     if let Some(cached_data) = &*cache {
@@ -388,7 +388,7 @@ async fn richest_addresses_ledger_analytics(
     };
 
     // Store the response in the cache
-    *RICHEST_ADDRESSES_CACHE.write().await = Some(RichestCacheData { last_updated: Instant::now(), data: response.clone() });
+    *cache = Some(RichestCacheData { last_updated: Instant::now(), data: response.clone() });
 
     let refresh_elapsed = refresh_start.elapsed().unwrap();
     info!("refreshing richest-addresses cache done. Took {:?}", refresh_elapsed);
@@ -402,7 +402,7 @@ async fn token_distribution_ledger_analytics(
     LedgerIndex { ledger_index }: LedgerIndex,
 ) -> ApiResult<TokenDistributionResponse> {
     let ledger_index = resolve_ledger_index(&database, ledger_index).await?;
-    let cache = TOKEN_DISTRIBUTION_CACHE.write().await;
+    let mut cache = TOKEN_DISTRIBUTION_CACHE.write().await;
 
     let seconds_until_midnight = calculate_seconds_until_midnight();
     if let Some(cached_data) = &*cache {
@@ -425,7 +425,7 @@ async fn token_distribution_ledger_analytics(
     };
 
     // Store the response in the cache
-    *TOKEN_DISTRIBUTION_CACHE.write().await = Some(TokenCacheData { last_updated: Instant::now(), data: response.clone() });
+    *cache = Some(TokenCacheData { last_updated: Instant::now(), data: response.clone() });
 
     let refresh_elapsed = refresh_start.elapsed().unwrap();
     info!("refreshing token-distribution cache done. Took {:?}", refresh_elapsed);
