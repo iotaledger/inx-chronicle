@@ -2,6 +2,9 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use std::str::FromStr;
+use std::time::SystemTime;
+
+use tracing::info;
 
 use axum::{extract::Path, routing::get, Extension};
 use chronicle::{
@@ -333,6 +336,13 @@ struct TokenCacheData {
     data: TokenDistributionResponse,
 }
 
+fn calculate_seconds_until_midnight() -> u64 {
+    let now = SystemTime::now();
+    let since_epoch = now.duration_since(SystemTime::UNIX_EPOCH).expect("Time went backwards");
+    let seconds_today = since_epoch.as_secs() % 86400;
+    86400 - seconds_today
+}
+
 static RICHEST_ADDRESSES_CACHE: Lazy<RwLock<Option<RichestCacheData>>> = Lazy::new(|| RwLock::new(None));
 static TOKEN_DISTRIBUTION_CACHE: Lazy<RwLock<Option<TokenCacheData>>> = Lazy::new(|| RwLock::new(None));
 
@@ -342,6 +352,7 @@ async fn richest_addresses_ledger_analytics(
 ) -> ApiResult<RichestAddressesResponse> {
     let ledger_index = resolve_ledger_index(&database, ledger_index).await?;
     let cache = RICHEST_ADDRESSES_CACHE.read().await;
+    let seconds_until_midnight = calculate_seconds_until_midnight();
 
     if let Some(cached_data) = &*cache {
         if cached_data.last_updated.elapsed() < Duration::from_secs(86400) {
@@ -350,6 +361,9 @@ async fn richest_addresses_ledger_analytics(
     }
 
     drop(cache); // release the read lock
+
+    info!("refreshing richest-addresses cache ...");
+    let refresh_start = SystemTime::now();
 
     let res = database
         .collection::<OutputCollection>()
@@ -385,6 +399,10 @@ async fn richest_addresses_ledger_analytics(
         data: response.clone(),
     });
 
+    let refresh_elapsed = refresh_start.elapsed().unwrap();
+    info!("refreshing richest-addresses cache done. Took {:?}", refresh_elapsed);
+    info!("next refresh in {} seconds", seconds_until_midnight);
+
     Ok(response)
 }
 
@@ -395,6 +413,7 @@ async fn token_distribution_ledger_analytics(
     let ledger_index = resolve_ledger_index(&database, ledger_index).await?;
     let cache = TOKEN_DISTRIBUTION_CACHE.read().await;
 
+    let seconds_until_midnight = calculate_seconds_until_midnight();
     if let Some(cached_data) = &*cache {
         if cached_data.last_updated.elapsed() < Duration::from_secs(86400) {
             return Ok(cached_data.data.clone());
@@ -402,6 +421,9 @@ async fn token_distribution_ledger_analytics(
     }
 
     drop(cache); // release the read lock
+
+    info!("refreshing token-distribution cache ...");
+    let refresh_start = SystemTime::now();
 
     let res = database
         .collection::<OutputCollection>()
@@ -418,6 +440,10 @@ async fn token_distribution_ledger_analytics(
         last_updated: Instant::now(),
         data: response.clone(),
     });
+
+    let refresh_elapsed = refresh_start.elapsed().unwrap();
+    info!("refreshing token-distribution cache done. Took {:?}", refresh_elapsed);
+    info!("next refresh in {} seconds", seconds_until_midnight);
 
     Ok(response)
 }
