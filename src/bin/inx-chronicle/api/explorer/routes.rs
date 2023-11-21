@@ -350,7 +350,7 @@ async fn richest_addresses_ledger_analytics(
     RichestAddressesQuery { top, ledger_index }: RichestAddressesQuery,
 ) -> ApiResult<RichestAddressesResponse> {
     let ledger_index = resolve_ledger_index(&database, ledger_index).await?;
-    let cache = RICHEST_ADDRESSES_CACHE.read().await;
+    let cache = RICHEST_ADDRESSES_CACHE.write().await;
     let seconds_until_midnight = calculate_seconds_until_midnight();
 
     if let Some(cached_data) = &*cache {
@@ -358,8 +358,6 @@ async fn richest_addresses_ledger_analytics(
             return Ok(cached_data.data.clone());
         }
     }
-
-    drop(cache); // release the read lock
 
     info!("refreshing richest-addresses cache ...");
     let refresh_start = SystemTime::now();
@@ -404,7 +402,7 @@ async fn token_distribution_ledger_analytics(
     LedgerIndex { ledger_index }: LedgerIndex,
 ) -> ApiResult<TokenDistributionResponse> {
     let ledger_index = resolve_ledger_index(&database, ledger_index).await?;
-    let cache = TOKEN_DISTRIBUTION_CACHE.read().await;
+    let cache = TOKEN_DISTRIBUTION_CACHE.write().await;
 
     let seconds_until_midnight = calculate_seconds_until_midnight();
     if let Some(cached_data) = &*cache {
@@ -412,8 +410,6 @@ async fn token_distribution_ledger_analytics(
             return Ok(cached_data.data.clone());
         }
     }
-
-    drop(cache); // release the read lock
 
     info!("refreshing token-distribution cache ...");
     let refresh_start = SystemTime::now();
