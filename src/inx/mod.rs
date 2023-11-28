@@ -13,7 +13,7 @@ mod request;
 pub mod responses;
 
 use inx::proto;
-use iota_sdk::types::block::{output::Output, payload::Payload, slot::SlotCommitment, SignedBlock};
+use iota_sdk::types::block::{output::Output, payload::Payload, slot::SlotCommitment, Block};
 
 pub use self::{client::Inx, error::InxError, request::SlotRangeRequest};
 use crate::model::raw::{InvalidRawBytesError, Raw};
@@ -26,7 +26,7 @@ impl TryFrom<proto::RawOutput> for Raw<Output> {
     }
 }
 
-impl TryFrom<proto::RawBlock> for Raw<SignedBlock> {
+impl TryFrom<proto::RawBlock> for Raw<Block> {
     type Error = InvalidRawBytesError;
 
     fn try_from(value: proto::RawBlock) -> Result<Self, Self::Error> {

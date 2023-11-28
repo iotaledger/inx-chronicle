@@ -129,8 +129,8 @@ impl TryConvertFrom<proto::OutputId> for OutputId {
     where
         Self: Sized,
     {
-        Ok(Self::try_from(<[u8; Self::LENGTH]>::try_from(proto.id).map_err(
-            |e| InvalidRawBytesError(format!("invalid output id bytes: {}", hex::encode(e))),
-        )?)?)
+        Ok(<[u8; Self::LENGTH]>::try_from(proto.id)
+            .map_err(|e| InvalidRawBytesError(format!("invalid output id bytes: {}", hex::encode(e))))?
+            .into())
     }
 }

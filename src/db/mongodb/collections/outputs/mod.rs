@@ -158,8 +158,8 @@ struct OutputDetails {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     block_issuer_expiry: Option<SlotIndex>,
     // TODO: staking feature
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    native_tokens: Vec<NativeTokenDto>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    native_tokens: Option<NativeTokenDto>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     validator: Option<AccountId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -253,11 +253,9 @@ impl From<&LedgerOutput> for OutputDocument {
                     .map(|uc| uc.expiry_slot()),
                 native_tokens: rec
                     .output()
-                    .native_tokens()
-                    .into_iter()
-                    .flat_map(|t| t.iter())
-                    .map(Into::into)
-                    .collect(),
+                    .features()
+                    .and_then(|f| f.native_token())
+                    .map(|f| f.native_token().into()),
                 validator: rec
                     .output()
                     .as_delegation_opt()

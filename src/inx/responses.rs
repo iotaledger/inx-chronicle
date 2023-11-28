@@ -4,7 +4,7 @@
 #![allow(missing_docs)]
 
 use inx::proto;
-use iota_sdk::types::block::{slot::SlotCommitmentId, BlockId, SignedBlock};
+use iota_sdk::types::block::{self as iota, slot::SlotCommitmentId, BlockId};
 use packable::PackableExt;
 
 use super::{
@@ -26,7 +26,7 @@ use crate::{
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Block {
     pub block_id: BlockId,
-    pub block: Raw<SignedBlock>,
+    pub block: Raw<iota::Block>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -79,7 +79,7 @@ impl TryConvertFrom<proto::NodeStatus> for NodeStatus {
             last_accepted_block_slot: proto.last_accepted_block_slot.into(),
             last_confirmed_block_slot: proto.last_confirmed_block_slot.into(),
             latest_commitment: maybe_missing!(proto.latest_commitment).try_convert()?,
-            latest_finalized_commitment_id: maybe_missing!(proto.latest_finalized_commitment_id).try_convert()?,
+            latest_finalized_commitment: maybe_missing!(proto.latest_finalized_commitment).try_convert()?,
             pruning_epoch: proto.pruning_epoch.into(),
             is_bootstrapped: proto.is_bootstrapped,
         })
@@ -97,9 +97,11 @@ impl TryConvertFrom<proto::BaseToken> for BaseToken {
             name: proto.name,
             ticker_symbol: proto.ticker_symbol,
             unit: proto.unit,
-            subunit: Some(proto.subunit),
+            subunit: match proto.subunit.as_str() {
+                "" => None,
+                _ => Some(proto.subunit),
+            },
             decimals: proto.decimals,
-            use_metric_prefix: proto.use_metric_prefix,
         })
     }
 }

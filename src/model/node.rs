@@ -3,7 +3,7 @@
 
 //! Module that contains node related types.
 
-use iota_sdk::types::block::slot::{EpochIndex, SlotCommitmentId, SlotIndex};
+use iota_sdk::types::block::slot::{EpochIndex, SlotIndex};
 use serde::{Deserialize, Serialize};
 
 use super::{protocol::ProtocolParameters, slot::Commitment};
@@ -22,8 +22,6 @@ pub struct BaseToken {
     pub subunit: Option<String>,
     /// The number of allowed decimal places.
     pub decimals: u32,
-    /// Whether a metric prefix is used for display.
-    pub use_metric_prefix: bool,
 }
 
 /// Node configuation.
@@ -49,7 +47,7 @@ pub struct NodeStatus {
     pub last_accepted_block_slot: SlotIndex,
     pub last_confirmed_block_slot: SlotIndex,
     pub latest_commitment: Commitment,
-    pub latest_finalized_commitment_id: SlotCommitmentId,
+    pub latest_finalized_commitment: Commitment,
     pub pruning_epoch: EpochIndex,
     pub is_bootstrapped: bool,
 }

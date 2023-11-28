@@ -104,23 +104,27 @@ impl LedgerUpdate {
     }
 }
 
-impl From<inx::proto::ledger_update::Marker> for MarkerMessage {
-    fn from(value: inx::proto::ledger_update::Marker) -> Self {
-        Self {
-            slot_index: value.slot.into(),
+impl TryConvertFrom<inx::proto::ledger_update::Marker> for MarkerMessage {
+    type Error = InxError;
+
+    fn try_convert_from(value: inx::proto::ledger_update::Marker) -> Result<Self, Self::Error> {
+        Ok(Self {
+            slot_index: SlotCommitmentId::try_convert_from(maybe_missing!(value.commitment_id))?.slot_index(),
             consumed_count: value.consumed_count as usize,
             created_count: value.created_count as usize,
-        }
+        })
     }
 }
 
-impl From<inx::proto::ledger_update::Marker> for LedgerUpdate {
-    fn from(value: inx::proto::ledger_update::Marker) -> Self {
+impl TryConvertFrom<inx::proto::ledger_update::Marker> for LedgerUpdate {
+    type Error = InxError;
+
+    fn try_convert_from(value: inx::proto::ledger_update::Marker) -> Result<Self, Self::Error> {
         use inx::proto::ledger_update::marker::MarkerType as proto;
-        match value.marker_type() {
-            proto::Begin => Self::Begin(value.into()),
-            proto::End => Self::End(value.into()),
-        }
+        Ok(match value.marker_type() {
+            proto::Begin => Self::Begin(value.try_convert()?),
+            proto::End => Self::End(value.try_convert()?),
+        })
     }
 }
 
@@ -139,7 +143,7 @@ impl TryConvertFrom<inx::proto::LedgerUpdate> for LedgerUpdate {
     fn try_convert_from(proto: inx::proto::LedgerUpdate) -> Result<Self, Self::Error> {
         use inx::proto::ledger_update::Op as proto;
         Ok(match maybe_missing!(proto.op) {
-            proto::BatchMarker(marker) => marker.into(),
+            proto::BatchMarker(marker) => marker.try_convert()?,
             proto::Consumed(consumed) => LedgerUpdate::Consumed(consumed.try_convert()?),
             proto::Created(created) => LedgerUpdate::Created(created.try_convert()?),
         })

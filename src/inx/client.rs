@@ -3,7 +3,7 @@
 
 use futures::stream::{Stream, StreamExt};
 use inx::{client::InxClient, proto};
-use iota_sdk::types::block::{output::OutputId, slot::SlotIndex, BlockId, SignedBlock};
+use iota_sdk::types::block::{self as iota, output::OutputId, slot::SlotIndex, BlockId};
 use packable::PackableExt;
 
 use super::{
@@ -90,7 +90,7 @@ impl Inx {
     }
 
     /// Get a block using a block id.
-    pub async fn get_block(&mut self, block_id: BlockId) -> Result<Raw<SignedBlock>, InxError> {
+    pub async fn get_block(&mut self, block_id: BlockId) -> Result<Raw<iota::Block>, InxError> {
         Ok(self
             .inx
             .read_block(proto::BlockId { id: block_id.to_vec() })

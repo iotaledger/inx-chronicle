@@ -1,7 +1,7 @@
 // Copyright 2023 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-use iota_sdk::types::block::{payload::Payload, SignedBlock};
+use iota_sdk::types::block::{payload::Payload, Block};
 
 use crate::{
     analytics::{Analytics, AnalyticsContext},
@@ -27,8 +27,8 @@ pub(crate) struct BlockActivityMeasurement {
 impl Analytics for BlockActivityMeasurement {
     type Measurement = Self;
 
-    fn handle_block(&mut self, block: &SignedBlock, metadata: &BlockMetadata, _ctx: &dyn AnalyticsContext) {
-        match block.block().as_basic_opt().and_then(|b| b.payload()) {
+    fn handle_block(&mut self, block: &Block, metadata: &BlockMetadata, _ctx: &dyn AnalyticsContext) {
+        match block.body().as_basic_opt().and_then(|b| b.payload()) {
             Some(Payload::TaggedData(_)) => self.tagged_data_count += 1,
             Some(Payload::SignedTransaction(_)) => self.transaction_count += 1,
             Some(Payload::CandidacyAnnouncement(_)) => self.candidacy_announcement_count += 1,

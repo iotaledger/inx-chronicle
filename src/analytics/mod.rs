@@ -4,7 +4,7 @@
 //! Various analytics that give insight into the usage of the tangle.
 
 use futures::TryStreamExt;
-use iota_sdk::types::block::{output::OutputId, protocol::ProtocolParameters, slot::SlotIndex, SignedBlock};
+use iota_sdk::types::block::{output::OutputId, protocol::ProtocolParameters, slot::SlotIndex, Block};
 use thiserror::Error;
 
 use self::{
@@ -53,7 +53,7 @@ pub trait Analytics {
     ) {
     }
     /// Handle a block.
-    fn handle_block(&mut self, _block: &SignedBlock, _metadata: &BlockMetadata, _ctx: &dyn AnalyticsContext) {}
+    fn handle_block(&mut self, _block: &Block, _metadata: &BlockMetadata, _ctx: &dyn AnalyticsContext) {}
     /// Take the measurement from the analytic. This should prepare the analytic for the next slot.
     fn take_measurement(&mut self, ctx: &dyn AnalyticsContext) -> Self::Measurement;
 }
@@ -61,7 +61,7 @@ pub trait Analytics {
 // This trait allows using the above implementation dynamically
 trait DynAnalytics: Send {
     fn handle_transaction(&mut self, consumed: &[LedgerSpent], created: &[LedgerOutput], ctx: &dyn AnalyticsContext);
-    fn handle_block(&mut self, block: &SignedBlock, metadata: &BlockMetadata, ctx: &dyn AnalyticsContext);
+    fn handle_block(&mut self, block: &Block, metadata: &BlockMetadata, ctx: &dyn AnalyticsContext);
     fn take_measurement(&mut self, ctx: &dyn AnalyticsContext) -> Box<dyn PrepareQuery>;
 }
 
@@ -73,7 +73,7 @@ where
         Analytics::handle_transaction(self, consumed, created, ctx)
     }
 
-    fn handle_block(&mut self, block: &SignedBlock, metadata: &BlockMetadata, ctx: &dyn AnalyticsContext) {
+    fn handle_block(&mut self, block: &Block, metadata: &BlockMetadata, ctx: &dyn AnalyticsContext) {
         Analytics::handle_block(self, block, metadata, ctx)
     }
 
@@ -163,7 +163,7 @@ impl Analytic {
 impl<T: AsMut<[Analytic]>> Analytics for T {
     type Measurement = Vec<Box<dyn PrepareQuery>>;
 
-    fn handle_block(&mut self, block: &SignedBlock, metadata: &BlockMetadata, ctx: &dyn AnalyticsContext) {
+    fn handle_block(&mut self, block: &Block, metadata: &BlockMetadata, ctx: &dyn AnalyticsContext) {
         for analytic in self.as_mut().iter_mut() {
             analytic.0.handle_block(block, metadata, ctx);
         }
@@ -243,7 +243,7 @@ impl<'a, I: InputSource> Slot<'a, I> {
         // TODO: Is this right?
         if block_data.metadata.block_state == BlockState::Confirmed {
             if let Some(payload) = block
-                .block()
+                .body()
                 .as_basic_opt()
                 .and_then(|b| b.payload())
                 .and_then(|p| p.as_signed_transaction_opt())
@@ -270,7 +270,7 @@ impl<'a, I: InputSource> Slot<'a, I> {
                     .iter()
                     .enumerate()
                     .map(|(index, _)| {
-                        let output_id = payload.transaction().id().into_output_id(index as _).unwrap();
+                        let output_id = payload.transaction().id().into_output_id(index as _);
                         Ok(self
                             .ledger_updates()
                             .get_created(&output_id)
@@ -390,7 +390,7 @@ struct PerInterval<M> {
 //     };
 
 //     use futures::TryStreamExt;
-//     use iota_sdk::types::block::{protocol::ProtocolParameters, slot::SlotIndex, SignedBlock};
+//     use iota_sdk::types::block::{protocol::ProtocolParameters, slot::SlotIndex, Block};
 //     use serde::{de::DeserializeOwned, Deserialize, Serialize};
 
 //     use super::{
@@ -480,7 +480,7 @@ struct PerInterval<M> {
 //     impl Analytics for TestAnalytics {
 //         type Measurement = TestMeasurements;
 
-//         fn handle_block(&mut self, block: &SignedBlock, metadata: &BlockMetadata, ctx: &dyn AnalyticsContext) {
+//         fn handle_block(&mut self, block: &Block, metadata: &BlockMetadata, ctx: &dyn AnalyticsContext) {
 //             self.active_addresses.handle_block(block, metadata, ctx);
 //             self.address_balance.handle_block(block, metadata, ctx);
 //             self.base_tokens.handle_block(block, metadata, ctx);

@@ -27,7 +27,7 @@ use iota_sdk::types::{
         output::{OutputId, OutputMetadata as OutputMetadataResponse},
         payload::signed_transaction::TransactionId,
         slot::{SlotCommitment, SlotCommitmentId, SlotIndex},
-        BlockId, SignedBlockDto,
+        BlockDto, BlockId,
     },
 };
 use packable::PackableExt;
@@ -123,7 +123,6 @@ pub async fn info(database: State<MongoDb>) -> ApiResult<InfoResponse> {
             decimals: base_token.decimals,
             unit: base_token.unit,
             subunit: base_token.subunit,
-            use_metric_prefix: base_token.use_metric_prefix,
         },
         protocol_parameters,
     })
@@ -133,7 +132,7 @@ async fn block(
     database: State<MongoDb>,
     Path(block_id): Path<BlockId>,
     headers: HeaderMap,
-) -> ApiResult<IotaRawResponse<SignedBlockDto>> {
+) -> ApiResult<IotaRawResponse<BlockDto>> {
     if matches!(headers.get(axum::http::header::ACCEPT), Some(header) if header == BYTE_CONTENT_HEADER) {
         return Ok(IotaRawResponse::Raw(
             database
@@ -250,7 +249,7 @@ async fn included_block(
     database: State<MongoDb>,
     Path(transaction_id): Path<TransactionId>,
     headers: HeaderMap,
-) -> ApiResult<IotaRawResponse<SignedBlockDto>> {
+) -> ApiResult<IotaRawResponse<BlockDto>> {
     if matches!(headers.get(axum::http::header::ACCEPT), Some(header) if header == BYTE_CONTENT_HEADER) {
         return Ok(IotaRawResponse::Raw(
             database

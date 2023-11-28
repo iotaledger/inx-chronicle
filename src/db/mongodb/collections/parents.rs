@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use futures::{prelude::stream::TryStreamExt, Stream};
-use iota_sdk::types::block::{Block, BlockId};
+use iota_sdk::types::block::{BlockBody, BlockId};
 use mongodb::{
     bson::doc,
     options::{IndexOptions, InsertManyOptions},
@@ -66,7 +66,7 @@ impl MongoDbCollection for ParentsCollection {
 }
 
 impl ParentsCollection {
-    /// Inserts [`SignedBlock`]s together with their associated [`BlockMetadata`].
+    /// Inserts [`Block`]s together with their associated [`BlockMetadata`].
     #[instrument(skip_all, err, level = "trace")]
     pub async fn insert_blocks<'a, I>(&self, blocks_with_metadata: I) -> Result<(), DbError>
     where
@@ -74,9 +74,9 @@ impl ParentsCollection {
         I::IntoIter: Send + Sync,
     {
         let docs = blocks_with_metadata.into_iter().flat_map(|b| {
-            match b.block.inner().block() {
-                Block::Basic(b) => b.strong_parents().into_iter(),
-                Block::Validation(b) => b.strong_parents().into_iter(),
+            match b.block.inner().body() {
+                BlockBody::Basic(b) => b.strong_parents().into_iter(),
+                BlockBody::Validation(b) => b.strong_parents().into_iter(),
             }
             .map(|parent_id| ParentsDocument {
                 parent_id: *parent_id,

@@ -3,7 +3,7 @@
 
 //! Module containing block metadata types.
 
-use iota_sdk::types::block::{BlockId, SignedBlock};
+use iota_sdk::types::block::{self as iota, BlockId};
 use serde::{Deserialize, Serialize};
 
 use super::raw::Raw;
@@ -22,7 +22,7 @@ pub struct BlockMetadata {
 #[allow(missing_docs)]
 pub struct BlockWithMetadata {
     pub metadata: BlockMetadata,
-    pub block: Raw<SignedBlock>,
+    pub block: Raw<iota::Block>,
 }
 
 /// Describes the state of a block.

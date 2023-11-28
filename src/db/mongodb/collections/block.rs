@@ -3,7 +3,7 @@
 
 use futures::{Stream, TryStreamExt};
 use iota_sdk::types::block::{
-    output::OutputId, payload::signed_transaction::TransactionId, slot::SlotIndex, BlockId, SignedBlock,
+    output::OutputId, payload::signed_transaction::TransactionId, slot::SlotIndex, Block, BlockId,
 };
 use mongodb::{
     bson::doc,
@@ -32,7 +32,7 @@ pub struct BlockDocument {
     #[serde(rename = "_id")]
     block_id: BlockId,
     /// The block.
-    block: Raw<SignedBlock>,
+    block: Raw<Block>,
     /// The block's metadata.
     metadata: BlockMetadata,
     /// The index of the slot to which this block commits.
@@ -47,7 +47,7 @@ impl From<BlockWithMetadata> for BlockDocument {
     fn from(BlockWithMetadata { block, metadata }: BlockWithMetadata) -> Self {
         let transaction = block
             .inner()
-            .block()
+            .body()
             .as_basic_opt()
             .and_then(|b| b.payload())
             .and_then(|p| p.as_signed_transaction_opt())
@@ -65,7 +65,7 @@ impl From<BlockWithMetadata> for BlockDocument {
             slot_index: block.inner().slot_commitment_id().slot_index(),
             payload_type: block
                 .inner()
-                .block()
+                .body()
                 .as_basic_opt()
                 .and_then(|b| b.payload())
                 .map(|p| p.kind()),
@@ -139,7 +139,7 @@ impl MongoDbCollection for BlockCollection {
 #[derive(Debug, Clone)]
 pub struct IncludedBlockResult {
     pub block_id: BlockId,
-    pub block: SignedBlock,
+    pub block: Block,
 }
 
 #[derive(Deserialize, Debug, Clone)]
@@ -151,18 +151,18 @@ pub struct IncludedBlockMetadataResult {
 
 #[derive(Deserialize)]
 struct RawResult {
-    block: Raw<SignedBlock>,
+    block: Raw<Block>,
 }
 
 /// Implements the queries for the core API.
 impl BlockCollection {
-    /// Get a [`SignedBlock`] by its [`BlockId`].
-    pub async fn get_block(&self, block_id: &BlockId) -> Result<Option<SignedBlock>, DbError> {
+    /// Get a [`Block`] by its [`BlockId`].
+    pub async fn get_block(&self, block_id: &BlockId) -> Result<Option<Block>, DbError> {
         Ok(self.get_block_raw(block_id).await?.map(|raw| raw.into_inner()))
     }
 
-    /// Get the raw bytes of a [`SignedBlock`] by its [`BlockId`].
-    pub async fn get_block_raw(&self, block_id: &BlockId) -> Result<Option<Raw<SignedBlock>>, DbError> {
+    /// Get the raw bytes of a [`Block`] by its [`BlockId`].
+    pub async fn get_block_raw(&self, block_id: &BlockId) -> Result<Option<Raw<Block>>, DbError> {
         Ok(self
             .aggregate(
                 [
@@ -177,7 +177,7 @@ impl BlockCollection {
             .map(|RawResult { block }| block))
     }
 
-    /// Get the metadata of a [`SignedBlock`] by its [`BlockId`].
+    /// Get the metadata of a [`Block`] by its [`BlockId`].
     pub async fn get_block_metadata(&self, block_id: &BlockId) -> Result<Option<BlockMetadata>, DbError> {
         Ok(self
             .aggregate(
@@ -216,7 +216,7 @@ impl BlockCollection {
             .map_err(Into::into))
     }
 
-    /// Inserts [`SignedBlock`]s together with their associated [`BlockMetadata`].
+    /// Inserts [`Block`]s together with their associated [`BlockMetadata`].
     #[instrument(skip_all, err, level = "trace")]
     pub async fn insert_blocks_with_metadata<I>(&self, blocks_with_metadata: I) -> Result<(), DbError>
     where
@@ -231,7 +231,7 @@ impl BlockCollection {
         Ok(())
     }
 
-    /// Finds the [`SignedBlock`] that included a transaction by [`TransactionId`].
+    /// Finds the [`Block`] that included a transaction by [`TransactionId`].
     pub async fn get_block_for_transaction(
         &self,
         transaction_id: &TransactionId,
@@ -240,7 +240,7 @@ impl BlockCollection {
         struct Res {
             #[serde(rename = "_id")]
             block_id: BlockId,
-            block: Raw<SignedBlock>,
+            block: Raw<Block>,
         }
 
         Ok(self
@@ -267,7 +267,7 @@ impl BlockCollection {
     pub async fn get_block_raw_for_transaction(
         &self,
         transaction_id: &TransactionId,
-    ) -> Result<Option<Raw<SignedBlock>>, DbError> {
+    ) -> Result<Option<Raw<Block>>, DbError> {
         Ok(self
             .aggregate(
                 [
@@ -310,7 +310,7 @@ impl BlockCollection {
     }
 
     /// Gets the block containing the spending transaction of an output by [`OutputId`].
-    pub async fn get_spending_transaction(&self, output_id: &OutputId) -> Result<Option<SignedBlock>, DbError> {
+    pub async fn get_spending_transaction(&self, output_id: &OutputId) -> Result<Option<Block>, DbError> {
         Ok(self
             .aggregate(
                 [
