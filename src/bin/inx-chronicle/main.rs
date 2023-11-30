@@ -172,6 +172,7 @@ async fn build_indexes(db: &MongoDb) -> eyre::Result<()> {
     use chronicle::db::mongodb::collections;
     let start_indexes = db.get_index_names().await?;
     db.create_indexes::<collections::OutputCollection>().await?;
+    db.create_indexes::<collections::ParentsCollection>().await?;
     db.create_indexes::<collections::BlockCollection>().await?;
     db.create_indexes::<collections::LedgerUpdateCollection>().await?;
     db.create_indexes::<collections::CommittedSlotCollection>().await?;
