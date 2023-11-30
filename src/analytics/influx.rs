@@ -62,7 +62,7 @@ where
 {
     fn prepare_query(&self) -> Vec<WriteQuery> {
         vec![
-            influxdb::Timestamp::Nanoseconds(self.slot_timestamp as _)
+            influxdb::Timestamp::Seconds(self.slot_timestamp as _)
                 .into_query(M::NAME)
                 .add_field("slot_index", self.slot_index.0)
                 .add_fields(&self.inner),
@@ -137,17 +137,24 @@ impl Measurement for BlockActivityMeasurement {
 
     fn add_fields(&self, query: WriteQuery) -> WriteQuery {
         query
+            .add_field("basic_count", self.basic_count as u64)
+            .add_field("validation_count", self.validation_count as u64)
             .add_field("transaction_count", self.transaction_count as u64)
             .add_field("tagged_data_count", self.tagged_data_count as u64)
             .add_field("candidacy_announcement_count", self.candidacy_announcement_count as u64)
             .add_field("no_payload_count", self.no_payload_count as u64)
-            .add_field("pending_count", self.pending_count as u64)
-            .add_field("accepted_count", self.accepted_count as u64)
-            .add_field("confirmed_count", self.confirmed_count as u64)
-            .add_field("finalized_count", self.finalized_count as u64)
-            .add_field("rejected_count", self.rejected_count as u64)
-            .add_field("failed_count", self.failed_count as u64)
-            .add_field("unknown_count", self.unknown_count as u64)
+            .add_field("block_pending_count", self.block_pending_count as u64)
+            .add_field("block_accepted_count", self.block_accepted_count as u64)
+            .add_field("block_confirmed_count", self.block_confirmed_count as u64)
+            .add_field("block_finalized_count", self.block_finalized_count as u64)
+            .add_field("block_rejected_count", self.block_rejected_count as u64)
+            .add_field("block_failed_count", self.block_failed_count as u64)
+            .add_field("block_unknown_count", self.block_unknown_count as u64)
+            .add_field("txn_pending_count", self.txn_pending_count as u64)
+            .add_field("txn_accepted_count", self.txn_accepted_count as u64)
+            .add_field("txn_confirmed_count", self.txn_confirmed_count as u64)
+            .add_field("txn_finalized_count", self.txn_finalized_count as u64)
+            .add_field("txn_failed_count", self.txn_failed_count as u64)
     }
 }
 

@@ -81,6 +81,7 @@
               "mode": "off"
             }
           },
+          "decimals": 0,
           "mappings": [],
           "thresholds": {
             "mode": "absolute",
@@ -104,7 +105,7 @@
         "x": 0,
         "y": 1
       },
-      "id": 4,
+      "id": 72,
       "interval": "1m",
       "options": {
         "legend": {
@@ -115,12 +116,12 @@
         },
         "tooltip": {
           "mode": "multi",
-          "sort": "desc"
+          "sort": "none"
         }
       },
       "targets": [
         {
-          "alias": "$col Payloads",
+          "alias": "$col Blocks",
           "datasource": {
             "type": "influxdb",
             "uid": "PE5723DBC504634E6"
@@ -139,17 +140,16 @@
               "type": "fill"
             }
           ],
-          "hide": false,
           "measurement": "iota_block_activity",
           "orderByTime": "ASC",
           "policy": "default",
-          "refId": "B",
+          "refId": "A",
           "resultFormat": "time_series",
           "select": [
             [
               {
                 "params": [
-                  "transaction_count"
+                  "basic_count"
                 ],
                 "type": "field"
               },
@@ -159,7 +159,7 @@
               },
               {
                 "params": [
-                  "Transactions"
+                  "Basic"
                 ],
                 "type": "alias"
               }
@@ -167,7 +167,7 @@
             [
               {
                 "params": [
-                  "tagged_data_count"
+                  "validation_count"
                 ],
                 "type": "field"
               },
@@ -177,43 +177,7 @@
               },
               {
                 "params": [
-                  "Tagged Data"
-                ],
-                "type": "alias"
-              }
-            ],
-            [
-              {
-                "params": [
-                  "no_payload_count"
-                ],
-                "type": "field"
-              },
-              {
-                "params": [],
-                "type": "sum"
-              },
-              {
-                "params": [
-                  "Empty"
-                ],
-                "type": "alias"
-              }
-            ],
-            [
-              {
-                "params": [
-                  "candidacy_announcement_count"
-                ],
-                "type": "field"
-              },
-              {
-                "params": [],
-                "type": "sum"
-              },
-              {
-                "params": [
-                  "Candidacy Announcement"
+                  "Validation"
                 ],
                 "type": "alias"
               }
@@ -222,7 +186,7 @@
           "tags": []
         }
       ],
-      "title": "Blocks/${aggregation_interval}",
+      "title": "Blocks/$aggregation_interval",
       "type": "timeseries"
     },
     {
@@ -307,7 +271,7 @@
       },
       "targets": [
         {
-          "alias": "$col Transactions",
+          "alias": "$col",
           "datasource": {
             "type": "influxdb",
             "uid": "PE5723DBC504634E6"
@@ -335,7 +299,43 @@
             [
               {
                 "params": [
-                  "confirmed_count"
+                  "block_pending_count"
+                ],
+                "type": "field"
+              },
+              {
+                "params": [],
+                "type": "sum"
+              },
+              {
+                "params": [
+                  "Pending"
+                ],
+                "type": "alias"
+              }
+            ],
+            [
+              {
+                "params": [
+                  "block_accepted_count"
+                ],
+                "type": "field"
+              },
+              {
+                "params": [],
+                "type": "sum"
+              },
+              {
+                "params": [
+                  "Accepted"
+                ],
+                "type": "alias"
+              }
+            ],
+            [
+              {
+                "params": [
+                  "block_confirmed_count"
                 ],
                 "type": "field"
               },
@@ -353,7 +353,7 @@
             [
               {
                 "params": [
-                  "conflicting_count"
+                  "block_finalized_count"
                 ],
                 "type": "field"
               },
@@ -363,7 +363,61 @@
               },
               {
                 "params": [
-                  "Conflicting"
+                  "Finalized"
+                ],
+                "type": "alias"
+              }
+            ],
+            [
+              {
+                "params": [
+                  "block_rejected_count"
+                ],
+                "type": "field"
+              },
+              {
+                "params": [],
+                "type": "sum"
+              },
+              {
+                "params": [
+                  "Rejected"
+                ],
+                "type": "alias"
+              }
+            ],
+            [
+              {
+                "params": [
+                  "block_failed_count"
+                ],
+                "type": "field"
+              },
+              {
+                "params": [],
+                "type": "sum"
+              },
+              {
+                "params": [
+                  "Failed"
+                ],
+                "type": "alias"
+              }
+            ],
+            [
+              {
+                "params": [
+                  "block_unknown_count"
+                ],
+                "type": "field"
+              },
+              {
+                "params": [],
+                "type": "sum"
+              },
+              {
+                "params": [
+                  "Unknown"
                 ],
                 "type": "alias"
               }
@@ -372,7 +426,397 @@
           "tags": []
         }
       ],
-      "title": "Transaction Payloads/$aggregation_interval",
+      "title": "Block States/$aggregation_interval",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "influxdb",
+        "uid": "PE5723DBC504634E6"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "bars",
+            "fillOpacity": 80,
+            "gradientMode": "opacity",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "stepAfter",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": true,
+            "stacking": {
+              "group": "A",
+              "mode": "normal"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 9
+      },
+      "id": 4,
+      "interval": "1m",
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "alias": "$col Payloads",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "PE5723DBC504634E6"
+          },
+          "groupBy": [
+            {
+              "params": [
+                "$aggregation_interval"
+              ],
+              "type": "time"
+            },
+            {
+              "params": [
+                "null"
+              ],
+              "type": "fill"
+            }
+          ],
+          "hide": false,
+          "measurement": "iota_block_activity",
+          "orderByTime": "ASC",
+          "policy": "default",
+          "refId": "B",
+          "resultFormat": "time_series",
+          "select": [
+            [
+              {
+                "params": [
+                  "transaction_count"
+                ],
+                "type": "field"
+              },
+              {
+                "params": [],
+                "type": "sum"
+              },
+              {
+                "params": [
+                  "Transactions"
+                ],
+                "type": "alias"
+              }
+            ],
+            [
+              {
+                "params": [
+                  "tagged_data_count"
+                ],
+                "type": "field"
+              },
+              {
+                "params": [],
+                "type": "sum"
+              },
+              {
+                "params": [
+                  "Tagged Data"
+                ],
+                "type": "alias"
+              }
+            ],
+            [
+              {
+                "params": [
+                  "candidacy_announcement_count"
+                ],
+                "type": "field"
+              },
+              {
+                "params": [],
+                "type": "sum"
+              },
+              {
+                "params": [
+                  "Candidacy Announcement"
+                ],
+                "type": "alias"
+              }
+            ],
+            [
+              {
+                "params": [
+                  "no_payload_count"
+                ],
+                "type": "field"
+              },
+              {
+                "params": [],
+                "type": "sum"
+              },
+              {
+                "params": [
+                  "Empty"
+                ],
+                "type": "alias"
+              }
+            ]
+          ],
+          "tags": []
+        }
+      ],
+      "title": "Block Payloads/${aggregation_interval}",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "influxdb",
+        "uid": "PE5723DBC504634E6"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "bars",
+            "fillOpacity": 80,
+            "gradientMode": "opacity",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "stepAfter",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": true,
+            "stacking": {
+              "group": "A",
+              "mode": "normal"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "decimals": 0,
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 9
+      },
+      "id": 73,
+      "interval": "1m",
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "alias": "$col",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "PE5723DBC504634E6"
+          },
+          "groupBy": [
+            {
+              "params": [
+                "$aggregation_interval"
+              ],
+              "type": "time"
+            },
+            {
+              "params": [
+                "null"
+              ],
+              "type": "fill"
+            }
+          ],
+          "measurement": "iota_block_activity",
+          "orderByTime": "ASC",
+          "policy": "default",
+          "refId": "A",
+          "resultFormat": "time_series",
+          "select": [
+            [
+              {
+                "params": [
+                  "txn_pending_count"
+                ],
+                "type": "field"
+              },
+              {
+                "params": [],
+                "type": "sum"
+              },
+              {
+                "params": [
+                  "Pending"
+                ],
+                "type": "alias"
+              }
+            ],
+            [
+              {
+                "params": [
+                  "txn_accepted_count"
+                ],
+                "type": "field"
+              },
+              {
+                "params": [],
+                "type": "sum"
+              },
+              {
+                "params": [
+                  "Accepted"
+                ],
+                "type": "alias"
+              }
+            ],
+            [
+              {
+                "params": [
+                  "txn_confirmed_count"
+                ],
+                "type": "field"
+              },
+              {
+                "params": [],
+                "type": "sum"
+              },
+              {
+                "params": [
+                  "Confirmed"
+                ],
+                "type": "alias"
+              }
+            ],
+            [
+              {
+                "params": [
+                  "txn_finalized_count"
+                ],
+                "type": "field"
+              },
+              {
+                "params": [],
+                "type": "sum"
+              },
+              {
+                "params": [
+                  "Finalized"
+                ],
+                "type": "alias"
+              }
+            ],
+            [
+              {
+                "params": [
+                  "txn_failed_count"
+                ],
+                "type": "field"
+              },
+              {
+                "params": [],
+                "type": "sum"
+              },
+              {
+                "params": [
+                  "Failed"
+                ],
+                "type": "alias"
+              }
+            ]
+          ],
+          "tags": []
+        }
+      ],
+      "title": "Transaction States/$aggregation_interval",
       "type": "timeseries"
     },
     {
@@ -381,7 +825,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 9
+        "y": 17
       },
       "id": 54,
       "panels": [],
@@ -454,7 +898,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 10
+        "y": 18
       },
       "id": 12,
       "options": {
@@ -659,7 +1103,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 10
+        "y": 18
       },
       "id": 55,
       "options": {
@@ -834,7 +1278,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 18
+        "y": 26
       },
       "id": 43,
       "panels": [],
@@ -905,7 +1349,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 19
+        "y": 27
       },
       "id": 65,
       "options": {
@@ -1500,7 +1944,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 19
+        "y": 27
       },
       "id": 66,
       "options": {
@@ -1976,7 +2420,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 27
+        "y": 35
       },
       "id": 21,
       "options": {
@@ -2107,7 +2551,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 27
+        "y": 35
       },
       "id": 62,
       "options": {
@@ -2238,7 +2682,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 35
+        "y": 43
       },
       "id": 45,
       "options": {
@@ -2362,7 +2806,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 35
+        "y": 43
       },
       "id": 63,
       "options": {
@@ -2423,7 +2867,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 43
+        "y": 51
       },
       "id": 59,
       "panels": [],
@@ -2495,7 +2939,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 44
+        "y": 52
       },
       "id": 22,
       "options": {
@@ -2645,7 +3089,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 44
+        "y": 52
       },
       "id": 71,
       "options": {
@@ -2831,7 +3275,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 52
+        "y": 60
       },
       "id": 69,
       "options": {
@@ -2999,7 +3443,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 52
+        "y": 60
       },
       "id": 60,
       "options": {
@@ -3166,7 +3610,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 60
+        "y": 68
       },
       "id": 67,
       "options": {
@@ -3480,7 +3924,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 60
+        "y": 68
       },
       "id": 70,
       "options": {
@@ -3629,7 +4073,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 68
+        "y": 76
       },
       "id": 68,
       "options": {
@@ -3884,7 +4328,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 76
+        "y": 84
       },
       "id": 49,
       "panels": [],
@@ -3955,7 +4399,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 77
+        "y": 85
       },
       "id": 51,
       "options": {
@@ -4122,7 +4566,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 77
+        "y": 85
       },
       "id": 61,
       "options": {
@@ -4249,7 +4693,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 85
+        "y": 93
       },
       "id": 29,
       "panels": [],
@@ -4320,7 +4764,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 86
+        "y": 94
       },
       "id": 64,
       "options": {
@@ -4451,7 +4895,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 86
+        "y": 94
       },
       "id": 41,
       "options": {
@@ -4600,6 +5044,6 @@
   "timezone": "",
   "title": "Analytics",
   "uid": "w6B8aUI4z",
-  "version": 2,
+  "version": 3,
   "weekStart": ""
 }

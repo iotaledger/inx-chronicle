@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 
 use super::raw::Raw;
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[allow(missing_docs)]
 pub struct BlockMetadata {
     pub block_id: BlockId,
@@ -26,7 +26,7 @@ pub struct BlockWithMetadata {
 }
 
 /// Describes the state of a block.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum BlockState {
     /// Stored but not confirmed.
@@ -60,7 +60,7 @@ impl From<BlockState> for iota_sdk::types::api::core::BlockState {
 }
 
 /// Describes the state of a transaction.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum TransactionState {
     /// Stored but not confirmed.
@@ -88,7 +88,7 @@ impl From<TransactionState> for iota_sdk::types::api::core::TransactionState {
 }
 
 /// Describes the reason of a block failure.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum BlockFailureReason {
     /// The block is too old to issue.
@@ -140,7 +140,7 @@ impl From<BlockFailureReason> for iota_sdk::types::api::core::BlockFailureReason
 }
 
 /// Describes the reason of a transaction failure.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum TransactionFailureReason {
     /// The referenced UTXO was already spent.
