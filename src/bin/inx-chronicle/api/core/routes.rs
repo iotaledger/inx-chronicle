@@ -188,7 +188,7 @@ fn create_output_metadata_response(
         metadata.spent_metadata.is_some(),
         metadata.spent_metadata.as_ref().map(|m| m.commitment_id_spent),
         metadata.spent_metadata.as_ref().map(|m| m.transaction_id_spent),
-        Some(metadata.included_commitment_id),
+        Some(metadata.commitment_id_included),
         latest_commitment_id,
     ))
 }

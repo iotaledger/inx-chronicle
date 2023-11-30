@@ -65,7 +65,7 @@ pub struct OutputMetadata {
     /// The slot in which the output was booked (created).
     pub slot_booked: SlotIndex,
     /// Commitment ID that includes the output.
-    pub included_commitment_id: SlotCommitmentId,
+    pub commitment_id_included: SlotCommitmentId,
     /// Optional spent metadata.
     pub spent_metadata: Option<SpentMetadata>,
 }
@@ -174,7 +174,7 @@ impl From<&LedgerOutput> for OutputDocument {
             metadata: OutputMetadata {
                 block_id: rec.block_id,
                 slot_booked: rec.slot_booked,
-                included_commitment_id: rec.commitment_id_included,
+                commitment_id_included: rec.commitment_id_included,
                 spent_metadata: None,
             },
             details: OutputDetails {
@@ -476,7 +476,7 @@ impl OutputCollection {
                         "output_id": "$_id",
                         "block_id": "$metadata.block_id",
                         "slot_booked": "$metadata.slot_booked",
-                        "commitment_id_included": "metadata.commitment_id_included",
+                        "commitment_id_included": "$metadata.commitment_id_included",
                         "output": "$output",
                     } },
                 ],
