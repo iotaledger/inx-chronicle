@@ -74,12 +74,12 @@ inx = { git = "https://github.com/iotaledger/inx", default-features = false, opt
 tonic = { version = "0.10", default-features = false, optional = true }
 
 [dev-dependencies]
-bincode = { version = "1.3", default-features = false }
+# bincode = { version = "1.3", default-features = false }
 iota-sdk = { git = "https://github.com/iotaledger/iota-sdk", branch = "2.0", default-features = false, features = [ "std", "serde", "rand" ] }
 pretty_assertions = { version = "1.4", default-features = false, features = [ "std" ] }
 rand = { version = "0.8", default-features = false, features = [ "std" ] }
-ron = { version = "0.8", default-features = false }
-yazi = { version = "0.1", default-features = false }
+# ron = { version = "0.8", default-features = false }
+# yazi = { version = "0.2", default-features = false }
 
 [features]
 default = [

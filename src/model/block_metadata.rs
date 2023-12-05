@@ -3,7 +3,7 @@
 
 //! Module containing block metadata types.
 
-use iota_sdk::types::block::{self as iota, BlockId};
+use iota_sdk::types::block::{self as iota, payload::signed_transaction::TransactionId, BlockId};
 use serde::{Deserialize, Serialize};
 
 use super::raw::Raw;
@@ -13,8 +13,16 @@ use super::raw::Raw;
 pub struct BlockMetadata {
     pub block_id: BlockId,
     pub block_state: BlockState,
-    pub transaction_state: Option<TransactionState>,
     pub block_failure_reason: Option<BlockFailureReason>,
+    pub transaction_metadata: Option<TransactionMetadata>,
+}
+
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[allow(missing_docs)]
+
+pub struct TransactionMetadata {
+    pub transaction_id: TransactionId,
+    pub transaction_state: TransactionState,
     pub transaction_failure_reason: Option<TransactionFailureReason>,
 }
 

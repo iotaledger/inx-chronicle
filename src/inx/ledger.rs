@@ -197,17 +197,17 @@ impl ConvertFrom<proto::block_metadata::BlockState> for BlockState {
     }
 }
 
-impl ConvertFrom<proto::block_metadata::TransactionState> for Option<TransactionState> {
-    fn convert_from(proto: proto::block_metadata::TransactionState) -> Self {
-        use proto::block_metadata::TransactionState as ProtoState;
-        Some(match proto {
-            ProtoState::NoTransaction => return None,
+impl ConvertFrom<proto::transaction_metadata::TransactionState> for TransactionState {
+    fn convert_from(proto: proto::transaction_metadata::TransactionState) -> Self {
+        use proto::transaction_metadata::TransactionState as ProtoState;
+        match proto {
             ProtoState::Pending => TransactionState::Pending,
             ProtoState::Confirmed => TransactionState::Confirmed,
             ProtoState::Finalized => TransactionState::Finalized,
             ProtoState::Failed => TransactionState::Failed,
             ProtoState::Accepted => TransactionState::Accepted,
-        })
+            ProtoState::NoTransaction => panic!("tried to convert a transaction state where no transaction exists"),
+        }
     }
 }
 
@@ -233,9 +233,9 @@ impl ConvertFrom<proto::block_metadata::BlockFailureReason> for Option<BlockFail
     }
 }
 
-impl ConvertFrom<proto::block_metadata::TransactionFailureReason> for Option<TransactionFailureReason> {
-    fn convert_from(proto: proto::block_metadata::TransactionFailureReason) -> Self {
-        use proto::block_metadata::TransactionFailureReason as ProtoState;
+impl ConvertFrom<proto::transaction_metadata::TransactionFailureReason> for Option<TransactionFailureReason> {
+    fn convert_from(proto: proto::transaction_metadata::TransactionFailureReason) -> Self {
+        use proto::transaction_metadata::TransactionFailureReason as ProtoState;
         Some(match proto {
             ProtoState::None => return None,
             ProtoState::UtxoInputAlreadySpent => TransactionFailureReason::InputUtxoAlreadySpent,

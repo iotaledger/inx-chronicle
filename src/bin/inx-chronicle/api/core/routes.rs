@@ -21,10 +21,12 @@ use chronicle::{
 use iota_sdk::types::{
     api::core::{
         BaseTokenResponse, BlockMetadataResponse, OutputWithMetadataResponse, ProtocolParametersResponse,
-        UtxoChangesResponse,
+        TransactionMetadataResponse, UtxoChangesResponse,
     },
     block::{
-        output::{OutputId, OutputMetadata as OutputMetadataResponse},
+        output::{
+            OutputConsumptionMetadata, OutputId, OutputInclusionMetadata, OutputMetadata as OutputMetadataResponse,
+        },
         payload::signed_transaction::TransactionId,
         slot::{SlotCommitment, SlotCommitmentId, SlotIndex},
         BlockDto, BlockId,
@@ -157,9 +159,14 @@ fn create_block_metadata_response(block_id: BlockId, metadata: BlockMetadata) ->
     BlockMetadataResponse {
         block_id,
         block_state: metadata.block_state.into(),
-        transaction_state: metadata.transaction_state.map(Into::into),
         block_failure_reason: metadata.block_failure_reason.map(Into::into),
-        transaction_failure_reason: metadata.transaction_failure_reason.map(Into::into),
+        transaction_metadata: metadata
+            .transaction_metadata
+            .map(|metadata| TransactionMetadataResponse {
+                transaction_id: metadata.transaction_id,
+                transaction_state: metadata.transaction_state.into(),
+                transaction_failure_reason: metadata.transaction_failure_reason.map(Into::into),
+            }),
     }
 }
 
@@ -183,12 +190,20 @@ fn create_output_metadata_response(
     latest_commitment_id: SlotCommitmentId,
 ) -> ApiResult<OutputMetadataResponse> {
     Ok(OutputMetadataResponse::new(
-        metadata.block_id,
         output_id,
-        metadata.spent_metadata.is_some(),
-        metadata.spent_metadata.as_ref().map(|m| m.commitment_id_spent),
-        metadata.spent_metadata.as_ref().map(|m| m.transaction_id_spent),
-        Some(metadata.commitment_id_included),
+        metadata.block_id,
+        OutputInclusionMetadata::new(
+            metadata.commitment_id_included.slot_index(),
+            *output_id.transaction_id(),
+            Some(metadata.commitment_id_included),
+        ),
+        metadata.spent_metadata.map(|metadata| {
+            OutputConsumptionMetadata::new(
+                metadata.slot_spent,
+                metadata.transaction_id_spent,
+                Some(metadata.commitment_id_spent),
+            )
+        }),
         latest_commitment_id,
     ))
 }
@@ -220,10 +235,7 @@ async fn output(
 
     let metadata = create_output_metadata_response(output_id, metadata, latest_slot.commitment_id)?;
 
-    Ok(IotaRawResponse::Json(OutputWithMetadataResponse {
-        metadata,
-        output: (&output).into(),
-    }))
+    Ok(IotaRawResponse::Json(OutputWithMetadataResponse { metadata, output }))
 }
 
 async fn output_metadata(

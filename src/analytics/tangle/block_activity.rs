@@ -45,7 +45,7 @@ impl Analytics for BlockActivityMeasurement {
             Some(Payload::CandidacyAnnouncement(_)) => self.candidacy_announcement_count += 1,
             None => self.no_payload_count += 1,
         }
-        match metadata.block_state {
+        match &metadata.block_state {
             BlockState::Pending => self.block_pending_count += 1,
             BlockState::Accepted => self.block_accepted_count += 1,
             BlockState::Confirmed => self.block_confirmed_count += 1,
@@ -54,7 +54,7 @@ impl Analytics for BlockActivityMeasurement {
             BlockState::Failed => self.block_failed_count += 1,
             BlockState::Unknown => self.block_unknown_count += 1,
         }
-        if let Some(txn_state) = &metadata.transaction_state {
+        if let Some(txn_state) = metadata.transaction_metadata.as_ref().map(|m| &m.transaction_state) {
             match txn_state {
                 TransactionState::Pending => self.txn_pending_count += 1,
                 TransactionState::Accepted => self.txn_accepted_count += 1,

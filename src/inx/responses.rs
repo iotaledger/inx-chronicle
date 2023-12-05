@@ -14,7 +14,7 @@ use super::{
 use crate::{
     maybe_missing,
     model::{
-        block_metadata::{BlockMetadata, BlockWithMetadata},
+        block_metadata::{BlockMetadata, BlockWithMetadata, TransactionMetadata},
         ledger::{LedgerOutput, LedgerSpent},
         node::{BaseToken, NodeConfiguration, NodeStatus},
         protocol::ProtocolParameters,
@@ -192,10 +192,24 @@ impl TryConvertFrom<proto::BlockMetadata> for BlockMetadata {
     {
         Ok(Self {
             block_state: proto.block_state().convert(),
-            transaction_state: proto.transaction_state().convert(),
             block_failure_reason: proto.block_failure_reason().convert(),
-            transaction_failure_reason: proto.transaction_failure_reason().convert(),
+            transaction_metadata: proto.transaction_metadata.map(TryConvertTo::try_convert).transpose()?,
             block_id: maybe_missing!(proto.block_id).try_convert()?,
+        })
+    }
+}
+
+impl TryConvertFrom<proto::TransactionMetadata> for TransactionMetadata {
+    type Error = InxError;
+
+    fn try_convert_from(proto: proto::TransactionMetadata) -> Result<Self, Self::Error>
+    where
+        Self: Sized,
+    {
+        Ok(Self {
+            transaction_state: proto.transaction_state().convert(),
+            transaction_failure_reason: proto.transaction_failure_reason().convert(),
+            transaction_id: maybe_missing!(proto.transaction_id).try_convert()?,
         })
     }
 }
