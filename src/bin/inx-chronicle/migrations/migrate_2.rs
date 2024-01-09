@@ -13,7 +13,8 @@ use futures::prelude::stream::TryStreamExt;
 use tokio::task::JoinSet;
 
 use super::Migration;
-use crate::inx::INSERT_BATCH_SIZE;
+
+const INSERT_BATCH_SIZE: usize = 1000;
 
 pub struct Migrate;
 
