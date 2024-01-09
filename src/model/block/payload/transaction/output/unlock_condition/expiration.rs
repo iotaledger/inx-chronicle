@@ -14,8 +14,8 @@ use crate::model::{tangle::MilestoneTimestamp, utxo::Address};
 /// After or at the unix time, only Return Address can unlock it.
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ExpirationUnlockCondition {
-    return_address: Address,
-    timestamp: MilestoneTimestamp,
+    pub(crate) return_address: Address,
+    pub(crate) timestamp: MilestoneTimestamp,
 }
 
 impl<T: Borrow<iota::ExpirationUnlockCondition>> From<T> for ExpirationUnlockCondition {

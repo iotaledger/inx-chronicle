@@ -98,7 +98,7 @@ struct OutputDetails {
 
 impl From<&LedgerOutput> for OutputDocument {
     fn from(rec: &LedgerOutput) -> Self {
-        let address = rec.output.owning_address().copied();
+        let address = rec.owning_address().copied();
         let is_trivial_unlock = rec.output.is_trivial_unlock();
 
         Self {
@@ -141,6 +141,8 @@ impl From<&LedgerOutput> for OutputDocument {
 impl From<&LedgerSpent> for OutputDocument {
     fn from(rec: &LedgerSpent) -> Self {
         let mut res = Self::from(&rec.output);
+        // Update the address as the spending may have changed it
+        res.details.address = rec.owning_address().copied();
         res.metadata.spent_metadata.replace(rec.spent_metadata);
         res
     }

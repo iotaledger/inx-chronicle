@@ -30,7 +30,7 @@ impl LedgerOutput {
     }
 
     pub fn owning_address(&self) -> Option<&Address> {
-        self.output.owning_address()
+        self.output.owning_address(None)
     }
 }
 
@@ -53,7 +53,9 @@ impl LedgerSpent {
     }
 
     pub fn owning_address(&self) -> Option<&Address> {
-        self.output.owning_address()
+        self.output
+            .output
+            .owning_address(self.spent_metadata.spent.milestone_timestamp)
     }
 }
 /// The different number of bytes that are used for computing the rent cost.
