@@ -277,7 +277,7 @@ components:
           description: >-
             The total value held in unspent outputs owned by the given address 
             (includes funds held in storage deposit).
-        sigLockedBalance:
+        availableBalance:
           type: string
           description: >-
             The sum of value held in unspent outputs owned by the given address 
@@ -585,7 +585,7 @@ components:
     balance-example:
       value:
         totalBalance: 100000
-        sigLockedBalance: 99900
+        availableBalance: 99900
         ledgerIndex: 500000
     ledger-updates-address-example:
       value:

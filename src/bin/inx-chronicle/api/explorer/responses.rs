@@ -78,7 +78,7 @@ impl From<LedgerUpdateByMilestoneRecord> for LedgerUpdateByMilestoneDto {
 #[serde(rename_all = "camelCase")]
 pub struct BalanceResponse {
     pub total_balance: String,
-    pub sig_locked_balance: String,
+    pub available_balance: String,
     pub ledger_index: MilestoneIndex,
 }
 

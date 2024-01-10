@@ -168,7 +168,7 @@ pub struct OutputWithMetadataResult {
 #[allow(missing_docs)]
 pub struct BalanceResult {
     pub total_balance: String,
-    pub sig_locked_balance: String,
+    pub available_balance: String,
 }
 
 #[derive(Clone, Debug, Default, Deserialize)]
@@ -422,27 +422,53 @@ impl OutputCollection {
     pub async fn get_address_balance(
         &self,
         address: Address,
-        ledger_index: MilestoneIndex,
+        ledger_ms: MilestoneIndexTimestamp,
     ) -> Result<Option<BalanceResult>, Error> {
         self
             .aggregate(
                 [
                     // Look at all (at ledger index o'clock) unspent output documents for the given address.
                     doc! { "$match": {
-                        "details.address": &address,
-                        "metadata.booked.milestone_index": { "$lte": ledger_index },
-                        "metadata.spent_metadata.spent.milestone_index": { "$not": { "$lte": ledger_index } }
+                        "$or": [
+                            { "details.address": &address },
+                            { "output.expiration_unlock_condition.return_address": &address }
+                        ],
+                        "metadata.booked.milestone_index": { "$lte": ledger_ms.milestone_index },
+                        "metadata.spent_metadata.spent.milestone_index": { "$not": { "$lte": ledger_ms.milestone_index } }
                     } },
                     doc! { "$group": {
                         "_id": null,
-                        "total_balance": { "$sum": { "$toDecimal": "$output.amount" } },
-                        "sig_locked_balance": { "$sum": { 
-                            "$cond": [ { "$eq": [ "$details.is_trivial_unlock", true] }, { "$toDecimal": "$output.amount" }, 0 ]
+                        "total_balance": { "$sum": {
+                            "$cond": [
+                                { "$or": [ 
+                                    { "$eq": [ "$details.address", &address ] },
+                                    { "$not": { "$lt": [ "$output.expiration_unlock_condition.timestamp", ledger_ms.milestone_timestamp ] } }
+                                ] }, 
+                                { "$toDecimal": "$output.amount" }, 0 
+                            ]
+                        } },
+                        "available_balance": { "$sum": {
+                            "$cond": [
+                                { "$or": [
+                                    { "$and": [
+                                        { "$eq": [ "$details.address", &address ] },
+                                        { "$or": [
+                                            { "$eq": [ "$details.is_trivial_unlock", true ] },
+                                            { "$not": { "$lt": [ "$output.timelock_unlock_condition.timestamp", ledger_ms.milestone_timestamp ] } }
+                                        ] }
+                                    ] },
+                                    { "$and": [
+                                        { "$eq": [ "$output.expiration_unlock_condition.return_address", &address ] },
+                                        { "$not": { "$lt": [ "$output.expiration_unlock_condition.timestamp", ledger_ms.milestone_timestamp ] } },
+                                    ] },
+                                ] }, 
+                                { "$toDecimal": "$output.amount" }, 0 
+                            ]
                         } },
                     } },
                     doc! { "$project": {
                         "total_balance": { "$toString": "$total_balance" },
-                        "sig_locked_balance": { "$toString": "$sig_locked_balance" },
+                        "available_balance": { "$toString": "$available_balance" },
                     } },
                 ],
                 None,
