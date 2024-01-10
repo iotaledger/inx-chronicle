@@ -10,7 +10,7 @@ use chronicle::{
     tangle::LedgerUpdateStore,
 };
 use futures::prelude::stream::TryStreamExt;
-use tokio::task::JoinSet;
+use tokio::{task::JoinSet, try_join};
 
 use super::Migration;
 
@@ -70,9 +70,16 @@ impl Migration for Migrate {
                         let db = db.clone();
                         let batch = batch.to_vec();
                         tasks.spawn(async move {
-                            db.collection::<LedgerUpdateCollection>()
-                                .insert_spent_ledger_updates(&batch)
-                                .await
+                            try_join! {
+                                async {
+                                    db.collection::<OutputCollection>().update_spent_outputs(&batch).await?;
+                                    Ok(())
+                                },
+                                async {
+                                    db.collection::<LedgerUpdateCollection>().insert_spent_ledger_updates(&batch).await?;
+                                    Ok(())
+                                }
+                            }.and(Ok(()))
                         });
                     }
 
