@@ -443,7 +443,7 @@ impl OutputCollection {
                                 { "$or": [ 
                                     { "$eq": [ "$details.address", &address ] },
                                     { "$not": { "$lt": [ "$output.expiration_unlock_condition.timestamp", ledger_ms.milestone_timestamp ] } }
-                                ] }, 
+                                ] },
                                 { "$toDecimal": "$output.amount" }, 0 
                             ]
                         } },
@@ -461,7 +461,7 @@ impl OutputCollection {
                                         { "$eq": [ "$output.expiration_unlock_condition.return_address", &address ] },
                                         { "$not": { "$lt": [ "$output.expiration_unlock_condition.timestamp", ledger_ms.milestone_timestamp ] } },
                                     ] },
-                                ] }, 
+                                ] },
                                 { "$toDecimal": "$output.amount" }, 0 
                             ]
                         } },
