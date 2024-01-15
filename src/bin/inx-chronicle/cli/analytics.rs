@@ -264,7 +264,14 @@ pub async fn fill_analytics<I: 'static + InputSource + Clone>(
 
                         let analytics = analytics_choices
                             .iter()
-                            .map(|choice| Analytic::init(choice, &milestone.protocol_params, &ledger_state))
+                            .map(|choice| {
+                                Analytic::init(
+                                    choice,
+                                    &milestone.protocol_params,
+                                    &ledger_state,
+                                    milestone.at.milestone_timestamp,
+                                )
+                            })
                             .collect::<Vec<_>>();
                         state = Some(AnalyticsState {
                             analytics,

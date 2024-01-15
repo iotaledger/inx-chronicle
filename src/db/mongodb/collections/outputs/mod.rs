@@ -519,7 +519,7 @@ impl OutputCollection {
         }
     }
 
-    /// Get the address activity in a date
+    /// Get the address activity in a date range
     pub async fn get_address_activity_count_in_range(
         &self,
         start_date: time::Date,

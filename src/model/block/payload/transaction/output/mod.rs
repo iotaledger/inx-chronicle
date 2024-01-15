@@ -144,7 +144,9 @@ pub enum Output {
 
 impl Output {
     /// Returns the [`Address`] that is in control of the output.
-    pub fn owning_address(&self, spent_timestamp: impl Into<Option<MilestoneTimestamp>>) -> Option<&Address> {
+    /// The `milestone_timestamp` is used to determine which address currently owns the output if it contains an
+    /// [`ExpirationUnlockCondition`](self::unlock_condition::ExpirationUnlockCondition)
+    pub fn owning_address(&self, milestone_timestamp: impl Into<Option<MilestoneTimestamp>>) -> Option<&Address> {
         Some(match self {
             Self::Treasury(_) => return None,
             Self::Basic(BasicOutput {
@@ -158,7 +160,7 @@ impl Output {
                 ..
             }) => {
                 if let (Some(spent_timestamp), Some(expiration_unlock_condition)) =
-                    (spent_timestamp.into(), expiration_unlock_condition)
+                    (milestone_timestamp.into(), expiration_unlock_condition)
                 {
                     if spent_timestamp >= expiration_unlock_condition.timestamp {
                         &expiration_unlock_condition.return_address
