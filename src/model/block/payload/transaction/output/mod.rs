@@ -151,6 +151,11 @@ impl Output {
                 address_unlock_condition,
                 expiration_unlock_condition,
                 ..
+            })
+            | Self::Nft(NftOutput {
+                address_unlock_condition,
+                expiration_unlock_condition,
+                ..
             }) => {
                 if let (Some(spent_timestamp), Some(expiration_unlock_condition)) =
                     (spent_timestamp.into(), expiration_unlock_condition)
@@ -172,23 +177,6 @@ impl Output {
                 immutable_alias_address_unlock_condition,
                 ..
             }) => &immutable_alias_address_unlock_condition.address,
-            Self::Nft(NftOutput {
-                address_unlock_condition,
-                expiration_unlock_condition,
-                ..
-            }) => {
-                if let (Some(spent_timestamp), Some(expiration_unlock_condition)) =
-                    (spent_timestamp.into(), expiration_unlock_condition)
-                {
-                    if spent_timestamp >= expiration_unlock_condition.timestamp {
-                        &expiration_unlock_condition.return_address
-                    } else {
-                        &address_unlock_condition.address
-                    }
-                } else {
-                    &address_unlock_condition.address
-                }
-            }
         })
     }
 
