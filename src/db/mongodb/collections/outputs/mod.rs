@@ -431,7 +431,10 @@ impl OutputCollection {
                     doc! { "$match": {
                         "$or": [
                             { "details.address": &address },
-                            { "output.expiration_unlock_condition.return_address": &address }
+                            {
+                                "output.expiration_unlock_condition": { "$exists": true },
+                                "output.expiration_unlock_condition.return_address": &address
+                            }
                         ],
                         "metadata.booked.milestone_index": { "$lte": ledger_ms.milestone_index },
                         "metadata.spent_metadata.spent.milestone_index": { "$not": { "$lte": ledger_ms.milestone_index } }
