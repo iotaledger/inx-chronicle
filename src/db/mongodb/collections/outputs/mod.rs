@@ -455,17 +455,14 @@ impl OutputCollection {
                                 { "$or": [
                                     { "$and": [
                                         { "$eq": [ "$details.address", &address ] },
-                                        { "$or": [
-                                            { "$eq": [ "$details.is_trivial_unlock", true ] },
-                                            { "$not": { "$lt": [ "$output.timelock_unlock_condition.timestamp", ledger_ms.milestone_timestamp ] } }
-                                        ] }
+                                        { "$not": { "$gt": [ "$output.timelock_unlock_condition.timestamp", ledger_ms.milestone_timestamp ] } }
                                     ] },
                                     { "$and": [
                                         { "$eq": [ "$output.expiration_unlock_condition.return_address", &address ] },
-                                        { "$not": { "$lt": [ "$output.expiration_unlock_condition.timestamp", ledger_ms.milestone_timestamp ] } },
+                                        { "$gt": [ "$output.expiration_unlock_condition.timestamp", ledger_ms.milestone_timestamp ] }
                                     ] },
                                 ] },
-                                { "$toDecimal": "$output.amount" }, 0 
+                                { "$toDecimal": "$output.amount" }, 0
                             ]
                         } },
                     } },
