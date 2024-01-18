@@ -445,7 +445,7 @@ impl OutputCollection {
                             "$cond": [
                                 { "$or": [ 
                                     { "$eq": [ "$details.address", &address ] },
-                                    { "$not": { "$lt": [ "$output.expiration_unlock_condition.timestamp", ledger_ms.milestone_timestamp ] } }
+                                    { "$not": { "$gt": [ "$output.expiration_unlock_condition.timestamp", ledger_ms.milestone_timestamp ] } }
                                 ] },
                                 { "$toDecimal": "$output.amount" }, 0 
                             ]
@@ -459,7 +459,7 @@ impl OutputCollection {
                                     ] },
                                     { "$and": [
                                         { "$eq": [ "$output.expiration_unlock_condition.return_address", &address ] },
-                                        { "$gt": [ "$output.expiration_unlock_condition.timestamp", ledger_ms.milestone_timestamp ] }
+                                        { "$lt": [ "$output.expiration_unlock_condition.timestamp", ledger_ms.milestone_timestamp ] }
                                     ] },
                                 ] },
                                 { "$toDecimal": "$output.amount" }, 0
