@@ -439,30 +439,48 @@ impl OutputCollection {
                         "metadata.booked.milestone_index": { "$lte": ledger_ms.milestone_index },
                         "metadata.spent_metadata.spent.milestone_index": { "$not": { "$lte": ledger_ms.milestone_index } }
                     } },
+                    doc! { "$set": { "output_amount": { "$subtract": [
+                        { "$toDecimal": "$output.amount" },
+                        { "$ifNull": [{ "$toDecimal": "$output.storage_deposit_return_unlock_condition.amount" }, 0 ] },
+                    ] } } },
                     doc! { "$group": {
                         "_id": null,
                         "total_balance": { "$sum": {
                             "$cond": [
-                                { "$or": [ 
-                                    { "$eq": [ "$details.address", &address ] },
-                                    { "$not": { "$gt": [ "$output.expiration_unlock_condition.timestamp", ledger_ms.milestone_timestamp ] } }
+                                // If this output is trivially unlocked by this address
+                                { "$eq": [ "$details.address", &address ] },
+                                { "$cond": [
+                                    // And the output has no expiration or is not expired
+                                    { "$not": { "$lte": [ "$output.expiration_unlock_condition.timestamp", ledger_ms.milestone_timestamp ] } },
+                                    { "$toDecimal": "$output_amount" }, 0 
                                 ] },
-                                { "$toDecimal": "$output.amount" }, 0 
+                                // Otherwise, if this output has expiring funds that will be returned to this address
+                                { "$cond": [
+                                    // And the output is expired
+                                    { "$lte": [ "$output.expiration_unlock_condition.timestamp", ledger_ms.milestone_timestamp ] },
+                                    { "$toDecimal": "$output_amount" }, 0 
+                                ] }
                             ]
                         } },
                         "available_balance": { "$sum": {
                             "$cond": [
-                                { "$or": [
-                                    { "$and": [
-                                        { "$eq": [ "$details.address", &address ] },
-                                        { "$not": { "$gt": [ "$output.timelock_unlock_condition.timestamp", ledger_ms.milestone_timestamp ] } }
+                                // If this output is trivially unlocked by this address
+                                { "$eq": [ "$details.address", &address ] },
+                                { "$cond": [
+                                    { "$nor": [
+                                        // And the output has no expiration or is not expired
+                                        { "$lte": [ "$output.expiration_unlock_condition.timestamp", ledger_ms.milestone_timestamp ] },
+                                        // and has no timelock or is past the lock period
+                                        { "$gt": [ "$output.timelock_unlock_condition.timestamp", ledger_ms.milestone_timestamp ] }
                                     ] },
-                                    { "$and": [
-                                        { "$eq": [ "$output.expiration_unlock_condition.return_address", &address ] },
-                                        { "$lt": [ "$output.expiration_unlock_condition.timestamp", ledger_ms.milestone_timestamp ] }
-                                    ] },
+                                    { "$toDecimal": "$output_amount" }, 0 
                                 ] },
-                                { "$toDecimal": "$output.amount" }, 0
+                                // Otherwise, if this output has expiring funds that will be returned to this address
+                                { "$cond": [
+                                    // And the output is expired
+                                    { "$lte": [ "$output.expiration_unlock_condition.timestamp", ledger_ms.milestone_timestamp ] },
+                                    { "$toDecimal": "$output_amount" }, 0 
+                                ] }
                             ]
                         } },
                     } },
