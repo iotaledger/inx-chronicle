@@ -467,11 +467,11 @@ impl OutputCollection {
                                 // If this output is trivially unlocked by this address
                                 { "$eq": [ "$details.address", &address ] },
                                 { "$cond": [
-                                    { "$nor": [
+                                    { "$and": [
                                         // And the output has no expiration or is not expired
-                                        { "$lte": [ "$output.expiration_unlock_condition.timestamp", ledger_ms.milestone_timestamp ] },
+                                        { "$not": { "$lte": [ "$output.expiration_unlock_condition.timestamp", ledger_ms.milestone_timestamp ] } },
                                         // and has no timelock or is past the lock period
-                                        { "$gt": [ "$output.timelock_unlock_condition.timestamp", ledger_ms.milestone_timestamp ] }
+                                        { "$not": { "$gt": [ "$output.timelock_unlock_condition.timestamp", ledger_ms.milestone_timestamp ] } }
                                     ] },
                                     { "$toDecimal": "$output_amount" }, 0 
                                 ] },
