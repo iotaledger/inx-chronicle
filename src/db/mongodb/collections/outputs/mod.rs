@@ -451,7 +451,10 @@ impl OutputCollection {
                                 { "$eq": [ "$details.address", &address ] },
                                 { "$cond": [
                                     // And the output has no expiration or is not expired
-                                    { "$not": { "$lte": [ "$output.expiration_unlock_condition.timestamp", ledger_ms.milestone_timestamp ] } },
+                                    { "$or": [
+                                        { "$lte": [ "$output.expiration_unlock_condition", null ] },
+                                        { "$gt": [ "$output.expiration_unlock_condition.timestamp", ledger_ms.milestone_timestamp ] }
+                                    ] },
                                     { "$toDecimal": "$output_amount" }, 0 
                                 ] },
                                 // Otherwise, if this output has expiring funds that will be returned to this address
@@ -469,9 +472,15 @@ impl OutputCollection {
                                 { "$cond": [
                                     { "$and": [
                                         // And the output has no expiration or is not expired
-                                        { "$not": { "$lte": [ "$output.expiration_unlock_condition.timestamp", ledger_ms.milestone_timestamp ] } },
+                                        { "$or": [
+                                            { "$lte": [ "$output.expiration_unlock_condition", null ] },
+                                            { "$gt": [ "$output.expiration_unlock_condition.timestamp", ledger_ms.milestone_timestamp ] }
+                                        ] },
                                         // and has no timelock or is past the lock period
-                                        { "$not": { "$gt": [ "$output.timelock_unlock_condition.timestamp", ledger_ms.milestone_timestamp ] } }
+                                        { "$or": [
+                                            { "$lte": [ "$output.timelock_unlock_condition", null ] },
+                                            { "$lte": [ "$output.timelock_unlock_condition.timestamp", ledger_ms.milestone_timestamp ] }
+                                        ] }
                                     ] },
                                     { "$toDecimal": "$output_amount" }, 0 
                                 ] },
