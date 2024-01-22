@@ -52,9 +52,7 @@ impl TryFrom<Unlock> for iota::Unlock {
 
     fn try_from(value: Unlock) -> Result<Self, Self::Error> {
         Ok(match value {
-            Unlock::Signature { signature } => {
-                iota::Unlock::Signature(iota::SignatureUnlock::new(signature.try_into()?))
-            }
+            Unlock::Signature { signature } => iota::Unlock::Signature(iota::SignatureUnlock::new(signature.into())),
             Unlock::Reference { index } => iota::Unlock::Reference(iota::ReferenceUnlock::new(index)?),
             Unlock::Alias { index } => iota::Unlock::Alias(iota::AliasUnlock::new(index)?),
             Unlock::Nft { index } => iota::Unlock::Nft(iota::NftUnlock::new(index)?),
