@@ -32,22 +32,20 @@ impl From<&iota::Signature> for Signature {
     fn from(value: &iota::Signature) -> Self {
         match value {
             iota::Signature::Ed25519(signature) => Self::Ed25519 {
-                public_key: signature.public_key().to_bytes(),
+                public_key: signature.public_key_bytes().to_bytes(),
                 signature: signature.signature().to_bytes(),
             },
         }
     }
 }
 
-impl TryFrom<Signature> for iota::Signature {
-    type Error = iota_sdk::types::block::Error;
-
-    fn try_from(value: Signature) -> Result<Self, Self::Error> {
-        Ok(match value {
+impl From<Signature> for iota::Signature {
+    fn from(value: Signature) -> Self {
+        match value {
             Signature::Ed25519 { public_key, signature } => {
-                iota::Ed25519Signature::try_from_bytes(public_key, signature)?.into()
+                iota::Ed25519Signature::from_bytes(public_key, signature).into()
             }
-        })
+        }
     }
 }
 

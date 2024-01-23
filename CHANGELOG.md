@@ -1,3 +1,9 @@
+## [1.0.0-rc.3](https://github.com/iotaledger/inx-chronicle/compare/v1.0.0-rc.2...v1.0.0-rc.3) (2024-01-22)
+
+### Miscellaneous Chores
+
+* **deps:** update `iota-sdk` to fix validation bug
+
 ## [1.0.0-rc.2](https://github.com/iotaledger/inx-chronicle/compare/v1.0.0-rc.1...v1.0.0-rc.2) (2023-09-12)
 
 
