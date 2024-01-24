@@ -275,13 +275,13 @@ components:
         totalBalance:
           type: string
           description: >-
-            The total value held in unspent outputs owned by the given address 
-            (includes funds held in storage deposit).
+            The total value held in unspent outputs that is unlockable by the given address or currently timelocked.
+            Does not include funds held in storage deposit.
         availableBalance:
           type: string
           description: >-
-            The sum of value held in unspent outputs owned by the given address 
-            that are signature locked ("trivially unlockable").
+            The total value held in unspent outputs that is immediately unlockable at ledgerIndex by the given address.
+            Does not include funds held in storage deposit.
         ledgerIndex:
           type: integer
           description: The ledger index for which the balance calculation was performed.
