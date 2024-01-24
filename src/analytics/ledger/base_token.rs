@@ -19,14 +19,14 @@ pub(crate) struct BaseTokenActivityMeasurement {
 impl Analytics for BaseTokenActivityMeasurement {
     type Measurement = Self;
 
-    fn handle_transaction(&mut self, consumed: &[LedgerSpent], created: &[LedgerOutput], _ctx: &dyn AnalyticsContext) {
+    fn handle_transaction(&mut self, consumed: &[LedgerSpent], created: &[LedgerOutput], ctx: &dyn AnalyticsContext) {
         // The idea behind the following code is that we keep track of the deltas that are applied to each account that
         // is represented by an address.
         let mut balance_deltas: HashMap<&Address, i128> = HashMap::new();
 
         // We first gather all tokens that have been moved to an individual address.
         for output in created {
-            if let Some(address) = output.owning_address() {
+            if let Some(address) = output.output.owning_address(ctx.at().milestone_timestamp) {
                 *balance_deltas.entry(address).or_default() += output.amount().0 as i128;
             }
         }

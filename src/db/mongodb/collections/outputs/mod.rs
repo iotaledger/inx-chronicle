@@ -98,7 +98,7 @@ struct OutputDetails {
 
 impl From<&LedgerOutput> for OutputDocument {
     fn from(rec: &LedgerOutput) -> Self {
-        let address = rec.output.owning_address().copied();
+        let address = rec.owning_address().copied();
         let is_trivial_unlock = rec.output.is_trivial_unlock();
 
         Self {
@@ -141,6 +141,8 @@ impl From<&LedgerOutput> for OutputDocument {
 impl From<&LedgerSpent> for OutputDocument {
     fn from(rec: &LedgerSpent) -> Self {
         let mut res = Self::from(&rec.output);
+        // Update the address as the spending may have changed it
+        res.details.address = rec.owning_address().copied();
         res.metadata.spent_metadata.replace(rec.spent_metadata);
         res
     }
@@ -166,7 +168,7 @@ pub struct OutputWithMetadataResult {
 #[allow(missing_docs)]
 pub struct BalanceResult {
     pub total_balance: String,
-    pub sig_locked_balance: String,
+    pub available_balance: String,
 }
 
 #[derive(Clone, Debug, Default, Deserialize)]
@@ -420,27 +422,80 @@ impl OutputCollection {
     pub async fn get_address_balance(
         &self,
         address: Address,
-        ledger_index: MilestoneIndex,
+        ledger_ms: MilestoneIndexTimestamp,
     ) -> Result<Option<BalanceResult>, Error> {
         self
             .aggregate(
                 [
                     // Look at all (at ledger index o'clock) unspent output documents for the given address.
                     doc! { "$match": {
-                        "details.address": &address,
-                        "metadata.booked.milestone_index": { "$lte": ledger_index },
-                        "metadata.spent_metadata.spent.milestone_index": { "$not": { "$lte": ledger_index } }
+                        "$or": [
+                            { "details.address": &address },
+                            {
+                                "output.expiration_unlock_condition": { "$exists": true },
+                                "output.expiration_unlock_condition.return_address": &address
+                            }
+                        ],
+                        "metadata.booked.milestone_index": { "$lte": ledger_ms.milestone_index },
+                        "metadata.spent_metadata.spent.milestone_index": { "$not": { "$lte": ledger_ms.milestone_index } }
                     } },
+                    doc! { "$set": { "output_amount": { "$subtract": [
+                        { "$toDecimal": "$output.amount" },
+                        { "$ifNull": [{ "$toDecimal": "$output.storage_deposit_return_unlock_condition.amount" }, 0 ] },
+                    ] } } },
                     doc! { "$group": {
                         "_id": null,
-                        "total_balance": { "$sum": { "$toDecimal": "$output.amount" } },
-                        "sig_locked_balance": { "$sum": { 
-                            "$cond": [ { "$eq": [ "$details.is_trivial_unlock", true] }, { "$toDecimal": "$output.amount" }, 0 ]
+                        "total_balance": { "$sum": {
+                            "$cond": [
+                                // If this output is trivially unlocked by this address
+                                { "$eq": [ "$details.address", &address ] },
+                                { "$cond": [
+                                    // And the output has no expiration or is not expired
+                                    { "$or": [
+                                        { "$lte": [ "$output.expiration_unlock_condition", null ] },
+                                        { "$gt": [ "$output.expiration_unlock_condition.timestamp", ledger_ms.milestone_timestamp ] }
+                                    ] },
+                                    { "$toDecimal": "$output_amount" }, 0 
+                                ] },
+                                // Otherwise, if this output has expiring funds that will be returned to this address
+                                { "$cond": [
+                                    // And the output is expired
+                                    { "$lte": [ "$output.expiration_unlock_condition.timestamp", ledger_ms.milestone_timestamp ] },
+                                    { "$toDecimal": "$output_amount" }, 0 
+                                ] }
+                            ]
+                        } },
+                        "available_balance": { "$sum": {
+                            "$cond": [
+                                // If this output is trivially unlocked by this address
+                                { "$eq": [ "$details.address", &address ] },
+                                { "$cond": [
+                                    { "$and": [
+                                        // And the output has no expiration or is not expired
+                                        { "$or": [
+                                            { "$lte": [ "$output.expiration_unlock_condition", null ] },
+                                            { "$gt": [ "$output.expiration_unlock_condition.timestamp", ledger_ms.milestone_timestamp ] }
+                                        ] },
+                                        // and has no timelock or is past the lock period
+                                        { "$or": [
+                                            { "$lte": [ "$output.timelock_unlock_condition", null ] },
+                                            { "$lte": [ "$output.timelock_unlock_condition.timestamp", ledger_ms.milestone_timestamp ] }
+                                        ] }
+                                    ] },
+                                    { "$toDecimal": "$output_amount" }, 0 
+                                ] },
+                                // Otherwise, if this output has expiring funds that will be returned to this address
+                                { "$cond": [
+                                    // And the output is expired
+                                    { "$lte": [ "$output.expiration_unlock_condition.timestamp", ledger_ms.milestone_timestamp ] },
+                                    { "$toDecimal": "$output_amount" }, 0 
+                                ] }
+                            ]
                         } },
                     } },
                     doc! { "$project": {
                         "total_balance": { "$toString": "$total_balance" },
-                        "sig_locked_balance": { "$toString": "$sig_locked_balance" },
+                        "available_balance": { "$toString": "$available_balance" },
                     } },
                 ],
                 None,
@@ -491,7 +546,7 @@ impl OutputCollection {
         }
     }
 
-    /// Get the address activity in a date
+    /// Get the address activity in a date range
     pub async fn get_address_activity_count_in_range(
         &self,
         start_date: time::Date,

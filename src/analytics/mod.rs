@@ -23,7 +23,7 @@ use crate::{
     model::{
         ledger::{LedgerOutput, LedgerSpent},
         metadata::LedgerInclusionState,
-        payload::{Payload, TransactionEssence},
+        payload::{milestone::MilestoneTimestamp, Payload, TransactionEssence},
         protocol::ProtocolParameters,
         tangle::{MilestoneIndex, MilestoneIndexTimestamp},
         utxo::Input,
@@ -152,9 +152,12 @@ impl Analytic {
         choice: &AnalyticsChoice,
         protocol_params: &ProtocolParameters,
         unspent_outputs: impl IntoIterator<Item = &'a LedgerOutput>,
+        milestone_timestamp: MilestoneTimestamp,
     ) -> Self {
         Self(match choice {
-            AnalyticsChoice::AddressBalance => Box::new(AddressBalancesAnalytics::init(unspent_outputs)) as _,
+            AnalyticsChoice::AddressBalance => {
+                Box::new(AddressBalancesAnalytics::init(unspent_outputs, milestone_timestamp)) as _
+            }
             AnalyticsChoice::BaseTokenActivity => Box::<BaseTokenActivityMeasurement>::default() as _,
             AnalyticsChoice::BlockActivity => Box::<BlockActivityMeasurement>::default() as _,
             AnalyticsChoice::ActiveAddresses => Box::<AddressActivityAnalytics>::default() as _,
@@ -396,7 +399,7 @@ mod test {
             ledger::{LedgerOutput, LedgerSpent},
             metadata::BlockMetadata,
             node::NodeConfiguration,
-            payload::{MilestoneId, MilestonePayload},
+            payload::{milestone::MilestoneTimestamp, MilestoneId, MilestonePayload},
             protocol::ProtocolParameters,
             tangle::{MilestoneIndex, MilestoneIndexTimestamp},
         },
@@ -444,10 +447,11 @@ mod test {
         fn init<'a>(
             protocol_params: ProtocolParameters,
             unspent_outputs: impl IntoIterator<Item = &'a LedgerOutput> + Copy,
+            milestone_timestamp: MilestoneTimestamp,
         ) -> Self {
             Self {
                 active_addresses: Default::default(),
-                address_balance: AddressBalancesAnalytics::init(unspent_outputs),
+                address_balance: AddressBalancesAnalytics::init(unspent_outputs, milestone_timestamp),
                 base_tokens: Default::default(),
                 ledger_outputs: LedgerOutputMeasurement::init(unspent_outputs),
                 ledger_size: LedgerSizeAnalytics::init(protocol_params, unspent_outputs),

@@ -43,7 +43,7 @@ impl IntervalAnalytics for AddressActivityMeasurement {
 impl Analytics for AddressActivityAnalytics {
     type Measurement = AddressActivityMeasurement;
 
-    fn handle_transaction(&mut self, consumed: &[LedgerSpent], created: &[LedgerOutput], _ctx: &dyn AnalyticsContext) {
+    fn handle_transaction(&mut self, consumed: &[LedgerSpent], created: &[LedgerOutput], ctx: &dyn AnalyticsContext) {
         for output in consumed {
             if let Some(a) = output.owning_address() {
                 self.addresses.insert(*a);
@@ -51,7 +51,7 @@ impl Analytics for AddressActivityAnalytics {
         }
 
         for output in created {
-            if let Some(a) = output.owning_address() {
+            if let Some(a) = output.output.owning_address(ctx.at().milestone_timestamp) {
                 self.addresses.insert(*a);
             }
         }

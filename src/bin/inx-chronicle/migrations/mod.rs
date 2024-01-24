@@ -12,8 +12,9 @@ use eyre::bail;
 
 pub mod migrate_0;
 pub mod migrate_1;
+pub mod migrate_2;
 
-pub type LatestMigration = migrate_1::Migrate;
+pub type LatestMigration = migrate_2::Migrate;
 
 /// The list of migrations, in order.
 const MIGRATIONS: &[&'static dyn DynMigration] = &[
@@ -21,6 +22,7 @@ const MIGRATIONS: &[&'static dyn DynMigration] = &[
     // list.
     &migrate_0::Migrate,
     &migrate_1::Migrate,
+    &migrate_2::Migrate,
 ];
 
 fn build_migrations(migrations: &[&'static dyn DynMigration]) -> HashMap<Option<usize>, &'static dyn DynMigration> {

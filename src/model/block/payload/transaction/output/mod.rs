@@ -34,7 +34,9 @@ pub use self::{
     treasury::TreasuryOutput,
 };
 use crate::model::{
-    bytify, payload::TransactionId, stringify, ProtocolParameters, TryFromWithContext, TryIntoWithContext,
+    bytify,
+    payload::{milestone::MilestoneTimestamp, TransactionId},
+    stringify, ProtocolParameters, TryFromWithContext, TryIntoWithContext,
 };
 
 /// The amount of tokens associated with an output.
@@ -142,13 +144,33 @@ pub enum Output {
 
 impl Output {
     /// Returns the [`Address`] that is in control of the output.
-    pub fn owning_address(&self) -> Option<&Address> {
+    /// The `milestone_timestamp` is used to determine which address currently owns the output if it contains an
+    /// [`ExpirationUnlockCondition`](self::unlock_condition::ExpirationUnlockCondition)
+    pub fn owning_address(&self, milestone_timestamp: impl Into<Option<MilestoneTimestamp>>) -> Option<&Address> {
         Some(match self {
             Self::Treasury(_) => return None,
             Self::Basic(BasicOutput {
                 address_unlock_condition,
+                expiration_unlock_condition,
                 ..
-            }) => &address_unlock_condition.address,
+            })
+            | Self::Nft(NftOutput {
+                address_unlock_condition,
+                expiration_unlock_condition,
+                ..
+            }) => {
+                if let (Some(spent_timestamp), Some(expiration_unlock_condition)) =
+                    (milestone_timestamp.into(), expiration_unlock_condition)
+                {
+                    if spent_timestamp >= expiration_unlock_condition.timestamp {
+                        &expiration_unlock_condition.return_address
+                    } else {
+                        &address_unlock_condition.address
+                    }
+                } else {
+                    &address_unlock_condition.address
+                }
+            }
             Self::Alias(AliasOutput {
                 state_controller_address_unlock_condition,
                 ..
@@ -157,10 +179,6 @@ impl Output {
                 immutable_alias_address_unlock_condition,
                 ..
             }) => &immutable_alias_address_unlock_condition.address,
-            Self::Nft(NftOutput {
-                address_unlock_condition,
-                ..
-            }) => &address_unlock_condition.address,
         })
     }
 

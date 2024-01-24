@@ -110,23 +110,18 @@ impl LedgerUpdateCollection {
         I: IntoIterator<Item = &'a LedgerSpent>,
         I::IntoIter: Send + Sync,
     {
-        let ledger_updates = outputs.into_iter().filter_map(
-            |LedgerSpent {
-                 output: LedgerOutput { output_id, output, .. },
-                 spent_metadata,
-             }| {
-                // Ledger updates
-                output.owning_address().map(|&address| LedgerUpdateDocument {
-                    _id: Id {
-                        milestone_index: spent_metadata.spent.milestone_index,
-                        output_id: *output_id,
-                        is_spent: true,
-                    },
-                    address,
-                    milestone_timestamp: spent_metadata.spent.milestone_timestamp,
-                })
-            },
-        );
+        let ledger_updates = outputs.into_iter().filter_map(|output| {
+            // Ledger updates
+            output.owning_address().map(|&address| LedgerUpdateDocument {
+                _id: Id {
+                    milestone_index: output.spent_metadata.spent.milestone_index,
+                    output_id: output.output_id(),
+                    is_spent: true,
+                },
+                address,
+                milestone_timestamp: output.spent_metadata.spent.milestone_timestamp,
+            })
+        });
         self.insert_many_ignore_duplicates(ledger_updates, InsertManyOptions::builder().ordered(false).build())
             .await?;
 
@@ -140,25 +135,18 @@ impl LedgerUpdateCollection {
         I: IntoIterator<Item = &'a LedgerOutput>,
         I::IntoIter: Send + Sync,
     {
-        let ledger_updates = outputs.into_iter().filter_map(
-            |LedgerOutput {
-                 output_id,
-                 booked,
-                 output,
-                 ..
-             }| {
-                // Ledger updates
-                output.owning_address().map(|&address| LedgerUpdateDocument {
-                    _id: Id {
-                        milestone_index: booked.milestone_index,
-                        output_id: *output_id,
-                        is_spent: false,
-                    },
-                    address,
-                    milestone_timestamp: booked.milestone_timestamp,
-                })
-            },
-        );
+        let ledger_updates = outputs.into_iter().filter_map(|output| {
+            // Ledger updates
+            output.owning_address().map(|&address| LedgerUpdateDocument {
+                _id: Id {
+                    milestone_index: output.booked.milestone_index,
+                    output_id: output.output_id,
+                    is_spent: false,
+                },
+                address,
+                milestone_timestamp: output.booked.milestone_timestamp,
+            })
+        });
         self.insert_many_ignore_duplicates(ledger_updates, InsertManyOptions::builder().ordered(false).build())
             .await?;
 
