@@ -6,11 +6,14 @@ use std::sync::Arc;
 use auth_helper::jwt::{BuildValidation, Claims, JsonWebToken, Validation};
 use axum::{
     extract::State,
-    headers::{authorization::Bearer, Authorization},
     http::HeaderValue,
     middleware::from_extractor_with_state,
     routing::{get, post},
-    Json, TypedHeader,
+    Json,
+};
+use axum_extra::{
+    headers::{authorization::Bearer, Authorization},
+    TypedHeader,
 };
 use chronicle::db::{
     mongodb::collections::{ApplicationStateCollection, CommittedSlotCollection},
@@ -64,7 +67,6 @@ struct LoginInfo {
     password: String,
 }
 
-#[axum::debug_handler]
 async fn login(
     State(config): State<Arc<ApiConfigData>>,
     Json(LoginInfo { password }): Json<LoginInfo>,

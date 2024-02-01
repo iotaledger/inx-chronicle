@@ -104,7 +104,7 @@ impl<S: Send + Sync> FromRequestParts<S> for TimeRange {
 
 #[cfg(test)]
 mod test {
-    use axum::{extract::FromRequest, http::Request};
+    use axum::{body::Body, extract::FromRequest, http::Request};
     use pretty_assertions::assert_eq;
 
     use super::*;
@@ -117,7 +117,7 @@ mod test {
             Request::builder()
                 .method("GET")
                 .uri("/?pageSize=9999999")
-                .body(())
+                .body(Body::empty())
                 .unwrap(),
             &state,
         )

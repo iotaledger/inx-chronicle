@@ -100,11 +100,21 @@ async fn main() -> eyre::Result<()> {
 
     #[cfg(feature = "api")]
     if config.api.enabled {
-        use futures::FutureExt;
-        let mut handle = shutdown_signal.subscribe();
+        async fn shutdown_handle(mut rx: tokio::sync::broadcast::Receiver<()>) {
+            let task = tokio::spawn(async move {
+                if let Err(e) = rx.recv().await {
+                    tracing::error!("{e}");
+                }
+            });
+            if let Err(e) = task.await {
+                tracing::error!("{e}");
+            }
+        }
+
         let (db, config) = (db.clone(), config.api.clone());
+        let handle = shutdown_signal.subscribe();
         tasks.spawn(async move {
-            api::ApiWorker::run(db, config, handle.recv().then(|_| async {})).await?;
+            api::ApiWorker::run(db, config, shutdown_handle(handle)).await?;
             Ok(())
         });
     }

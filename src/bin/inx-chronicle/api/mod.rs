@@ -21,7 +21,7 @@ mod routes;
 
 use std::sync::Arc;
 
-use axum::{extract::FromRef, Server};
+use axum::extract::FromRef;
 use chronicle::db::MongoDb;
 use futures::Future;
 use hyper::Method;
@@ -35,7 +35,7 @@ use tracing::info;
 use self::router::RouteNode;
 pub use self::{
     config::{ApiConfig, ApiConfigData},
-    error::{ApiError, ApiResult, AuthError, ConfigError},
+    error::{ApiError, ApiResult, AuthError},
     secret_key::SecretKey,
 };
 
@@ -54,7 +54,11 @@ pub struct ApiWorker;
 
 impl ApiWorker {
     /// Run the API with a provided mongodb connection and config.
-    pub async fn run(db: MongoDb, config: ApiConfig, shutdown_handle: impl Future<Output = ()>) -> eyre::Result<()> {
+    pub async fn run(
+        db: MongoDb,
+        config: ApiConfig,
+        shutdown_handle: impl Future<Output = ()> + Send + 'static,
+    ) -> eyre::Result<()> {
         let api_data = Arc::new(ApiConfigData::try_from(config)?);
         info!("Starting API server on port `{}`", api_data.port);
 
@@ -72,18 +76,19 @@ impl ApiWorker {
 
         let (routes, router) = router.finish();
 
-        Server::bind(&([0, 0, 0, 0], port).into())
-            .serve(
-                router
-                    .with_state(ApiState {
-                        db,
-                        api_data,
-                        routes: Arc::new(routes),
-                    })
-                    .into_make_service(),
-            )
-            .with_graceful_shutdown(shutdown_handle)
-            .await?;
+        let listener = tokio::net::TcpListener::bind(("0.0.0.0", port)).await?;
+        axum::serve(
+            listener,
+            router
+                .with_state(ApiState {
+                    db,
+                    api_data,
+                    routes: Arc::new(routes),
+                })
+                .into_make_service(),
+        )
+        .with_graceful_shutdown(shutdown_handle)
+        .await?;
 
         Ok(())
     }

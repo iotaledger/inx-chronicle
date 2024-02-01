@@ -7,8 +7,10 @@ use async_trait::async_trait;
 use auth_helper::jwt::{BuildValidation, JsonWebToken, Validation};
 use axum::{
     extract::{FromRef, FromRequestParts, OriginalUri},
-    headers::{authorization::Bearer, Authorization},
     http::request::Parts,
+};
+use axum_extra::{
+    headers::{authorization::Bearer, Authorization},
     TypedHeader,
 };
 

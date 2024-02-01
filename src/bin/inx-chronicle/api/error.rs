@@ -3,10 +3,8 @@
 
 use std::{num::ParseIntError, str::ParseBoolError};
 
-use axum::{
-    extract::rejection::{QueryRejection, TypedHeaderRejection},
-    response::IntoResponse,
-};
+use axum::{extract::rejection::QueryRejection, response::IntoResponse};
+use axum_extra::typed_header::TypedHeaderRejection;
 use chronicle::db::mongodb::collections::ParseSortError;
 use hyper::{header::InvalidHeaderValue, StatusCode};
 use serde::Serialize;
@@ -222,7 +220,7 @@ impl IntoResponse for ErrorBody {
             Ok(json) => axum::response::Response::builder()
                 .status(self.status)
                 .header(hyper::header::CONTENT_TYPE, "application/json")
-                .body(axum::body::boxed(axum::body::Full::from(json)))
+                .body(axum::body::Body::new(json))
                 .unwrap(),
             Err(e) => {
                 error!("Unable to serialize error body: {}", e);

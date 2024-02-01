@@ -460,7 +460,7 @@ where
 
 #[cfg(test)]
 mod test {
-    use axum::{extract::FromRequest, http::Request};
+    use axum::{body::Body, extract::FromRequest, http::Request};
     use pretty_assertions::assert_eq;
 
     use super::*;
@@ -496,7 +496,7 @@ mod test {
             Request::builder()
                 .method("GET")
                 .uri("/ledger/updates/by-address/0x00?pageSize=9999999")
-                .body(())
+                .body(Body::empty())
                 .unwrap(),
             &state,
         )
@@ -517,7 +517,7 @@ mod test {
             Request::builder()
                 .method("GET")
                 .uri("/ledger/updates/by-slot-index/0?pageSize=9999999")
-                .body(())
+                .body(Body::empty())
                 .unwrap(),
             &state,
         )

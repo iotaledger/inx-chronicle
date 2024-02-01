@@ -101,6 +101,7 @@ impl FillAnalyticsCommand {
             let ts = start_date.midnight().assume_utc().unix_timestamp_nanos() as u64;
             SlotIndex::from_timestamp(
                 ts,
+                protocol_params.genesis_slot(),
                 protocol_params.genesis_unix_timestamp(),
                 protocol_params.slot_duration_in_seconds(),
             )
@@ -129,6 +130,7 @@ impl FillAnalyticsCommand {
                 .unix_timestamp_nanos() as u64;
             SlotIndex::from_timestamp(
                 ts,
+                protocol_params.genesis_slot(),
                 protocol_params.genesis_unix_timestamp(),
                 protocol_params.slot_duration_in_seconds(),
             )

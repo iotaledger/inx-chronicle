@@ -353,7 +353,7 @@ async fn utxo_changes_by_index(
         .ok_or(MissingError::NoResults)?;
 
     Ok(UtxoChangesResponse {
-        index: index.0,
+        commitment_id: latest_slot.commitment_id,
         created_outputs,
         consumed_outputs,
     }
