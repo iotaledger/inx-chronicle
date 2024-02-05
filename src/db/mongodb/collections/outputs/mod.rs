@@ -135,7 +135,6 @@ struct OutputDetails {
     kind: String,
     #[serde(with = "string")]
     amount: u64,
-    is_trivial_unlock: bool,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     indexed_id: Option<IndexedId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -182,13 +181,6 @@ impl From<&LedgerOutput> for OutputDocument {
             details: OutputDetails {
                 kind: rec.kind().to_owned(),
                 amount: rec.amount(),
-                is_trivial_unlock: rec
-                    .output()
-                    .unlock_conditions()
-                    .map(|uc| {
-                        uc.storage_deposit_return().is_none() && uc.expiration().is_none() && uc.timelock().is_none()
-                    })
-                    .unwrap_or(true),
                 indexed_id: match rec.output() {
                     Output::Account(output) => Some(output.account_id_non_null(&rec.output_id).into()),
                     Output::Anchor(output) => Some(output.anchor_id_non_null(&rec.output_id).into()),
@@ -596,10 +588,24 @@ impl OutputCollection {
         address: Address,
         SlotIndex(slot_index): SlotIndex,
     ) -> Result<Option<BalanceResult>, DbError> {
+        #[derive(Deserialize)]
+        struct Res {
+            #[serde(with = "string")]
+            amount: u64,
+            #[serde(default, skip_serializing_if = "Option::is_none")]
+            address: Option<AddressDto>,
+            #[serde(default, skip_serializing_if = "Option::is_none")]
+            storage_deposit_return: Option<StorageDepositReturnUnlockConditionDto>,
+            #[serde(default, skip_serializing_if = "Option::is_none")]
+            timelock: Option<SlotIndex>,
+            #[serde(default, skip_serializing_if = "Option::is_none")]
+            expiration: Option<ExpirationUnlockConditionDto>,
+        }
+
         let mut balance = None;
 
         let mut stream = self
-            .aggregate::<OutputDetails>(
+            .aggregate::<Res>(
                 [
                     // Look at all (at ledger index o'clock) unspent output documents for the given address.
                     doc! { "$match": {
@@ -613,7 +619,13 @@ impl OutputCollection {
                         "metadata.booked.milestone_index": { "$lte": slot_index },
                         "metadata.spent_metadata.spent.milestone_index": { "$not": { "$lte": slot_index } }
                     } },
-                    doc! { "$replaceWith": "$details" },
+                    doc! { "$project": {
+                        "amount": "$details.amount",
+                        "address": "$details.address",
+                        "storage_deposit_return": "$details.storage_deposit_return",
+                        "timelock": "$details.timelock",
+                        "expiration": "$details.expiration",
+                    } },
                 ],
                 None,
             )
