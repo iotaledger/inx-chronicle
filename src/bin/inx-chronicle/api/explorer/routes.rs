@@ -26,9 +26,9 @@ use super::{
         RichestAddressesQuery, SlotsCursor, SlotsPagination,
     },
     responses::{
-        AddressStatDto, BalanceResponse, BlockChildrenResponse, BlockPayloadTypeDto, BlocksBySlotResponse,
-        LedgerUpdateBySlotDto, LedgerUpdatesByAddressResponse, LedgerUpdatesBySlotResponse, RichestAddressesResponse,
-        SlotDto, SlotsResponse, TokenDistributionResponse,
+        AddressStatDto, Balance, BalanceResponse, BlockChildrenResponse, BlockPayloadTypeDto, BlocksBySlotResponse,
+        DecayedMana, LedgerUpdateBySlotDto, LedgerUpdatesByAddressResponse, LedgerUpdatesBySlotResponse,
+        RichestAddressesResponse, SlotDto, SlotsResponse, TokenDistributionResponse,
     },
 };
 use crate::api::{
@@ -158,15 +158,33 @@ async fn balance(database: State<MongoDb>, Path(address): Path<Bech32Address>) -
         .await?
         .ok_or(MissingError::NoResults)?;
 
+    let protocol_params = database
+        .collection::<ApplicationStateCollection>()
+        .get_protocol_parameters()
+        .await?
+        .ok_or(CorruptStateError::ProtocolParams)?;
+
     let res = database
         .collection::<OutputCollection>()
-        .get_address_balance(address.into_inner(), latest_slot.slot_index)
+        .get_address_balance(address.into_inner(), latest_slot.slot_index, &protocol_params)
         .await?
         .ok_or(MissingError::NoResults)?;
 
     Ok(BalanceResponse {
-        total_balance: res.total_balance,
-        available_balance: res.available_balance,
+        total_balance: Balance {
+            amount: res.total.amount,
+            mana: DecayedMana {
+                stored: res.total.mana.stored,
+                potential: res.total.mana.potential,
+            },
+        },
+        available_balance: Balance {
+            amount: res.available.amount,
+            mana: DecayedMana {
+                stored: res.available.mana.stored,
+                potential: res.available.mana.potential,
+            },
+        },
         ledger_index: latest_slot.slot_index,
     })
 }

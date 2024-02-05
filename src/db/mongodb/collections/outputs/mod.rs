@@ -11,6 +11,7 @@ use iota_sdk::{
         address::Address,
         output::{AccountId, Output, OutputId},
         payload::signed_transaction::TransactionId,
+        protocol::ProtocolParameters,
         slot::{SlotCommitmentId, SlotIndex},
         BlockId,
     },
@@ -135,6 +136,10 @@ struct OutputDetails {
     kind: String,
     #[serde(with = "string")]
     amount: u64,
+    #[serde(with = "string")]
+    stored_mana: u64,
+    #[serde(with = "string")]
+    generation_amount: u64,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     indexed_id: Option<IndexedId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -181,6 +186,8 @@ impl From<&LedgerOutput> for OutputDocument {
             details: OutputDetails {
                 kind: rec.kind().to_owned(),
                 amount: rec.amount(),
+                stored_mana: rec.output().mana(),
+                generation_amount: 0,
                 indexed_id: match rec.output() {
                     Output::Account(output) => Some(output.account_id_non_null(&rec.output_id).into()),
                     Output::Anchor(output) => Some(output.anchor_id_non_null(&rec.output_id).into()),
@@ -293,8 +300,61 @@ pub struct OutputWithMetadataResult {
 #[derive(Clone, Debug, Default)]
 #[allow(missing_docs)]
 pub struct BalanceResult {
-    pub total_balance: u64,
-    pub available_balance: u64,
+    pub total: Balance,
+    pub available: Balance,
+}
+
+impl BalanceResult {
+    fn add(
+        &mut self,
+        amount: u64,
+        stored_mana: u64,
+        generation_amount: u64,
+        creation_slot: SlotIndex,
+        target_slot: SlotIndex,
+        params: &ProtocolParameters,
+    ) -> Result<(), DbError> {
+        self.total.amount += amount;
+        self.available.amount += amount;
+        let stored = params.mana_with_decay(stored_mana, creation_slot, target_slot)?;
+        let potential = params.generate_mana_with_decay(generation_amount, creation_slot, target_slot)?;
+        self.total.mana.stored += stored;
+        self.available.mana.stored += stored;
+        self.total.mana.potential += potential;
+        self.available.mana.potential += potential;
+        Ok(())
+    }
+}
+
+#[derive(Clone, Debug, Default)]
+#[allow(missing_docs)]
+pub struct Balance {
+    pub amount: u64,
+    pub mana: DecayedMana,
+}
+
+impl Balance {
+    fn add(
+        &mut self,
+        amount: u64,
+        stored_mana: u64,
+        generation_amount: u64,
+        creation_slot: SlotIndex,
+        target_slot: SlotIndex,
+        params: &ProtocolParameters,
+    ) -> Result<(), DbError> {
+        self.amount += amount;
+        self.mana.stored += params.mana_with_decay(stored_mana, creation_slot, target_slot)?;
+        self.mana.potential += params.generate_mana_with_decay(generation_amount, creation_slot, target_slot)?;
+        Ok(())
+    }
+}
+
+#[derive(Clone, Debug, Default)]
+#[allow(missing_docs)]
+pub struct DecayedMana {
+    pub stored: u64,
+    pub potential: u64,
 }
 
 #[derive(Clone, Debug, Default, Deserialize)]
@@ -586,12 +646,18 @@ impl OutputCollection {
     pub async fn get_address_balance(
         &self,
         address: Address,
-        SlotIndex(slot_index): SlotIndex,
+        slot_index: SlotIndex,
+        params: &ProtocolParameters,
     ) -> Result<Option<BalanceResult>, DbError> {
         #[derive(Deserialize)]
         struct Res {
+            slot_booked: SlotIndex,
             #[serde(with = "string")]
             amount: u64,
+            #[serde(with = "string")]
+            stored_mana: u64,
+            #[serde(with = "string")]
+            generation_amount: u64,
             #[serde(default, skip_serializing_if = "Option::is_none")]
             address: Option<AddressDto>,
             #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -616,11 +682,14 @@ impl OutputCollection {
                                 "details.expiration.return_address": address.to_bson()
                             }
                         ],
-                        "metadata.booked.milestone_index": { "$lte": slot_index },
-                        "metadata.spent_metadata.spent.milestone_index": { "$not": { "$lte": slot_index } }
+                        "metadata.booked.milestone_index": { "$lte": slot_index.0 },
+                        "metadata.spent_metadata.spent.milestone_index": { "$not": { "$lte": slot_index.0 } }
                     } },
                     doc! { "$project": {
+                        "slot_booked": "$metadata.slot_booked",
                         "amount": "$details.amount",
+                        "stored_mana": "$details.stored_mana",
+                        "generation_amount": "$details.generation_amount",
                         "address": "$details.address",
                         "storage_deposit_return": "$details.storage_deposit_return",
                         "timelock": "$details.timelock",
@@ -643,19 +712,39 @@ impl OutputCollection {
             // If this output is trivially unlocked by this address
             if matches!(details.address, Some(a) if a == address) {
                 // And the output has no expiration or is not expired
-                if details.expiration.map_or(true, |exp| exp.slot_index.0 > slot_index) {
-                    balance.total_balance += output_amount;
+                if details.expiration.map_or(true, |exp| exp.slot_index > slot_index) {
+                    balance.total.add(
+                        output_amount,
+                        details.stored_mana,
+                        details.generation_amount,
+                        details.slot_booked,
+                        slot_index,
+                        params,
+                    )?;
                     // and has no timelock or is past the lock period
-                    if details.timelock.map_or(true, |tl| tl.0 <= slot_index) {
-                        balance.available_balance += output_amount;
+                    if details.timelock.map_or(true, |tl| tl <= slot_index) {
+                        balance.available.add(
+                            output_amount,
+                            details.stored_mana,
+                            details.generation_amount,
+                            details.slot_booked,
+                            slot_index,
+                            params,
+                        )?;
                     }
                 }
             // Otherwise, if this output has expiring funds that will be returned to this address
             } else {
                 // And the output is expired
-                if details.expiration.map_or(false, |exp| exp.slot_index.0 <= slot_index) {
-                    balance.total_balance += output_amount;
-                    balance.available_balance += output_amount;
+                if details.expiration.map_or(false, |exp| exp.slot_index <= slot_index) {
+                    balance.add(
+                        output_amount,
+                        details.stored_mana,
+                        details.generation_amount,
+                        details.slot_booked,
+                        slot_index,
+                        params,
+                    )?;
                 }
             }
         }

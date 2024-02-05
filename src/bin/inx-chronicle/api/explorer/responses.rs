@@ -66,14 +66,29 @@ pub struct LedgerUpdateBySlotDto {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct BalanceResponse {
-    #[serde(with = "string")]
-    pub total_balance: u64,
-    #[serde(with = "string")]
-    pub available_balance: u64,
+    pub total_balance: Balance,
+    pub available_balance: Balance,
     pub ledger_index: SlotIndex,
 }
 
 impl_success_response!(BalanceResponse);
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Balance {
+    #[serde(with = "string")]
+    pub amount: u64,
+    pub mana: DecayedMana,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DecayedMana {
+    #[serde(with = "string")]
+    pub stored: u64,
+    #[serde(with = "string")]
+    pub potential: u64,
+}
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
