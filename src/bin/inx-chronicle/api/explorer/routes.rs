@@ -166,7 +166,7 @@ async fn balance(database: State<MongoDb>, Path(address): Path<Bech32Address>) -
 
     Ok(BalanceResponse {
         total_balance: res.total_balance,
-        sig_locked_balance: res.sig_locked_balance,
+        available_balance: res.available_balance,
         ledger_index: latest_slot.slot_index,
     })
 }

@@ -69,7 +69,7 @@ pub struct BalanceResponse {
     #[serde(with = "string")]
     pub total_balance: u64,
     #[serde(with = "string")]
-    pub sig_locked_balance: u64,
+    pub available_balance: u64,
     pub ledger_index: SlotIndex,
 }
 
