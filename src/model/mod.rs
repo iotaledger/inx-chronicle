@@ -5,12 +5,15 @@
 
 pub mod address;
 pub mod block_metadata;
+pub mod expiration;
 pub mod ledger;
 pub mod native_token;
 pub mod node;
 pub mod protocol;
 pub mod raw;
 pub mod slot;
+pub mod staking;
+pub mod storage_deposit_return;
 pub mod tag;
 
 use mongodb::bson::Bson;

@@ -39,9 +39,12 @@ use crate::{
     },
     model::{
         address::AddressDto,
+        expiration::ExpirationUnlockConditionDto,
         ledger::{LedgerOutput, LedgerSpent},
         native_token::NativeTokenDto,
         raw::Raw,
+        staking::StakingFeatureDto,
+        storage_deposit_return::StorageDepositReturnUnlockConditionDto,
         tag::Tag,
         SerializeToBson,
     },
@@ -142,24 +145,23 @@ struct OutputDetails {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     state_controller_address: Option<AddressDto>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    storage_deposit_return_address: Option<AddressDto>,
+    storage_deposit_return: Option<StorageDepositReturnUnlockConditionDto>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     timelock: Option<SlotIndex>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    expiration: Option<SlotIndex>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    expiration_return_address: Option<AddressDto>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    issuer: Option<AddressDto>,
+    expiration: Option<ExpirationUnlockConditionDto>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     sender: Option<AddressDto>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    issuer: Option<AddressDto>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     tag: Option<Tag>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    block_issuer_expiry: Option<SlotIndex>,
-    // TODO: staking feature
-    #[serde(default, skip_serializing_if = "Option::is_none")]
     native_tokens: Option<NativeTokenDto>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    block_issuer_expiry: Option<SlotIndex>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    staking: Option<StakingFeatureDto>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     validator: Option<AccountId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -210,11 +212,11 @@ impl From<&LedgerOutput> for OutputDocument {
                     .unlock_conditions()
                     .and_then(|uc| uc.state_controller_address())
                     .map(|uc| uc.address().into()),
-                storage_deposit_return_address: rec
+                storage_deposit_return: rec
                     .output()
                     .unlock_conditions()
                     .and_then(|uc| uc.storage_deposit_return())
-                    .map(|uc| uc.return_address().into()),
+                    .map(|uc| uc.into()),
                 timelock: rec
                     .output()
                     .unlock_conditions()
@@ -224,12 +226,7 @@ impl From<&LedgerOutput> for OutputDocument {
                     .output()
                     .unlock_conditions()
                     .and_then(|uc| uc.expiration())
-                    .map(|uc| uc.slot_index()),
-                expiration_return_address: rec
-                    .output()
-                    .unlock_conditions()
-                    .and_then(|uc| uc.expiration())
-                    .map(|uc| uc.return_address().into()),
+                    .map(|uc| uc.into()),
                 issuer: rec
                     .output()
                     .features()
@@ -246,16 +243,17 @@ impl From<&LedgerOutput> for OutputDocument {
                     .and_then(|uc| uc.tag())
                     .map(|uc| uc.tag())
                     .map(Tag::from_bytes),
-                block_issuer_expiry: rec
-                    .output()
-                    .features()
-                    .and_then(|uc| uc.block_issuer())
-                    .map(|uc| uc.expiry_slot()),
                 native_tokens: rec
                     .output()
                     .features()
                     .and_then(|f| f.native_token())
                     .map(|f| f.native_token().into()),
+                block_issuer_expiry: rec
+                    .output()
+                    .features()
+                    .and_then(|uc| uc.block_issuer())
+                    .map(|uc| uc.expiry_slot()),
+                staking: rec.output().features().and_then(|uc| uc.staking()).map(|s| s.into()),
                 validator: rec
                     .output()
                     .as_delegation_opt()
@@ -392,7 +390,7 @@ impl OutputCollection {
     pub async fn get_output_with_metadata(
         &self,
         output_id: &OutputId,
-        slot_index: SlotIndex,
+        SlotIndex(slot_index): SlotIndex,
     ) -> Result<Option<OutputWithMetadataResult>, DbError> {
         #[derive(Deserialize)]
         struct Res {
@@ -406,7 +404,7 @@ impl OutputCollection {
             [
                 doc! { "$match": {
                     "_id": output_id.to_bson(),
-                    "metadata.slot_booked": { "$lte": slot_index.0 }
+                    "metadata.slot_booked": { "$lte": slot_index }
                 } },
                 doc! { "$project": {
                     "output_id": "$_id",
@@ -439,14 +437,14 @@ impl OutputCollection {
     pub async fn get_output_metadata(
         &self,
         output_id: &OutputId,
-        slot_index: SlotIndex,
+        SlotIndex(slot_index): SlotIndex,
     ) -> Result<Option<OutputMetadataResult>, DbError> {
         Ok(self
             .aggregate(
                 [
                     doc! { "$match": {
                         "_id": output_id.to_bson(),
-                        "metadata.slot_booked": { "$lte": slot_index.0 }
+                        "metadata.slot_booked": { "$lte": slot_index }
                     } },
                     doc! { "$project": {
                         "output_id": "$_id",
@@ -463,14 +461,14 @@ impl OutputCollection {
     /// Stream all [`LedgerOutput`]s that were unspent at a given ledger index.
     pub async fn get_unspent_output_stream(
         &self,
-        slot_index: SlotIndex,
+        SlotIndex(slot_index): SlotIndex,
     ) -> Result<impl Stream<Item = Result<LedgerOutput, DbError>>, DbError> {
         Ok(self
             .aggregate::<LedgerOutputRecord>(
                 [
                     doc! { "$match": {
-                        "metadata.slot_booked" : { "$lte": slot_index.0 },
-                        "metadata.spent_metadata.slot_spent": { "$not": { "$lte": slot_index.0 } }
+                        "metadata.slot_booked" : { "$lte": slot_index },
+                        "metadata.spent_metadata.slot_spent": { "$not": { "$lte": slot_index } }
                     } },
                     doc! { "$project": {
                         "output_id": "$_id",
@@ -490,13 +488,13 @@ impl OutputCollection {
     /// Get all created [`LedgerOutput`]s for the given slot index.
     pub async fn get_created_outputs(
         &self,
-        slot_index: SlotIndex,
+        SlotIndex(slot_index): SlotIndex,
     ) -> Result<impl Stream<Item = Result<LedgerOutput, DbError>>, DbError> {
         Ok(self
             .aggregate::<LedgerOutputRecord>(
                 [
                     doc! { "$match": {
-                        "metadata.slot_booked": { "$eq": slot_index.0 }
+                        "metadata.slot_booked": { "$eq": slot_index }
                     } },
                     doc! { "$project": {
                         "output_id": "$_id",
@@ -516,13 +514,13 @@ impl OutputCollection {
     /// Get all consumed [`LedgerSpent`]s for the given slot index.
     pub async fn get_consumed_outputs(
         &self,
-        slot_index: SlotIndex,
+        SlotIndex(slot_index): SlotIndex,
     ) -> Result<impl Stream<Item = Result<LedgerSpent, DbError>>, DbError> {
         Ok(self
             .aggregate::<LedgerSpentRecord>(
                 [
                     doc! { "$match": {
-                        "metadata.spent_metadata.slot_spent": { "$eq": slot_index.0 }
+                        "metadata.spent_metadata.slot_spent": { "$eq": slot_index }
                     } },
                     doc! { "$project": {
                         "output": {
@@ -545,7 +543,7 @@ impl OutputCollection {
     /// Get all ledger updates (i.e. consumed [`Output`]s) for the given slot index.
     pub async fn get_ledger_update_stream(
         &self,
-        slot_index: SlotIndex,
+        SlotIndex(slot_index): SlotIndex,
     ) -> Result<impl Stream<Item = Result<OutputResult, DbError>>, DbError> {
         #[derive(Deserialize)]
         struct Res {
@@ -556,7 +554,7 @@ impl OutputCollection {
             .aggregate::<Res>(
                 [
                     doc! { "$match": {
-                        "metadata.spent_metadata.slot_spent": { "$eq": slot_index.0 }
+                        "metadata.spent_metadata.slot_spent": { "$eq": slot_index }
                     } },
                     doc! { "$project": {
                         "output_id": "$_id",
@@ -598,27 +596,80 @@ impl OutputCollection {
     pub async fn get_address_balance(
         &self,
         address: Address,
-        slot_index: SlotIndex,
+        SlotIndex(slot_index): SlotIndex,
     ) -> Result<Option<BalanceResult>, DbError> {
         Ok(self
             .aggregate(
                 [
-                    // Look at all (at slot index o'clock) unspent output documents for the given address.
+                    // Look at all (at ledger index o'clock) unspent output documents for the given address.
                     doc! { "$match": {
-                        "details.address": address.to_bson(),
-                        "metadata.slot_booked": { "$lte": slot_index.0 },
-                        "metadata.spent_metadata.slot_spent": { "$not": { "$lte": slot_index.0 } }
+                        "$or": [
+                            { "details.address": address.to_bson() },
+                            {
+                                "details.expiration": { "$exists": true },
+                                "details.expiration.return_address": address.to_bson()
+                            }
+                        ],
+                        "metadata.booked.milestone_index": { "$lte": slot_index },
+                        "metadata.spent_metadata.spent.milestone_index": { "$not": { "$lte": slot_index } }
                     } },
+                    doc! { "$set": { "output_amount": { "$subtract": [
+                        { "$toDecimal": "$details.amount" },
+                        { "$ifNull": [{ "$toDecimal": "$details.storage_deposit_return.amount" }, 0 ] },
+                    ] } } },
                     doc! { "$group": {
                         "_id": null,
-                        "total_balance": { "$sum": { "$toDecimal": "$details.amount" } },
-                        "sig_locked_balance": { "$sum": { 
-                            "$cond": [ { "$eq": [ "$details.is_trivial_unlock", true] }, { "$toDecimal": "$details.amount" }, 0 ]
+                        "total_balance": { "$sum": {
+                            "$cond": [
+                                // If this output is trivially unlocked by this address
+                                { "$eq": [ "$details.address", address.to_bson() ] },
+                                { "$cond": [
+                                    // And the output has no expiration or is not expired
+                                    { "$or": [
+                                        { "$lte": [ "$details.expiration", null ] },
+                                        { "$gt": [ "$details.expiration.slot_index", slot_index ] }
+                                    ] },
+                                    { "$toDecimal": "$output_amount" }, 0
+                                ] },
+                                // Otherwise, if this output has expiring funds that will be returned to this address
+                                { "$cond": [
+                                    // And the output is expired
+                                    { "$lte": [ "$details.expiration.slot_index", slot_index ] },
+                                    { "$toDecimal": "$output_amount" }, 0
+                                ] }
+                            ]
+                        } },
+                        "available_balance": { "$sum": {
+                            "$cond": [
+                                // If this output is trivially unlocked by this address
+                                { "$eq": [ "$details.address", address.to_bson() ] },
+                                { "$cond": [
+                                    { "$and": [
+                                        // And the output has no expiration or is not expired
+                                        { "$or": [
+                                            { "$lte": [ "$details.expiration", null ] },
+                                            { "$gt": [ "$details.expiration.slot_index", slot_index ] }
+                                        ] },
+                                        // and has no timelock or is past the lock period
+                                        { "$or": [
+                                            { "$lte": [ "$details.timelock", null ] },
+                                            { "$lte": [ "$details.timelock", slot_index ] }
+                                        ] }
+                                    ] },
+                                    { "$toDecimal": "$output_amount" }, 0
+                                ] },
+                                // Otherwise, if this output has expiring funds that will be returned to this address
+                                { "$cond": [
+                                    // And the output is expired
+                                    { "$lte": [ "$details.expiration.slot_index", slot_index ] },
+                                    { "$toDecimal": "$output_amount" }, 0
+                                ] }
+                            ]
                         } },
                     } },
                     doc! { "$project": {
                         "total_balance": { "$toString": "$total_balance" },
-                        "sig_locked_balance": { "$toString": "$sig_locked_balance" },
+                        "available_balance": { "$toString": "$available_balance" },
                     } },
                 ],
                 None,
@@ -633,8 +684,8 @@ impl OutputCollection {
     /// the associated slot did not perform any changes to the ledger, the returned `Vec`s will be empty.
     pub async fn get_utxo_changes(
         &self,
-        slot_index: SlotIndex,
-        ledger_index: SlotIndex,
+        SlotIndex(slot_index): SlotIndex,
+        SlotIndex(ledger_index): SlotIndex,
     ) -> Result<Option<UtxoChangesResult>, DbError> {
         if slot_index > ledger_index {
             Ok(None)
@@ -644,17 +695,17 @@ impl OutputCollection {
                     [
                         doc! { "$match":
                            { "$or": [
-                               { "metadata.slot_booked": slot_index.0  },
-                               { "metadata.spent_metadata.slot_spent": slot_index.0 },
+                               { "metadata.slot_booked": slot_index  },
+                               { "metadata.spent_metadata.slot_spent": slot_index },
                            ] }
                         },
                         doc! { "$facet": {
                             "created_outputs": [
-                                { "$match": { "metadata.slot_booked": slot_index.0  } },
+                                { "$match": { "metadata.slot_booked": slot_index  } },
                                 { "$replaceWith": "$_id" },
                             ],
                             "consumed_outputs": [
-                                { "$match": { "metadata.spent_metadata.slot_spent": slot_index.0 } },
+                                { "$match": { "metadata.spent_metadata.slot_spent": slot_index } },
                                 { "$replaceWith": "$_id" },
                             ],
                         } },

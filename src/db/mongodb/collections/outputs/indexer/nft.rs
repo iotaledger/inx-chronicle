@@ -31,6 +31,7 @@ pub struct NftOutputsQuery {
     pub created_before: Option<SlotIndex>,
     pub created_after: Option<SlotIndex>,
     pub unlockable_by_address: Option<Address>,
+    pub unlockable_at_slot: Option<SlotIndex>,
 }
 
 impl From<NftOutputsQuery> for bson::Document {
@@ -64,7 +65,10 @@ impl From<NftOutputsQuery> for bson::Document {
             created_before: query.created_before,
             created_after: query.created_after,
         });
-        queries.append_query(UnlockableByAddressQuery(query.unlockable_by_address));
+        queries.append_query(UnlockableByAddressQuery {
+            address: query.unlockable_by_address,
+            slot_index: query.unlockable_at_slot,
+        });
         doc! { "$and": queries }
     }
 }

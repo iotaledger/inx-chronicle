@@ -225,12 +225,12 @@ impl OutputCollection {
 
         self.create_index(
             IndexModel::builder()
-                .keys(doc! { "details.storage_deposit_return_address": 1 })
+                .keys(doc! { "details.storage_deposit_return.address": 1 })
                 .options(
                     IndexOptions::builder()
                         .name("output_storage_deposit_return_address_index".to_string())
                         .partial_filter_expression(doc! {
-                            "details.storage_deposit_return_address": { "$exists": true },
+                            "details.storage_deposit_return": { "$exists": true },
                         })
                         .build(),
                 )
@@ -257,12 +257,12 @@ impl OutputCollection {
 
         self.create_index(
             IndexModel::builder()
-                .keys(doc! { "details.expiration_return_address": 1 })
+                .keys(doc! { "details.expiration.return_address": 1 })
                 .options(
                     IndexOptions::builder()
                         .name("output_expiration_return_address_index".to_string())
                         .partial_filter_expression(doc! {
-                            "details.expiration_return_address": { "$exists": true },
+                            "details.expiration": { "$exists": true },
                         })
                         .build(),
                 )
@@ -273,7 +273,7 @@ impl OutputCollection {
 
         self.create_index(
             IndexModel::builder()
-                .keys(doc! { "details.expiration": 1 })
+                .keys(doc! { "details.expiration.slot_index": 1 })
                 .options(
                     IndexOptions::builder()
                         .name("output_expiration_index".to_string())
@@ -375,6 +375,22 @@ impl OutputCollection {
                         .name("output_validator_index".to_string())
                         .partial_filter_expression(doc! {
                             "details.validator": { "$exists": true },
+                        })
+                        .build(),
+                )
+                .build(),
+            None,
+        )
+        .await?;
+
+        self.create_index(
+            IndexModel::builder()
+                .keys(doc! { "details.staking": 1 })
+                .options(
+                    IndexOptions::builder()
+                        .name("output_staking_index".to_string())
+                        .partial_filter_expression(doc! {
+                            "details.staking": { "$exists": true },
                         })
                         .build(),
                 )

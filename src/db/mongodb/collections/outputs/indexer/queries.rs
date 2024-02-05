@@ -109,15 +109,57 @@ impl AppendToQuery for AddressQuery {
 }
 
 /// Queries for an a unlocking address.
-pub(super) struct UnlockableByAddressQuery(pub(super) Option<Address>);
+pub(super) struct UnlockableByAddressQuery {
+    pub(super) address: Option<Address>,
+    pub(super) slot_index: Option<SlotIndex>,
+}
 
 impl AppendToQuery for UnlockableByAddressQuery {
     fn append_to(self, queries: &mut Vec<Document>) {
-        if let Some(address) = self.0 {
-            queries.push(doc! {
-                "details.address": AddressDto::from(address),
-                // TODO: check other conditions
-            });
+        match (self.address, self.slot_index) {
+            (Some(address), Some(SlotIndex(slot_index))) => {
+                queries.push(doc! {
+                    "$or": [
+                        // If this output is trivially unlocked by this address
+                        { "$and": [
+                            { "details.address": address.to_bson() },
+                            // And the output has no expiration or is not expired
+                            { "$or": [
+                                { "$lte": [ "$details.expiration", null ] },
+                                { "$gt": [ "$details.expiration.slot_index", slot_index ] }
+                            ] },
+                            // and has no timelock or is past the lock period
+                            { "$or": [
+                                { "$lte": [ "$details.timelock", null ] },
+                                { "$lte": [ "$details.timelock", slot_index ] }
+                            ] }
+                        ] },
+                        // Otherwise, if this output has expiring funds that will be returned to this address
+                        { "$and": [
+                            { "details.expiration.return_address": address.to_bson() },
+                            // And the output is expired
+                            { "$lte": [ "$details.expiration.slot_index", slot_index ] },
+                        ] },
+                    ]
+                });
+            }
+            (Some(address), None) => {
+                queries.push(doc! {
+                    "$or": [
+                        { "details.address": address.to_bson() },
+                        { "details.expiration.return_address": address.to_bson() },
+                    ]
+                });
+            }
+            (None, Some(SlotIndex(slot_index))) => {
+                queries.push(doc! {
+                    "$or": [
+                        { "$lte": [ "$details.timelock", null ] },
+                        { "$lte": [ "$details.timelock", slot_index ] }
+                    ]
+                });
+            }
+            _ => (),
         }
     }
 }
