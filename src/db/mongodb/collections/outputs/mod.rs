@@ -298,12 +298,10 @@ pub struct OutputWithMetadataResult {
     pub metadata: OutputMetadata,
 }
 
-#[derive(Clone, Debug, Deserialize)]
+#[derive(Clone, Debug, Default)]
 #[allow(missing_docs)]
 pub struct BalanceResult {
-    #[serde(with = "string")]
     pub total_balance: u64,
-    #[serde(with = "string")]
     pub available_balance: u64,
 }
 
@@ -598,8 +596,10 @@ impl OutputCollection {
         address: Address,
         SlotIndex(slot_index): SlotIndex,
     ) -> Result<Option<BalanceResult>, DbError> {
-        Ok(self
-            .aggregate(
+        let mut balance = None;
+
+        let mut stream = self
+            .aggregate::<OutputDetails>(
                 [
                     // Look at all (at ledger index o'clock) unspent output documents for the given address.
                     doc! { "$match": {
@@ -613,70 +613,41 @@ impl OutputCollection {
                         "metadata.booked.milestone_index": { "$lte": slot_index },
                         "metadata.spent_metadata.spent.milestone_index": { "$not": { "$lte": slot_index } }
                     } },
-                    doc! { "$set": { "output_amount": { "$subtract": [
-                        { "$toDecimal": "$details.amount" },
-                        { "$ifNull": [{ "$toDecimal": "$details.storage_deposit_return.amount" }, 0 ] },
-                    ] } } },
-                    doc! { "$group": {
-                        "_id": null,
-                        "total_balance": { "$sum": {
-                            "$cond": [
-                                // If this output is trivially unlocked by this address
-                                { "$eq": [ "$details.address", address.to_bson() ] },
-                                { "$cond": [
-                                    // And the output has no expiration or is not expired
-                                    { "$or": [
-                                        { "$lte": [ "$details.expiration", null ] },
-                                        { "$gt": [ "$details.expiration.slot_index", slot_index ] }
-                                    ] },
-                                    { "$toDecimal": "$output_amount" }, 0
-                                ] },
-                                // Otherwise, if this output has expiring funds that will be returned to this address
-                                { "$cond": [
-                                    // And the output is expired
-                                    { "$lte": [ "$details.expiration.slot_index", slot_index ] },
-                                    { "$toDecimal": "$output_amount" }, 0
-                                ] }
-                            ]
-                        } },
-                        "available_balance": { "$sum": {
-                            "$cond": [
-                                // If this output is trivially unlocked by this address
-                                { "$eq": [ "$details.address", address.to_bson() ] },
-                                { "$cond": [
-                                    { "$and": [
-                                        // And the output has no expiration or is not expired
-                                        { "$or": [
-                                            { "$lte": [ "$details.expiration", null ] },
-                                            { "$gt": [ "$details.expiration.slot_index", slot_index ] }
-                                        ] },
-                                        // and has no timelock or is past the lock period
-                                        { "$or": [
-                                            { "$lte": [ "$details.timelock", null ] },
-                                            { "$lte": [ "$details.timelock", slot_index ] }
-                                        ] }
-                                    ] },
-                                    { "$toDecimal": "$output_amount" }, 0
-                                ] },
-                                // Otherwise, if this output has expiring funds that will be returned to this address
-                                { "$cond": [
-                                    // And the output is expired
-                                    { "$lte": [ "$details.expiration.slot_index", slot_index ] },
-                                    { "$toDecimal": "$output_amount" }, 0
-                                ] }
-                            ]
-                        } },
-                    } },
-                    doc! { "$project": {
-                        "total_balance": { "$toString": "$total_balance" },
-                        "available_balance": { "$toString": "$available_balance" },
-                    } },
+                    doc! { "$replaceWith": "$details" },
                 ],
                 None,
             )
-            .await?
-            .try_next()
-            .await?)
+            .await?;
+
+        let address = AddressDto::from(address);
+
+        while let Some(details) = stream.try_next().await? {
+            let balance = balance.get_or_insert(BalanceResult::default());
+            let output_amount = details.amount
+                - details
+                    .storage_deposit_return
+                    .map(|sdruc| sdruc.amount)
+                    .unwrap_or_default();
+            // If this output is trivially unlocked by this address
+            if matches!(details.address, Some(a) if a == address) {
+                // And the output has no expiration or is not expired
+                if details.expiration.map_or(true, |exp| exp.slot_index.0 > slot_index) {
+                    balance.total_balance += output_amount;
+                    // and has no timelock or is past the lock period
+                    if details.timelock.map_or(true, |tl| tl.0 <= slot_index) {
+                        balance.available_balance += output_amount;
+                    }
+                }
+            // Otherwise, if this output has expiring funds that will be returned to this address
+            } else {
+                // And the output is expired
+                if details.expiration.map_or(false, |exp| exp.slot_index.0 <= slot_index) {
+                    balance.total_balance += output_amount;
+                    balance.available_balance += output_amount;
+                }
+            }
+        }
+        Ok(balance)
     }
 
     /// Returns the changes to the UTXO ledger (as consumed and created output ids) that were applied at the given

@@ -13,10 +13,10 @@ use super::address::AddressDto;
 /// A native token.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct StorageDepositReturnUnlockConditionDto {
-    // The address to return the amount to.
-    return_address: AddressDto,
-    // Amount of IOTA coins the consuming transaction should deposit to `return_address`.
-    amount: u64,
+    /// The address to return the amount to.
+    pub return_address: AddressDto,
+    /// Amount of IOTA coins the consuming transaction should deposit to `return_address`.
+    pub amount: u64,
 }
 
 impl<T: Borrow<StorageDepositReturnUnlockCondition>> From<T> for StorageDepositReturnUnlockConditionDto {

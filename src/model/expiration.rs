@@ -13,10 +13,10 @@ use super::address::AddressDto;
 /// A native token.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ExpirationUnlockConditionDto {
-    // The address that can unlock the expired output.
-    return_address: AddressDto,
+    /// The address that can unlock the expired output.
+    pub return_address: AddressDto,
     /// The slot index that determines when the associated output expires.
-    slot_index: SlotIndex,
+    pub slot_index: SlotIndex,
 }
 
 impl<T: Borrow<ExpirationUnlockCondition>> From<T> for ExpirationUnlockConditionDto {
