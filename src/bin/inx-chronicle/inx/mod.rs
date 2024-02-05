@@ -22,7 +22,7 @@ use chronicle::{
 };
 use eyre::{bail, Result};
 use futures::{StreamExt, TryStreamExt};
-use iota_sdk::types::block::{protocol::ProtocolParameters, slot::SlotIndex};
+use iota_sdk::types::block::{output::StorageScoreParameters, protocol::ProtocolParameters, slot::SlotIndex};
 use tokio::{task::JoinSet, try_join};
 use tracing::{debug, info, instrument, trace_span, Instrument};
 
@@ -65,7 +65,7 @@ impl InxWorker {
     }
 
     pub async fn run(&mut self) -> Result<()> {
-        let (start_index, inx, _protocol_params) = self.init().await?;
+        let (start_index, inx, protocol_params) = self.init().await?;
 
         let tangle = Tangle::from(inx);
 
@@ -79,8 +79,7 @@ impl InxWorker {
         while let Some(slot) = stream.try_next().await? {
             self.handle_ledger_update(
                 slot,
-                #[cfg(feature = "influx")]
-                &_protocol_params,
+                &protocol_params,
                 #[cfg(feature = "analytics")]
                 analytics_info.as_mut(),
             )
@@ -174,6 +173,7 @@ impl InxWorker {
                 .await?;
 
             let mut starting_index = None;
+            let protocol_params = node_configuration.latest_parameters();
 
             let mut count = 0;
             let mut tasks = unspent_output_stream
@@ -200,7 +200,8 @@ impl InxWorker {
                 // Convert batches to tasks
                 .try_fold(JoinSet::new(), |mut tasks, batch| async {
                     let db = self.db.clone();
-                    tasks.spawn(async move { insert_unspent_outputs(&db, &batch).await });
+                    let params = protocol_params.storage_score_parameters();
+                    tasks.spawn(async move { insert_unspent_outputs(&db, &batch, params).await });
                     Result::<_>::Ok(tasks)
                 })
                 .await?;
@@ -212,8 +213,6 @@ impl InxWorker {
             info!("Inserted {} unspent outputs.", count);
 
             let starting_index = starting_index.unwrap_or(SlotIndex(0));
-
-            let protocol_params = node_configuration.latest_parameters();
 
             // Get the timestamp for the starting index
             let slot_timestamp = starting_index.to_timestamp(
@@ -253,7 +252,7 @@ impl InxWorker {
     async fn handle_ledger_update<'a>(
         &mut self,
         slot: Slot<'a, Inx>,
-        #[cfg(feature = "influx")] protocol_parameters: &ProtocolParameters,
+        protocol_parameters: &ProtocolParameters,
         #[cfg(feature = "analytics")] analytics_info: Option<&mut influx::analytics::AnalyticsInfo>,
     ) -> Result<()> {
         #[cfg(feature = "metrics")]
@@ -264,13 +263,15 @@ impl InxWorker {
         for batch in slot.ledger_updates().created_outputs().chunks(INSERT_BATCH_SIZE) {
             let db = self.db.clone();
             let batch = batch.to_vec();
-            tasks.spawn(async move { insert_unspent_outputs(&db, &batch).await });
+            let params = protocol_parameters.storage_score_parameters();
+            tasks.spawn(async move { insert_unspent_outputs(&db, &batch, params).await });
         }
 
         for batch in slot.ledger_updates().consumed_outputs().chunks(INSERT_BATCH_SIZE) {
             let db = self.db.clone();
             let batch = batch.to_vec();
-            tasks.spawn(async move { update_spent_outputs(&db, &batch).await });
+            let params = protocol_parameters.storage_score_parameters();
+            tasks.spawn(async move { update_spent_outputs(&db, &batch, params).await });
         }
 
         while let Some(res) = tasks.join_next().await {
@@ -333,12 +334,12 @@ impl InxWorker {
 }
 
 #[instrument(skip_all, err, fields(num = outputs.len()), level = "trace")]
-async fn insert_unspent_outputs(db: &MongoDb, outputs: &[LedgerOutput]) -> Result<()> {
+async fn insert_unspent_outputs(db: &MongoDb, outputs: &[LedgerOutput], params: StorageScoreParameters) -> Result<()> {
     let output_collection = db.collection::<OutputCollection>();
     let ledger_collection = db.collection::<LedgerUpdateCollection>();
     try_join! {
         async {
-            output_collection.insert_unspent_outputs(outputs).await?;
+            output_collection.insert_unspent_outputs(outputs, params).await?;
             Result::<_>::Ok(())
         },
         async {
@@ -350,12 +351,12 @@ async fn insert_unspent_outputs(db: &MongoDb, outputs: &[LedgerOutput]) -> Resul
 }
 
 #[instrument(skip_all, err, fields(num = outputs.len()), level = "trace")]
-async fn update_spent_outputs(db: &MongoDb, outputs: &[LedgerSpent]) -> Result<()> {
+async fn update_spent_outputs(db: &MongoDb, outputs: &[LedgerSpent], params: StorageScoreParameters) -> Result<()> {
     let output_collection = db.collection::<OutputCollection>();
     let ledger_collection = db.collection::<LedgerUpdateCollection>();
     try_join! {
         async {
-            output_collection.update_spent_outputs(outputs).await?;
+            output_collection.update_spent_outputs(outputs, params).await?;
             Ok(())
         },
         async {

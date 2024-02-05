@@ -9,7 +9,7 @@ use futures::{Stream, TryStreamExt};
 use iota_sdk::{
     types::block::{
         address::Address,
-        output::{AccountId, Output, OutputId},
+        output::{AccountId, MinimumOutputAmount, Output, OutputId, StorageScoreParameters},
         payload::signed_transaction::TransactionId,
         protocol::ProtocolParameters,
         slot::{SlotCommitmentId, SlotIndex},
@@ -172,8 +172,8 @@ struct OutputDetails {
     account_address: Option<AccountId>,
 }
 
-impl From<&LedgerOutput> for OutputDocument {
-    fn from(rec: &LedgerOutput) -> Self {
+impl OutputDocument {
+    pub fn from_ledger_output(rec: &LedgerOutput, params: StorageScoreParameters) -> Self {
         Self {
             output_id: rec.output_id,
             output: rec.output.clone(),
@@ -187,7 +187,7 @@ impl From<&LedgerOutput> for OutputDocument {
                 kind: rec.kind().to_owned(),
                 amount: rec.amount(),
                 stored_mana: rec.output().mana(),
-                generation_amount: 0,
+                generation_amount: rec.amount().saturating_sub(rec.output().minimum_amount(params)),
                 indexed_id: match rec.output() {
                     Output::Account(output) => Some(output.account_id_non_null(&rec.output_id).into()),
                     Output::Anchor(output) => Some(output.anchor_id_non_null(&rec.output_id).into()),
@@ -261,11 +261,9 @@ impl From<&LedgerOutput> for OutputDocument {
             },
         }
     }
-}
 
-impl From<&LedgerSpent> for OutputDocument {
-    fn from(rec: &LedgerSpent) -> Self {
-        let mut res = Self::from(&rec.output);
+    fn from_ledger_spent(rec: &LedgerSpent, params: StorageScoreParameters) -> Self {
+        let mut res = Self::from_ledger_output(&rec.output, params);
         res.metadata.spent_metadata.replace(SpentMetadata {
             slot_spent: rec.slot_spent,
             commitment_id_spent: rec.commitment_id_spent,
@@ -357,6 +355,17 @@ pub struct DecayedMana {
     pub potential: u64,
 }
 
+#[derive(Clone, Debug, Deserialize)]
+#[allow(missing_docs)]
+pub struct ManaInfoResult {
+    pub output_id: OutputId,
+    #[serde(with = "string")]
+    pub stored_mana: u64,
+    #[serde(with = "string")]
+    pub generation_amount: u64,
+    pub created_index: SlotIndex,
+}
+
 #[derive(Clone, Debug, Default, Deserialize)]
 #[allow(missing_docs)]
 pub struct UtxoChangesResult {
@@ -368,14 +377,18 @@ pub struct UtxoChangesResult {
 impl OutputCollection {
     /// Upserts spent ledger outputs.
     #[instrument(skip_all, err, level = "trace")]
-    pub async fn update_spent_outputs(&self, outputs: impl IntoIterator<Item = &LedgerSpent>) -> Result<(), DbError> {
+    pub async fn update_spent_outputs(
+        &self,
+        outputs: impl IntoIterator<Item = &LedgerSpent>,
+        params: StorageScoreParameters,
+    ) -> Result<(), DbError> {
         // TODO: Replace `db.run_command` once the `BulkWrite` API lands in the Rust driver.
         let update_docs = outputs
             .into_iter()
             .map(|output| {
                 Ok(doc! {
                     "q": { "_id": output.output_id().to_bson() },
-                    "u": to_document(&OutputDocument::from(output))?,
+                    "u": to_document(&OutputDocument::from_ledger_spent(output, params))?,
                     "upsert": true,
                 })
             })
@@ -398,14 +411,16 @@ impl OutputCollection {
 
     /// Inserts unspent ledger outputs.
     #[instrument(skip_all, err, level = "trace")]
-    pub async fn insert_unspent_outputs<I, B>(&self, outputs: I) -> Result<(), DbError>
+    pub async fn insert_unspent_outputs<I, B>(&self, outputs: I, params: StorageScoreParameters) -> Result<(), DbError>
     where
         I: IntoIterator<Item = B>,
         I::IntoIter: Send + Sync,
         B: Borrow<LedgerOutput>,
     {
         self.insert_many_ignore_duplicates(
-            outputs.into_iter().map(|d| OutputDocument::from(d.borrow())),
+            outputs
+                .into_iter()
+                .map(|d| OutputDocument::from_ledger_output(d.borrow(), params)),
             InsertManyOptions::builder().ordered(false).build(),
         )
         .await?;
@@ -749,6 +764,52 @@ impl OutputCollection {
             }
         }
         Ok(balance)
+    }
+
+    /// Get a stream of mana info by output,
+    pub async fn get_mana_info(
+        &self,
+        address: Address,
+        SlotIndex(slot_index): SlotIndex,
+    ) -> Result<impl Stream<Item = Result<ManaInfoResult, DbError>>, DbError> {
+        Ok(self
+            .aggregate::<ManaInfoResult>(
+                [
+                    doc! { "$match": {
+                        "$or": [
+                            // If this output is trivially unlocked by this address
+                            { "$and": [
+                                { "details.address": address.to_bson() },
+                                // And the output has no expiration or is not expired
+                                { "$or": [
+                                    { "$lte": [ "$details.expiration", null ] },
+                                    { "$gt": [ "$details.expiration.slot_index", slot_index ] }
+                                ] },
+                                // and has no timelock or is past the lock period
+                                { "$or": [
+                                    { "$lte": [ "$details.timelock", null ] },
+                                    { "$lte": [ "$details.timelock", slot_index ] }
+                                ] }
+                            ] },
+                            // Otherwise, if this output has expiring funds that will be returned to this address
+                            { "$and": [
+                                { "details.expiration.return_address": address.to_bson() },
+                                // And the output is expired
+                                { "$lte": [ "$details.expiration.slot_index", slot_index ] },
+                            ] },
+                        ]
+                    } },
+                    doc! { "$project": {
+                        "output_id": "$_id",
+                        "stored_mana": "$details.mana",
+                        "generation_amount": "$details.generation_amount",
+                        "created_index": "$metadata.slot_booked"
+                    } },
+                ],
+                None,
+            )
+            .await?
+            .map_err(Into::into))
     }
 
     /// Returns the changes to the UTXO ledger (as consumed and created output ids) that were applied at the given
