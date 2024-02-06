@@ -111,7 +111,7 @@ impl FillAnalyticsCommand {
         let (start_index, start_date) = (
             start_index,
             start_date.unwrap_or(
-                OffsetDateTime::from_unix_timestamp_nanos(start_index.to_timestamp(
+                OffsetDateTime::from_unix_timestamp(start_index.to_timestamp(
                     protocol_params.genesis_unix_timestamp(),
                     protocol_params.slot_duration_in_seconds(),
                 ) as _)
@@ -140,7 +140,7 @@ impl FillAnalyticsCommand {
         let (end_index, end_date) = (
             end_index,
             end_date.unwrap_or(
-                OffsetDateTime::from_unix_timestamp_nanos(end_index.to_timestamp(
+                OffsetDateTime::from_unix_timestamp(end_index.to_timestamp(
                     protocol_params.genesis_unix_timestamp(),
                     protocol_params.slot_duration_in_seconds(),
                 ) as _)

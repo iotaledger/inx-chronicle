@@ -114,6 +114,16 @@ impl InxWorker {
             node_status.latest_commitment.commitment_id.slot_index()
         );
 
+        let mut node_configuration = inx.get_node_configuration().await?;
+
+        debug!(
+            "Connected to network `{}` with base token `{}[{}]`.",
+            node_configuration.latest_parameters().network_name(),
+            node_configuration.base_token.name,
+            node_configuration.base_token.ticker_symbol
+        );
+
+        // Check if there is an unfixable gap in our node data.
         let start_index = if let Some(latest_committed_slot) = self
             .db
             .collection::<CommittedSlotCollection>()
@@ -122,22 +132,12 @@ impl InxWorker {
         {
             latest_committed_slot.slot_index + 1
         } else {
-            self.config.sync_start_slot
+            self.config.sync_start_slot.max(
+                node_configuration
+                    .latest_parameters()
+                    .first_slot_of(node_status.pruning_epoch + 1),
+            )
         };
-
-        let node_configuration = inx.get_node_configuration().await?;
-
-        debug!(
-            "Connected to network `{}` with base token `{}[{}]`.",
-            node_configuration
-                .protocol_parameters
-                .last()
-                .unwrap()
-                .parameters
-                .network_name(),
-            node_configuration.base_token.name,
-            node_configuration.base_token.ticker_symbol
-        );
 
         if let Some(db_node_config) = self
             .db
@@ -223,7 +223,7 @@ impl InxWorker {
             info!(
                 "Setting starting index to {} with timestamp {}",
                 starting_index,
-                time::OffsetDateTime::from_unix_timestamp_nanos(slot_timestamp as _)?
+                time::OffsetDateTime::from_unix_timestamp(slot_timestamp as _)?
                     .format(&time::format_description::well_known::Rfc3339)?
             );
 
@@ -245,7 +245,11 @@ impl InxWorker {
             .set_node_config(&node_configuration)
             .await?;
 
-        Ok((start_index, inx, node_configuration.latest_parameters().clone()))
+        Ok((
+            start_index,
+            inx,
+            node_configuration.protocol_parameters.pop().unwrap().parameters,
+        ))
     }
 
     #[instrument(skip_all, fields(slot_index, created, consumed), err, level = "debug")]

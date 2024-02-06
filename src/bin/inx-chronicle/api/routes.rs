@@ -105,7 +105,7 @@ pub fn password_verify(
 
 fn is_new_enough(slot_timestamp: u64) -> bool {
     // Panic: The slot timestamp is guaranteeed to be valid.
-    let timestamp = OffsetDateTime::from_unix_timestamp_nanos(slot_timestamp as _).unwrap();
+    let timestamp = OffsetDateTime::from_unix_timestamp(slot_timestamp as _).unwrap();
     OffsetDateTime::now_utc() <= timestamp + STALE_SLOT_DURATION
 }
 
