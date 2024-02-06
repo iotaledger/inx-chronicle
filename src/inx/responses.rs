@@ -193,24 +193,30 @@ impl TryConvertFrom<proto::BlockMetadata> for BlockMetadata {
         Ok(Self {
             block_state: proto.block_state().convert(),
             block_failure_reason: proto.block_failure_reason().convert(),
-            transaction_metadata: proto.transaction_metadata.map(TryConvertTo::try_convert).transpose()?,
+            transaction_metadata: proto.transaction_metadata.try_convert()?,
             block_id: maybe_missing!(proto.block_id).try_convert()?,
         })
     }
 }
 
-impl TryConvertFrom<proto::TransactionMetadata> for TransactionMetadata {
+impl TryConvertFrom<Option<proto::TransactionMetadata>> for Option<TransactionMetadata> {
     type Error = InxError;
 
-    fn try_convert_from(proto: proto::TransactionMetadata) -> Result<Self, Self::Error>
+    fn try_convert_from(proto: Option<proto::TransactionMetadata>) -> Result<Self, Self::Error>
     where
         Self: Sized,
     {
-        Ok(Self {
-            transaction_state: proto.transaction_state().convert(),
-            transaction_failure_reason: proto.transaction_failure_reason().convert(),
-            transaction_id: maybe_missing!(proto.transaction_id).try_convert()?,
-        })
+        if let Some(proto) = proto {
+            // We can receive a metadata with null values so we can't assume this is actually a transaction
+            if let Some(transaction_state) = proto.transaction_state().convert() {
+                return Ok(Some(TransactionMetadata {
+                    transaction_state,
+                    transaction_failure_reason: proto.transaction_failure_reason().convert(),
+                    transaction_id: maybe_missing!(proto.transaction_id).try_convert()?,
+                }));
+            }
+        }
+        Ok(None)
     }
 }
 

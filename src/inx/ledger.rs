@@ -197,17 +197,17 @@ impl ConvertFrom<proto::block_metadata::BlockState> for BlockState {
     }
 }
 
-impl ConvertFrom<proto::transaction_metadata::TransactionState> for TransactionState {
+impl ConvertFrom<proto::transaction_metadata::TransactionState> for Option<TransactionState> {
     fn convert_from(proto: proto::transaction_metadata::TransactionState) -> Self {
         use proto::transaction_metadata::TransactionState as ProtoState;
-        match proto {
+        Some(match proto {
             ProtoState::Pending => TransactionState::Pending,
             ProtoState::Confirmed => TransactionState::Confirmed,
             ProtoState::Finalized => TransactionState::Finalized,
             ProtoState::Failed => TransactionState::Failed,
             ProtoState::Accepted => TransactionState::Accepted,
-            ProtoState::NoTransaction => panic!("tried to convert a transaction state where no transaction exists"),
-        }
+            ProtoState::NoTransaction => return None,
+        })
     }
 }
 
