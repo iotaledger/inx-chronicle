@@ -1,4 +1,4 @@
-// Copyright 2022 IOTA Stiftung
+// Copyright 2024 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
 //! Module containing the [`Output`] types.
@@ -23,6 +23,7 @@ use mongodb::bson::{doc, Bson};
 use packable::PackableExt;
 use serde::{Deserialize, Serialize};
 
+use self::unlock_condition::{ExpirationUnlockCondition, TimelockUnlockCondition};
 pub use self::{
     address::{Address, AliasAddress, Ed25519Address, NftAddress},
     alias::{AliasId, AliasOutput},
@@ -54,7 +55,9 @@ use crate::model::{
     derive_more::AddAssign,
     derive_more::SubAssign,
     derive_more::Sum,
+    derive_more::Deref,
 )]
+#[repr(transparent)]
 pub struct TokenAmount(#[serde(with = "stringify")] pub u64);
 
 /// The index of an output within a transaction.
@@ -62,7 +65,7 @@ pub type OutputIndex = u16;
 
 /// An id which uniquely identifies an output. It is computed from the corresponding [`TransactionId`], as well as the
 /// [`OutputIndex`].
-#[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Hash)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Hash, PartialOrd, Ord)]
 pub struct OutputId {
     /// The transaction id part of the [`OutputId`].
     pub transaction_id: TransactionId,
@@ -180,6 +183,36 @@ impl Output {
                 ..
             }) => &immutable_alias_address_unlock_condition.address,
         })
+    }
+
+    /// Returns the expiration unlock condition, if there is one.
+    pub fn expiration(&self) -> Option<&ExpirationUnlockCondition> {
+        match self {
+            Self::Basic(BasicOutput {
+                expiration_unlock_condition,
+                ..
+            })
+            | Self::Nft(NftOutput {
+                expiration_unlock_condition,
+                ..
+            }) => expiration_unlock_condition.as_ref(),
+            _ => None,
+        }
+    }
+
+    /// Returns the timelock unlock condition, if there is one.
+    pub fn timelock(&self) -> Option<&TimelockUnlockCondition> {
+        match self {
+            Self::Basic(BasicOutput {
+                timelock_unlock_condition,
+                ..
+            })
+            | Self::Nft(NftOutput {
+                timelock_unlock_condition,
+                ..
+            }) => timelock_unlock_condition.as_ref(),
+            _ => None,
+        }
     }
 
     /// Returns the amount associated with an output.
