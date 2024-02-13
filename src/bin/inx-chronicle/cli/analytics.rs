@@ -1,4 +1,4 @@
-// Copyright 2023 IOTA Stiftung
+// Copyright 2024 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
 use std::collections::HashSet;
@@ -23,7 +23,9 @@ use tracing::{debug, info};
 
 use crate::config::ChronicleConfig;
 
-/// This command accepts both milestone index and date ranges. The following rules apply:
+/// This command accepts both milestone index and date ranges.
+///
+/// The following rules apply:
 ///
 /// - If both milestone and date are specified, the date will be used for interval analytics
 /// while the milestone will be used for per-milestone analytics.
@@ -264,14 +266,7 @@ pub async fn fill_analytics<I: 'static + InputSource + Clone>(
 
                         let analytics = analytics_choices
                             .iter()
-                            .map(|choice| {
-                                Analytic::init(
-                                    choice,
-                                    &milestone.protocol_params,
-                                    &ledger_state,
-                                    milestone.at.milestone_timestamp,
-                                )
-                            })
+                            .map(|choice| Analytic::init(choice, &milestone.protocol_params, &ledger_state))
                             .collect::<Vec<_>>();
                         state = Some(AnalyticsState {
                             analytics,

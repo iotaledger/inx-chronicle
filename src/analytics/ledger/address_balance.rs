@@ -4,10 +4,7 @@
 use std::collections::HashMap;
 
 use super::*;
-use crate::model::{
-    payload::milestone::MilestoneTimestamp,
-    utxo::{Address, TokenAmount},
-};
+use crate::model::utxo::{Address, TokenAmount};
 
 #[derive(Debug)]
 pub(crate) struct AddressBalanceMeasurement {
@@ -32,13 +29,10 @@ pub(crate) struct AddressBalancesAnalytics {
 
 impl AddressBalancesAnalytics {
     /// Initialize the analytics by reading the current ledger state.
-    pub(crate) fn init<'a>(
-        unspent_outputs: impl IntoIterator<Item = &'a LedgerOutput>,
-        milestone_timestamp: MilestoneTimestamp,
-    ) -> Self {
+    pub(crate) fn init<'a>(unspent_outputs: impl IntoIterator<Item = &'a LedgerOutput>) -> Self {
         let mut balances = HashMap::new();
         for output in unspent_outputs {
-            if let Some(&a) = output.output.owning_address(milestone_timestamp) {
+            if let Some(&a) = output.owning_address() {
                 *balances.entry(a).or_default() += output.amount();
             }
         }
@@ -49,9 +43,9 @@ impl AddressBalancesAnalytics {
 impl Analytics for AddressBalancesAnalytics {
     type Measurement = AddressBalanceMeasurement;
 
-    fn handle_transaction(&mut self, consumed: &[LedgerSpent], created: &[LedgerOutput], ctx: &dyn AnalyticsContext) {
+    fn handle_transaction(&mut self, consumed: &[LedgerSpent], created: &[LedgerOutput], _ctx: &dyn AnalyticsContext) {
         for output in consumed {
-            if let Some(a) = output.owning_address() {
+            if let Some(a) = output.output.owning_address() {
                 // All inputs should be present in `addresses`. If not, we skip it's value.
                 if let Some(amount) = self.balances.get_mut(a) {
                     *amount -= output.amount();
@@ -63,7 +57,7 @@ impl Analytics for AddressBalancesAnalytics {
         }
 
         for output in created {
-            if let Some(&a) = output.output.owning_address(ctx.at().milestone_timestamp) {
+            if let Some(&a) = output.owning_address() {
                 // All inputs should be present in `addresses`. If not, we skip it's value.
                 *self.balances.entry(a).or_default() += output.amount();
             }
