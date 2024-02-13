@@ -1,4 +1,4 @@
-// Copyright 2022 IOTA Stiftung
+// Copyright 2024 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
 #![allow(missing_docs)]
@@ -13,7 +13,7 @@ use crate::model::tangle::MilestoneTimestamp;
 /// Defines a unix timestamp until which the output can not be unlocked.
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct TimelockUnlockCondition {
-    timestamp: MilestoneTimestamp,
+    pub(crate) timestamp: MilestoneTimestamp,
 }
 
 impl<T: Borrow<iota::TimelockUnlockCondition>> From<T> for TimelockUnlockCondition {

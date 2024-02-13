@@ -1,4 +1,4 @@
-// Copyright 2022 IOTA Stiftung
+// Copyright 2024 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
 //! Module containing types related to transactions.
@@ -17,7 +17,7 @@ pub mod output;
 pub mod unlock;
 
 /// Uniquely identifies a transaction.
-#[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Hash)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Hash, PartialOrd, Ord)]
 #[serde(transparent)]
 pub struct TransactionId(#[serde(with = "bytify")] pub [u8; Self::LENGTH]);
 
