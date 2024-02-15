@@ -123,6 +123,10 @@ impl InxWorker {
             node_configuration.base_token.ticker_symbol
         );
 
+        let pruning_slot = node_configuration
+            .latest_parameters()
+            .first_slot_of(node_status.pruning_epoch);
+
         // Check if there is an unfixable gap in our node data.
         let start_index = if let Some(latest_committed_slot) = self
             .db
@@ -130,13 +134,21 @@ impl InxWorker {
             .get_latest_committed_slot()
             .await?
         {
-            latest_committed_slot.slot_index + 1
+            if pruning_slot > latest_committed_slot.slot_index {
+                bail!(InxWorkerError::SyncSlotGap {
+                    start: latest_committed_slot.slot_index + 1,
+                    end: pruning_slot,
+                });
+            } else if node_status.last_confirmed_block_slot < latest_committed_slot.slot_index {
+                bail!(InxWorkerError::SyncSlotIndexMismatch {
+                    node: node_status.last_confirmed_block_slot,
+                    db: latest_committed_slot.slot_index,
+                });
+            } else {
+                latest_committed_slot.slot_index + 1
+            }
         } else {
-            self.config.sync_start_slot.max(
-                node_configuration
-                    .latest_parameters()
-                    .first_slot_of(node_status.pruning_epoch + 1),
-            )
+            self.config.sync_start_slot.max(pruning_slot)
         };
 
         if let Some(db_node_config) = self

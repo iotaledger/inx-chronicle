@@ -17,11 +17,6 @@ pub type ApiResult<T> = Result<T, ApiError>;
 pub trait ErrorStatus: std::error::Error {
     /// Gets the HTTP status code associated with this error.
     fn status(&self) -> StatusCode;
-
-    /// Gets the u16 status code representation associated with this error.
-    fn code(&self) -> u16 {
-        self.status().as_u16()
-    }
 }
 
 #[derive(Debug, Error)]

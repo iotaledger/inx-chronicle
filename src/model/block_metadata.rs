@@ -98,32 +98,19 @@ impl From<TransactionState> for iota_sdk::types::api::core::TransactionState {
 /// Describes the reason of a block failure.
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
+#[allow(missing_docs)]
 pub enum BlockFailureReason {
-    /// The block is too old to issue.
     TooOldToIssue = 1,
-    /// One of the block's parents is too old.
     ParentTooOld = 2,
-    /// One of the block's parents does not exist.
     ParentDoesNotExist = 3,
-    /// One of the block's parents is invalid.
-    ParentInvalid = 4,
-    /// The block's issuer account could not be found.
-    IssuerAccountNotFound = 5,
-    /// The block's protocol version is invalid.
-    VersionInvalid = 6,
-    /// The mana cost could not be calculated.
-    ManaCostCalculationFailed = 7,
-    /// The block's issuer account burned insufficient Mana for a block.
-    BurnedInsufficientMana = 8,
-    /// The account is invalid.
-    AccountInvalid = 9,
-    /// The block's signature is invalid.
-    SignatureInvalid = 10,
-    /// The block is dropped due to congestion.
-    DroppedDueToCongestion = 11,
-    /// The block payload is invalid.
-    PayloadInvalid = 12,
-    /// The block is invalid.
+    IssuerAccountNotFound = 4,
+    ManaCostCalculationFailed = 5,
+    BurnedInsufficientMana = 6,
+    AccountLocked = 7,
+    AccountExpired = 8,
+    SignatureInvalid = 9,
+    DroppedDueToCongestion = 10,
+    PayloadInvalid = 11,
     Invalid = 255,
 }
 
@@ -133,12 +120,11 @@ impl From<BlockFailureReason> for iota_sdk::types::api::core::BlockFailureReason
             BlockFailureReason::TooOldToIssue => Self::TooOldToIssue,
             BlockFailureReason::ParentTooOld => Self::ParentTooOld,
             BlockFailureReason::ParentDoesNotExist => Self::ParentDoesNotExist,
-            BlockFailureReason::ParentInvalid => Self::ParentInvalid,
             BlockFailureReason::IssuerAccountNotFound => Self::IssuerAccountNotFound,
-            BlockFailureReason::VersionInvalid => Self::VersionInvalid,
             BlockFailureReason::ManaCostCalculationFailed => Self::ManaCostCalculationFailed,
             BlockFailureReason::BurnedInsufficientMana => Self::BurnedInsufficientMana,
-            BlockFailureReason::AccountInvalid => Self::AccountInvalid,
+            BlockFailureReason::AccountLocked => Self::AccountLocked,
+            BlockFailureReason::AccountExpired => Self::AccountExpired,
             BlockFailureReason::SignatureInvalid => Self::SignatureInvalid,
             BlockFailureReason::DroppedDueToCongestion => Self::DroppedDueToCongestion,
             BlockFailureReason::PayloadInvalid => Self::PayloadInvalid,
@@ -150,104 +136,173 @@ impl From<BlockFailureReason> for iota_sdk::types::api::core::BlockFailureReason
 /// Describes the reason of a transaction failure.
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
+#[allow(missing_docs)]
 pub enum TransactionFailureReason {
-    /// The referenced UTXO was already spent.
-    InputUtxoAlreadySpent = 1,
-    /// The transaction is conflicting with another transaction. Conflicting specifically means a double spend
-    /// situation that both transaction pass all validation rules, eventually losing one(s) should have this reason.
-    ConflictingWithAnotherTx = 2,
-    /// The referenced UTXO is invalid.
-    InvalidReferencedUtxo = 3,
-    /// The transaction is invalid.
-    InvalidTransaction = 4,
-    /// The sum of the inputs and output base token amount does not match.
-    SumInputsOutputsAmountMismatch = 5,
-    /// The unlock block signature is invalid.
-    InvalidUnlockBlockSignature = 6,
-    /// The configured timelock is not yet expired.
-    TimelockNotExpired = 7,
-    /// The given native tokens are invalid.
-    InvalidNativeTokens = 8,
-    /// The return amount in a transaction is not fulfilled by the output side.
-    StorageDepositReturnUnfulfilled = 9,
-    /// An input unlock was invalid.
-    InvalidInputUnlock = 10,
-    /// The output contains a Sender with an ident (address) which is not unlocked.
-    SenderNotUnlocked = 11,
-    /// The chain state transition is invalid.
-    InvalidChainStateTransition = 12,
-    /// The referenced input is created after transaction issuing time.
-    InvalidTransactionIssuingTime = 13,
-    /// The mana amount is invalid.
-    InvalidManaAmount = 14,
-    /// The Block Issuance Credits amount is invalid.
-    InvalidBlockIssuanceCreditsAmount = 15,
-    /// Reward Context Input is invalid.
-    InvalidRewardContextInput = 16,
-    /// Commitment Context Input is invalid.
-    InvalidCommitmentContextInput = 17,
-    /// Staking Feature is not provided in account output when claiming rewards.
-    MissingStakingFeature = 18,
-    /// Failed to claim staking reward.
-    FailedToClaimStakingReward = 19,
-    /// Failed to claim delegation reward.
-    FailedToClaimDelegationReward = 20,
-    /// Burning of native tokens is not allowed in the transaction capabilities.
-    TransactionCapabilityNativeTokenBurningNotAllowed = 21,
-    /// Burning of mana is not allowed in the transaction capabilities.
-    TransactionCapabilityManaBurningNotAllowed = 22,
-    /// Destruction of accounts is not allowed in the transaction capabilities.
-    TransactionCapabilityAccountDestructionNotAllowed = 23,
-    /// Destruction of anchors is not allowed in the transaction capabilities.
-    TransactionCapabilityAnchorDestructionNotAllowed = 24,
-    /// Destruction of foundries is not allowed in the transaction capabilities.
-    TransactionCapabilityFoundryDestructionNotAllowed = 25,
-    /// Destruction of nfts is not allowed in the transaction capabilities.
-    TransactionCapabilityNftDestructionNotAllowed = 26,
-    /// The semantic validation failed for a reason not covered by the previous variants.
+    ConflictRejected = 1,
+    InputAlreadySpent = 2,
+    InputCreationAfterTxCreation = 3,
+    UnlockSignatureInvalid = 4,
+    CommitmentInputReferenceInvalid = 5,
+    BicInputReferenceInvalid = 6,
+    RewardInputReferenceInvalid = 7,
+    StakingRewardCalculationFailure = 8,
+    DelegationRewardCalculationFailure = 9,
+    InputOutputBaseTokenMismatch = 10,
+    ManaOverflow = 11,
+    InputOutputManaMismatch = 12,
+    ManaDecayCreationIndexExceedsTargetIndex = 13,
+    NativeTokenSumUnbalanced = 14,
+    SimpleTokenSchemeMintedMeltedTokenDecrease = 15,
+    SimpleTokenSchemeMintingInvalid = 16,
+    SimpleTokenSchemeMeltingInvalid = 17,
+    SimpleTokenSchemeMaximumSupplyChanged = 18,
+    SimpleTokenSchemeGenesisInvalid = 19,
+    MultiAddressLengthUnlockLengthMismatch = 20,
+    MultiAddressUnlockThresholdNotReached = 21,
+    SenderFeatureNotUnlocked = 22,
+    IssuerFeatureNotUnlocked = 23,
+    StakingRewardInputMissing = 24,
+    StakingBlockIssuerFeatureMissing = 25,
+    StakingCommitmentInputMissing = 26,
+    StakingRewardClaimingInvalid = 27,
+    StakingFeatureRemovedBeforeUnbonding = 28,
+    StakingFeatureModifiedBeforeUnbonding = 29,
+    StakingStartEpochInvalid = 30,
+    StakingEndEpochTooEarly = 31,
+    BlockIssuerCommitmentInputMissing = 32,
+    BlockIssuanceCreditInputMissing = 33,
+    BlockIssuerNotExpired = 34,
+    BlockIssuerExpiryTooEarly = 35,
+    ManaMovedOffBlockIssuerAccount = 36,
+    AccountLocked = 37,
+    TimelockCommitmentInputMissing = 38,
+    TimelockNotExpired = 39,
+    ExpirationCommitmentInputMissing = 40,
+    ExpirationNotUnlockable = 41,
+    ReturnAmountNotFulFilled = 42,
+    NewChainOutputHasNonZeroedId = 43,
+    ChainOutputImmutableFeaturesChanged = 44,
+    ImplicitAccountDestructionDisallowed = 45,
+    MultipleImplicitAccountCreationAddresses = 46,
+    AccountInvalidFoundryCounter = 47,
+    AnchorInvalidStateTransition = 48,
+    AnchorInvalidGovernanceTransition = 49,
+    FoundryTransitionWithoutAccount = 50,
+    FoundrySerialInvalid = 51,
+    DelegationCommitmentInputMissing = 52,
+    DelegationRewardInputMissing = 53,
+    DelegationRewardsClaimingInvalid = 54,
+    DelegationOutputTransitionedTwice = 55,
+    DelegationModified = 56,
+    DelegationStartEpochInvalid = 57,
+    DelegationAmountMismatch = 58,
+    DelegationEndEpochNotZero = 59,
+    DelegationEndEpochInvalid = 60,
+    CapabilitiesNativeTokenBurningNotAllowed = 61,
+    CapabilitiesManaBurningNotAllowed = 62,
+    CapabilitiesAccountDestructionNotAllowed = 63,
+    CapabilitiesAnchorDestructionNotAllowed = 64,
+    CapabilitiesFoundryDestructionNotAllowed = 65,
+    CapabilitiesNftDestructionNotAllowed = 66,
     SemanticValidationFailed = 255,
 }
 
 impl From<TransactionFailureReason> for iota_sdk::types::block::semantic::TransactionFailureReason {
     fn from(value: TransactionFailureReason) -> Self {
         match value {
-            TransactionFailureReason::InputUtxoAlreadySpent => Self::InputUtxoAlreadySpent,
-            TransactionFailureReason::ConflictingWithAnotherTx => Self::ConflictingWithAnotherTx,
-            TransactionFailureReason::InvalidReferencedUtxo => Self::InvalidReferencedUtxo,
-            TransactionFailureReason::InvalidTransaction => Self::InvalidTransaction,
-            TransactionFailureReason::SumInputsOutputsAmountMismatch => Self::SumInputsOutputsAmountMismatch,
-            TransactionFailureReason::InvalidUnlockBlockSignature => Self::InvalidUnlockBlockSignature,
+            TransactionFailureReason::ConflictRejected => Self::ConflictRejected,
+            TransactionFailureReason::InputAlreadySpent => Self::InputAlreadySpent,
+            TransactionFailureReason::InputCreationAfterTxCreation => Self::InputCreationAfterTxCreation,
+            TransactionFailureReason::UnlockSignatureInvalid => Self::UnlockSignatureInvalid,
+            TransactionFailureReason::CommitmentInputReferenceInvalid => Self::CommitmentInputReferenceInvalid,
+            TransactionFailureReason::BicInputReferenceInvalid => Self::BicInputReferenceInvalid,
+            TransactionFailureReason::RewardInputReferenceInvalid => Self::RewardInputReferenceInvalid,
+            TransactionFailureReason::StakingRewardCalculationFailure => Self::StakingRewardCalculationFailure,
+            TransactionFailureReason::DelegationRewardCalculationFailure => Self::DelegationRewardCalculationFailure,
+            TransactionFailureReason::InputOutputBaseTokenMismatch => Self::InputOutputBaseTokenMismatch,
+            TransactionFailureReason::ManaOverflow => Self::ManaOverflow,
+            TransactionFailureReason::InputOutputManaMismatch => Self::InputOutputManaMismatch,
+            TransactionFailureReason::ManaDecayCreationIndexExceedsTargetIndex => {
+                Self::ManaDecayCreationIndexExceedsTargetIndex
+            }
+            TransactionFailureReason::NativeTokenSumUnbalanced => Self::NativeTokenSumUnbalanced,
+            TransactionFailureReason::SimpleTokenSchemeMintedMeltedTokenDecrease => {
+                Self::SimpleTokenSchemeMintedMeltedTokenDecrease
+            }
+            TransactionFailureReason::SimpleTokenSchemeMintingInvalid => Self::SimpleTokenSchemeMintingInvalid,
+            TransactionFailureReason::SimpleTokenSchemeMeltingInvalid => Self::SimpleTokenSchemeMeltingInvalid,
+            TransactionFailureReason::SimpleTokenSchemeMaximumSupplyChanged => {
+                Self::SimpleTokenSchemeMaximumSupplyChanged
+            }
+            TransactionFailureReason::SimpleTokenSchemeGenesisInvalid => Self::SimpleTokenSchemeGenesisInvalid,
+            TransactionFailureReason::MultiAddressLengthUnlockLengthMismatch => {
+                Self::MultiAddressLengthUnlockLengthMismatch
+            }
+            TransactionFailureReason::MultiAddressUnlockThresholdNotReached => {
+                Self::MultiAddressUnlockThresholdNotReached
+            }
+            TransactionFailureReason::SenderFeatureNotUnlocked => Self::SenderFeatureNotUnlocked,
+            TransactionFailureReason::IssuerFeatureNotUnlocked => Self::IssuerFeatureNotUnlocked,
+            TransactionFailureReason::StakingRewardInputMissing => Self::StakingRewardInputMissing,
+            TransactionFailureReason::StakingBlockIssuerFeatureMissing => Self::StakingBlockIssuerFeatureMissing,
+            TransactionFailureReason::StakingCommitmentInputMissing => Self::StakingCommitmentInputMissing,
+            TransactionFailureReason::StakingRewardClaimingInvalid => Self::StakingRewardClaimingInvalid,
+            TransactionFailureReason::StakingFeatureRemovedBeforeUnbonding => {
+                Self::StakingFeatureRemovedBeforeUnbonding
+            }
+            TransactionFailureReason::StakingFeatureModifiedBeforeUnbonding => {
+                Self::StakingFeatureModifiedBeforeUnbonding
+            }
+            TransactionFailureReason::StakingStartEpochInvalid => Self::StakingStartEpochInvalid,
+            TransactionFailureReason::StakingEndEpochTooEarly => Self::StakingEndEpochTooEarly,
+            TransactionFailureReason::BlockIssuerCommitmentInputMissing => Self::BlockIssuerCommitmentInputMissing,
+            TransactionFailureReason::BlockIssuanceCreditInputMissing => Self::BlockIssuanceCreditInputMissing,
+            TransactionFailureReason::BlockIssuerNotExpired => Self::BlockIssuerNotExpired,
+            TransactionFailureReason::BlockIssuerExpiryTooEarly => Self::BlockIssuerExpiryTooEarly,
+            TransactionFailureReason::ManaMovedOffBlockIssuerAccount => Self::ManaMovedOffBlockIssuerAccount,
+            TransactionFailureReason::AccountLocked => Self::AccountLocked,
+            TransactionFailureReason::TimelockCommitmentInputMissing => Self::TimelockCommitmentInputMissing,
             TransactionFailureReason::TimelockNotExpired => Self::TimelockNotExpired,
-            TransactionFailureReason::InvalidNativeTokens => Self::InvalidNativeTokens,
-            TransactionFailureReason::StorageDepositReturnUnfulfilled => Self::StorageDepositReturnUnfulfilled,
-            TransactionFailureReason::InvalidInputUnlock => Self::InvalidInputUnlock,
-            TransactionFailureReason::SenderNotUnlocked => Self::SenderNotUnlocked,
-            TransactionFailureReason::InvalidChainStateTransition => Self::InvalidChainStateTransition,
-            TransactionFailureReason::InvalidTransactionIssuingTime => Self::InvalidTransactionIssuingTime,
-            TransactionFailureReason::InvalidManaAmount => Self::InvalidManaAmount,
-            TransactionFailureReason::InvalidBlockIssuanceCreditsAmount => Self::InvalidBlockIssuanceCreditsAmount,
-            TransactionFailureReason::InvalidRewardContextInput => Self::InvalidRewardContextInput,
-            TransactionFailureReason::InvalidCommitmentContextInput => Self::InvalidCommitmentContextInput,
-            TransactionFailureReason::MissingStakingFeature => Self::MissingStakingFeature,
-            TransactionFailureReason::FailedToClaimStakingReward => Self::FailedToClaimStakingReward,
-            TransactionFailureReason::FailedToClaimDelegationReward => Self::FailedToClaimDelegationReward,
-            TransactionFailureReason::TransactionCapabilityNativeTokenBurningNotAllowed => {
-                Self::TransactionCapabilityNativeTokenBurningNotAllowed
+            TransactionFailureReason::ExpirationCommitmentInputMissing => Self::ExpirationCommitmentInputMissing,
+            TransactionFailureReason::ExpirationNotUnlockable => Self::ExpirationNotUnlockable,
+            TransactionFailureReason::ReturnAmountNotFulFilled => Self::ReturnAmountNotFulFilled,
+            TransactionFailureReason::NewChainOutputHasNonZeroedId => Self::NewChainOutputHasNonZeroedId,
+            TransactionFailureReason::ChainOutputImmutableFeaturesChanged => Self::ChainOutputImmutableFeaturesChanged,
+            TransactionFailureReason::ImplicitAccountDestructionDisallowed => {
+                Self::ImplicitAccountDestructionDisallowed
             }
-            TransactionFailureReason::TransactionCapabilityManaBurningNotAllowed => {
-                Self::TransactionCapabilityManaBurningNotAllowed
+            TransactionFailureReason::MultipleImplicitAccountCreationAddresses => {
+                Self::MultipleImplicitAccountCreationAddresses
             }
-            TransactionFailureReason::TransactionCapabilityAccountDestructionNotAllowed => {
-                Self::TransactionCapabilityAccountDestructionNotAllowed
+            TransactionFailureReason::AccountInvalidFoundryCounter => Self::AccountInvalidFoundryCounter,
+            TransactionFailureReason::AnchorInvalidStateTransition => Self::AnchorInvalidStateTransition,
+            TransactionFailureReason::AnchorInvalidGovernanceTransition => Self::AnchorInvalidGovernanceTransition,
+            TransactionFailureReason::FoundryTransitionWithoutAccount => Self::FoundryTransitionWithoutAccount,
+            TransactionFailureReason::FoundrySerialInvalid => Self::FoundrySerialInvalid,
+            TransactionFailureReason::DelegationCommitmentInputMissing => Self::DelegationCommitmentInputMissing,
+            TransactionFailureReason::DelegationRewardInputMissing => Self::DelegationRewardInputMissing,
+            TransactionFailureReason::DelegationRewardsClaimingInvalid => Self::DelegationRewardsClaimingInvalid,
+            TransactionFailureReason::DelegationOutputTransitionedTwice => Self::DelegationOutputTransitionedTwice,
+            TransactionFailureReason::DelegationModified => Self::DelegationModified,
+            TransactionFailureReason::DelegationStartEpochInvalid => Self::DelegationStartEpochInvalid,
+            TransactionFailureReason::DelegationAmountMismatch => Self::DelegationAmountMismatch,
+            TransactionFailureReason::DelegationEndEpochNotZero => Self::DelegationEndEpochNotZero,
+            TransactionFailureReason::DelegationEndEpochInvalid => Self::DelegationEndEpochInvalid,
+            TransactionFailureReason::CapabilitiesNativeTokenBurningNotAllowed => {
+                Self::CapabilitiesNativeTokenBurningNotAllowed
             }
-            TransactionFailureReason::TransactionCapabilityAnchorDestructionNotAllowed => {
-                Self::TransactionCapabilityAnchorDestructionNotAllowed
+            TransactionFailureReason::CapabilitiesManaBurningNotAllowed => Self::CapabilitiesManaBurningNotAllowed,
+            TransactionFailureReason::CapabilitiesAccountDestructionNotAllowed => {
+                Self::CapabilitiesAccountDestructionNotAllowed
             }
-            TransactionFailureReason::TransactionCapabilityFoundryDestructionNotAllowed => {
-                Self::TransactionCapabilityFoundryDestructionNotAllowed
+            TransactionFailureReason::CapabilitiesAnchorDestructionNotAllowed => {
+                Self::CapabilitiesAnchorDestructionNotAllowed
             }
-            TransactionFailureReason::TransactionCapabilityNftDestructionNotAllowed => {
-                Self::TransactionCapabilityNftDestructionNotAllowed
+            TransactionFailureReason::CapabilitiesFoundryDestructionNotAllowed => {
+                Self::CapabilitiesFoundryDestructionNotAllowed
+            }
+            TransactionFailureReason::CapabilitiesNftDestructionNotAllowed => {
+                Self::CapabilitiesNftDestructionNotAllowed
             }
             TransactionFailureReason::SemanticValidationFailed => Self::SemanticValidationFailed,
         }

@@ -219,16 +219,15 @@ impl ConvertFrom<proto::block_metadata::BlockFailureReason> for Option<BlockFail
             ProtoState::IsTooOld => BlockFailureReason::TooOldToIssue,
             ProtoState::ParentIsTooOld => BlockFailureReason::ParentTooOld,
             ProtoState::ParentNotFound => BlockFailureReason::ParentDoesNotExist,
-            ProtoState::ParentInvalid => BlockFailureReason::ParentInvalid,
             ProtoState::IssuerAccountNotFound => BlockFailureReason::IssuerAccountNotFound,
-            ProtoState::VersionInvalid => BlockFailureReason::VersionInvalid,
             ProtoState::ManaCostCalculationFailed => BlockFailureReason::ManaCostCalculationFailed,
             ProtoState::BurnedInsufficientMana => BlockFailureReason::BurnedInsufficientMana,
-            ProtoState::AccountInvalid => BlockFailureReason::AccountInvalid,
+            ProtoState::AccountLocked => BlockFailureReason::AccountLocked,
+            ProtoState::AccountExpired => BlockFailureReason::AccountLocked,
             ProtoState::SignatureInvalid => BlockFailureReason::SignatureInvalid,
             ProtoState::DroppedDueToCongestion => BlockFailureReason::DroppedDueToCongestion,
             ProtoState::PayloadInvalid => BlockFailureReason::PayloadInvalid,
-            ProtoState::FailureInvalid => BlockFailureReason::Invalid,
+            ProtoState::Invalid => BlockFailureReason::Invalid,
         })
     }
 }
@@ -238,45 +237,111 @@ impl ConvertFrom<proto::transaction_metadata::TransactionFailureReason> for Opti
         use proto::transaction_metadata::TransactionFailureReason as ProtoState;
         Some(match proto {
             ProtoState::None => return None,
-            ProtoState::UtxoInputAlreadySpent => TransactionFailureReason::InputUtxoAlreadySpent,
-            ProtoState::Conflicting => TransactionFailureReason::ConflictingWithAnotherTx,
-            ProtoState::UtxoInputInvalid => TransactionFailureReason::InvalidReferencedUtxo,
-            ProtoState::TxTypeInvalid => TransactionFailureReason::InvalidTransaction,
-            ProtoState::SumOfInputAndOutputValuesDoesNotMatch => {
-                TransactionFailureReason::SumInputsOutputsAmountMismatch
+            ProtoState::ConflictRejected => TransactionFailureReason::ConflictRejected,
+            ProtoState::InputAlreadySpent => TransactionFailureReason::InputAlreadySpent,
+            ProtoState::InputCreationAfterTxCreation => TransactionFailureReason::InputCreationAfterTxCreation,
+            ProtoState::UnlockSignatureInvalid => TransactionFailureReason::UnlockSignatureInvalid,
+            ProtoState::CommitmentInputReferenceInvalid => TransactionFailureReason::CommitmentInputReferenceInvalid,
+            ProtoState::BicInputReferenceInvalid => TransactionFailureReason::BicInputReferenceInvalid,
+            ProtoState::RewardInputReferenceInvalid => TransactionFailureReason::RewardInputReferenceInvalid,
+            ProtoState::StakingRewardCalculationFailure => TransactionFailureReason::StakingRewardCalculationFailure,
+            ProtoState::DelegationRewardCalculationFailure => {
+                TransactionFailureReason::DelegationRewardCalculationFailure
             }
-            ProtoState::UnlockBlockSignatureInvalid => TransactionFailureReason::InvalidUnlockBlockSignature,
-            ProtoState::ConfiguredTimelockNotYetExpired => TransactionFailureReason::TimelockNotExpired,
-            ProtoState::GivenNativeTokensInvalid => TransactionFailureReason::InvalidNativeTokens,
-            ProtoState::ReturnAmountNotFulfilled => TransactionFailureReason::StorageDepositReturnUnfulfilled,
-            ProtoState::InputUnlockInvalid => TransactionFailureReason::InvalidInputUnlock,
-            ProtoState::SenderNotUnlocked => TransactionFailureReason::SenderNotUnlocked,
-            ProtoState::ChainStateTransitionInvalid => TransactionFailureReason::InvalidChainStateTransition,
-            ProtoState::InputCreationAfterTxCreation => TransactionFailureReason::InvalidTransactionIssuingTime,
-            ProtoState::ManaAmountInvalid => TransactionFailureReason::InvalidManaAmount,
-            ProtoState::BicInputInvalid => TransactionFailureReason::InvalidBlockIssuanceCreditsAmount,
-            ProtoState::RewardInputInvalid => TransactionFailureReason::InvalidRewardContextInput,
-            ProtoState::CommitmentInputInvalid => TransactionFailureReason::InvalidCommitmentContextInput,
-            ProtoState::NoStakingFeature => TransactionFailureReason::MissingStakingFeature,
-            ProtoState::FailedToClaimStakingReward => TransactionFailureReason::FailedToClaimStakingReward,
-            ProtoState::FailedToClaimDelegationReward => TransactionFailureReason::FailedToClaimDelegationReward,
+            ProtoState::InputOutputBaseTokenMismatch => TransactionFailureReason::InputOutputBaseTokenMismatch,
+            ProtoState::ManaOverflow => TransactionFailureReason::ManaOverflow,
+            ProtoState::InputOutputManaMismatch => TransactionFailureReason::InputOutputManaMismatch,
+            ProtoState::ManaDecayCreationIndexExceedsTargetIndex => {
+                TransactionFailureReason::ManaDecayCreationIndexExceedsTargetIndex
+            }
+            ProtoState::NativeTokenSumUnbalanced => TransactionFailureReason::NativeTokenSumUnbalanced,
+            ProtoState::SimpleTokenSchemeMintedMeltedTokenDecrease => {
+                TransactionFailureReason::SimpleTokenSchemeMintedMeltedTokenDecrease
+            }
+            ProtoState::SimpleTokenSchemeMintingInvalid => TransactionFailureReason::SimpleTokenSchemeMintingInvalid,
+            ProtoState::SimpleTokenSchemeMeltingInvalid => TransactionFailureReason::SimpleTokenSchemeMeltingInvalid,
+            ProtoState::SimpleTokenSchemeMaximumSupplyChanged => {
+                TransactionFailureReason::SimpleTokenSchemeMaximumSupplyChanged
+            }
+            ProtoState::SimpleTokenSchemeGenesisInvalid => TransactionFailureReason::SimpleTokenSchemeGenesisInvalid,
+            ProtoState::MultiAddressLengthUnlockLengthMismatch => {
+                TransactionFailureReason::MultiAddressLengthUnlockLengthMismatch
+            }
+            ProtoState::MultiAddressUnlockThresholdNotReached => {
+                TransactionFailureReason::MultiAddressUnlockThresholdNotReached
+            }
+            ProtoState::SenderFeatureNotUnlocked => TransactionFailureReason::SenderFeatureNotUnlocked,
+            ProtoState::IssuerFeatureNotUnlocked => TransactionFailureReason::IssuerFeatureNotUnlocked,
+            ProtoState::StakingRewardInputMissing => TransactionFailureReason::StakingRewardInputMissing,
+            ProtoState::StakingBlockIssuerFeatureMissing => TransactionFailureReason::StakingBlockIssuerFeatureMissing,
+            ProtoState::StakingCommitmentInputMissing => TransactionFailureReason::StakingCommitmentInputMissing,
+            ProtoState::StakingRewardClaimingInvalid => TransactionFailureReason::StakingRewardClaimingInvalid,
+            ProtoState::StakingFeatureRemovedBeforeUnbonding => {
+                TransactionFailureReason::StakingFeatureRemovedBeforeUnbonding
+            }
+            ProtoState::StakingFeatureModifiedBeforeUnbonding => {
+                TransactionFailureReason::StakingFeatureModifiedBeforeUnbonding
+            }
+            ProtoState::StakingStartEpochInvalid => TransactionFailureReason::StakingStartEpochInvalid,
+            ProtoState::StakingEndEpochTooEarly => TransactionFailureReason::StakingEndEpochTooEarly,
+            ProtoState::BlockIssuerCommitmentInputMissing => {
+                TransactionFailureReason::BlockIssuerCommitmentInputMissing
+            }
+            ProtoState::BlockIssuanceCreditInputMissing => TransactionFailureReason::BlockIssuanceCreditInputMissing,
+            ProtoState::BlockIssuerNotExpired => TransactionFailureReason::BlockIssuerNotExpired,
+            ProtoState::BlockIssuerExpiryTooEarly => TransactionFailureReason::BlockIssuerExpiryTooEarly,
+            ProtoState::ManaMovedOffBlockIssuerAccount => TransactionFailureReason::ManaMovedOffBlockIssuerAccount,
+            ProtoState::AccountLocked => TransactionFailureReason::AccountLocked,
+            ProtoState::TimelockCommitmentInputMissing => TransactionFailureReason::TimelockCommitmentInputMissing,
+            ProtoState::TimelockNotExpired => TransactionFailureReason::TimelockNotExpired,
+            ProtoState::ExpirationCommitmentInputMissing => TransactionFailureReason::ExpirationCommitmentInputMissing,
+            ProtoState::ExpirationNotUnlockable => TransactionFailureReason::ExpirationNotUnlockable,
+            ProtoState::ReturnAmountNotFulFilled => TransactionFailureReason::ReturnAmountNotFulFilled,
+            ProtoState::NewChainOutputHasNonZeroedId => TransactionFailureReason::NewChainOutputHasNonZeroedId,
+            ProtoState::ChainOutputImmutableFeaturesChanged => {
+                TransactionFailureReason::ChainOutputImmutableFeaturesChanged
+            }
+            ProtoState::ImplicitAccountDestructionDisallowed => {
+                TransactionFailureReason::ImplicitAccountDestructionDisallowed
+            }
+            ProtoState::MultipleImplicitAccountCreationAddresses => {
+                TransactionFailureReason::MultipleImplicitAccountCreationAddresses
+            }
+            ProtoState::AccountInvalidFoundryCounter => TransactionFailureReason::AccountInvalidFoundryCounter,
+            ProtoState::AnchorInvalidStateTransition => TransactionFailureReason::AnchorInvalidStateTransition,
+            ProtoState::AnchorInvalidGovernanceTransition => {
+                TransactionFailureReason::AnchorInvalidGovernanceTransition
+            }
+            ProtoState::FoundryTransitionWithoutAccount => TransactionFailureReason::FoundryTransitionWithoutAccount,
+            ProtoState::FoundrySerialInvalid => TransactionFailureReason::FoundrySerialInvalid,
+            ProtoState::DelegationCommitmentInputMissing => TransactionFailureReason::DelegationCommitmentInputMissing,
+            ProtoState::DelegationRewardInputMissing => TransactionFailureReason::DelegationRewardInputMissing,
+            ProtoState::DelegationRewardsClaimingInvalid => TransactionFailureReason::DelegationRewardsClaimingInvalid,
+            ProtoState::DelegationOutputTransitionedTwice => {
+                TransactionFailureReason::DelegationOutputTransitionedTwice
+            }
+            ProtoState::DelegationModified => TransactionFailureReason::DelegationModified,
+            ProtoState::DelegationStartEpochInvalid => TransactionFailureReason::DelegationStartEpochInvalid,
+            ProtoState::DelegationAmountMismatch => TransactionFailureReason::DelegationAmountMismatch,
+            ProtoState::DelegationEndEpochNotZero => TransactionFailureReason::DelegationEndEpochNotZero,
+            ProtoState::DelegationEndEpochInvalid => TransactionFailureReason::DelegationEndEpochInvalid,
             ProtoState::CapabilitiesNativeTokenBurningNotAllowed => {
-                TransactionFailureReason::TransactionCapabilityNativeTokenBurningNotAllowed
+                TransactionFailureReason::CapabilitiesNativeTokenBurningNotAllowed
             }
             ProtoState::CapabilitiesManaBurningNotAllowed => {
-                TransactionFailureReason::TransactionCapabilityManaBurningNotAllowed
+                TransactionFailureReason::CapabilitiesManaBurningNotAllowed
             }
             ProtoState::CapabilitiesAccountDestructionNotAllowed => {
-                TransactionFailureReason::TransactionCapabilityAccountDestructionNotAllowed
+                TransactionFailureReason::CapabilitiesAccountDestructionNotAllowed
             }
             ProtoState::CapabilitiesAnchorDestructionNotAllowed => {
-                TransactionFailureReason::TransactionCapabilityAnchorDestructionNotAllowed
+                TransactionFailureReason::CapabilitiesAnchorDestructionNotAllowed
             }
             ProtoState::CapabilitiesFoundryDestructionNotAllowed => {
-                TransactionFailureReason::TransactionCapabilityFoundryDestructionNotAllowed
+                TransactionFailureReason::CapabilitiesFoundryDestructionNotAllowed
             }
             ProtoState::CapabilitiesNftDestructionNotAllowed => {
-                TransactionFailureReason::TransactionCapabilityNftDestructionNotAllowed
+                TransactionFailureReason::CapabilitiesNftDestructionNotAllowed
             }
             ProtoState::SemanticValidationFailed => TransactionFailureReason::SemanticValidationFailed,
         })
