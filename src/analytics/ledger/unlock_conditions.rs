@@ -1,7 +1,7 @@
 // Copyright 2023 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-use iota_sdk::types::block::output::Output;
+use iota_sdk::types::block::{output::Output, payload::SignedTransactionPayload};
 use serde::{Deserialize, Serialize};
 
 use super::CountAndAmount;
@@ -77,7 +77,13 @@ impl UnlockConditionMeasurement {
 impl Analytics for UnlockConditionMeasurement {
     type Measurement = Self;
 
-    fn handle_transaction(&mut self, consumed: &[LedgerSpent], created: &[LedgerOutput], _ctx: &dyn AnalyticsContext) {
+    fn handle_transaction(
+        &mut self,
+        _payload: &SignedTransactionPayload,
+        consumed: &[LedgerSpent],
+        created: &[LedgerOutput],
+        _ctx: &dyn AnalyticsContext,
+    ) {
         let consumed = Self::init(consumed.iter().map(|input| &input.output));
         let created = Self::init(created);
 

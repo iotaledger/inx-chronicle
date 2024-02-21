@@ -373,6 +373,16 @@ pub struct UtxoChangesResult {
     pub consumed_outputs: Vec<OutputId>,
 }
 
+#[derive(Clone, Debug, Default, Deserialize)]
+#[allow(missing_docs)]
+pub struct AddressActivityByType {
+    pub ed25519_count: usize,
+    pub account_count: usize,
+    pub nft_count: usize,
+    pub anchor_count: usize,
+    pub implicit_count: usize,
+}
+
 /// Implements the queries for the core API.
 impl OutputCollection {
     /// Upserts spent ledger outputs.
@@ -858,10 +868,11 @@ impl OutputCollection {
         &self,
         start_date: time::Date,
         end_date: time::Date,
-    ) -> Result<usize, DbError> {
+    ) -> Result<AddressActivityByType, DbError> {
         #[derive(Deserialize)]
         struct Res {
-            count: usize,
+            #[serde(rename = "_id")]
+            address: AddressDto,
         }
 
         let protocol_params = self
@@ -875,34 +886,42 @@ impl OutputCollection {
             protocol_params.slot_index(end_date.midnight().assume_utc().unix_timestamp() as _),
         );
 
-        Ok(self
-            .aggregate::<Res>(
-                [
-                    doc! { "$match": { "$or": [
-                        { "metadata.slot_booked": {
-                            "$gte": start_slot.0,
-                            "$lt": end_slot.0
-                        } },
-                        { "metadata.spent_metadata.slot_spent": {
-                            "$gte": start_slot.0,
-                            "$lt": end_slot.0
-                        } },
-                    ] } },
-                    doc! { "$group": {
-                        "_id": "$details.address",
+        let mut res = AddressActivityByType::default();
+
+        self.aggregate::<Res>(
+            [
+                doc! { "$match": { "$or": [
+                    { "metadata.slot_booked": {
+                        "$gte": start_slot.0,
+                        "$lt": end_slot.0
                     } },
-                    doc! { "$group": {
-                        "_id": null,
-                        "count": { "$sum": 1 }
+                    { "metadata.spent_metadata.slot_spent": {
+                        "$gte": start_slot.0,
+                        "$lt": end_slot.0
                     } },
-                ],
-                None,
-            )
-            .await?
-            .map_ok(|r| r.count)
-            .try_next()
-            .await?
-            .unwrap_or_default())
+                ] } },
+                doc! { "$group": {
+                    "_id": "$details.address",
+                } },
+            ],
+            None,
+        )
+        .await?
+        .map_ok(|r| r.address)
+        .try_for_each(|address| async move {
+            match address {
+                AddressDto::Ed25519(_) => res.ed25519_count += 1,
+                AddressDto::Account(_) => res.account_count += 1,
+                AddressDto::Nft(_) => res.nft_count += 1,
+                AddressDto::Anchor(_) => res.anchor_count += 1,
+                AddressDto::ImplicitAccountCreation(_) => res.implicit_count += 1,
+                _ => (),
+            }
+            Ok(())
+        })
+        .await?;
+
+        Ok(res)
     }
 }
 

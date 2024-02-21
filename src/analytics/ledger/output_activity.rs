@@ -1,11 +1,12 @@
 // Copyright 2023 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 
 use iota_sdk::types::block::{
     address::Address,
-    output::{AccountId, AnchorId, DelegationId},
+    output::{AccountId, AccountOutput, AnchorId},
+    payload::SignedTransactionPayload,
 };
 use serde::{Deserialize, Serialize};
 
@@ -22,17 +23,25 @@ pub(crate) struct OutputActivityMeasurement {
     pub(crate) anchor: AnchorActivityMeasurement,
     pub(crate) foundry: FoundryActivityMeasurement,
     pub(crate) delegation: DelegationActivityMeasurement,
+    pub(crate) native_token: NativeTokenActivityMeasurement,
 }
 
 impl Analytics for OutputActivityMeasurement {
     type Measurement = Self;
 
-    fn handle_transaction(&mut self, consumed: &[LedgerSpent], created: &[LedgerOutput], _ctx: &dyn AnalyticsContext) {
+    fn handle_transaction(
+        &mut self,
+        _payload: &SignedTransactionPayload,
+        consumed: &[LedgerSpent],
+        created: &[LedgerOutput],
+        _ctx: &dyn AnalyticsContext,
+    ) {
         self.nft.handle_transaction(consumed, created);
         self.account.handle_transaction(consumed, created);
         self.anchor.handle_transaction(consumed, created);
         self.foundry.handle_transaction(consumed, created);
         self.delegation.handle_transaction(consumed, created);
+        self.native_token.handle_transaction(consumed, created);
     }
 
     fn take_measurement(&mut self, _ctx: &dyn AnalyticsContext) -> Self::Measurement {
@@ -75,45 +84,44 @@ impl NftActivityMeasurement {
 #[derive(Copy, Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub(crate) struct AccountActivityMeasurement {
     pub(crate) created_count: usize,
+    pub(crate) transferred_count: usize,
+    pub(crate) block_issuer_key_rotated: usize,
     pub(crate) destroyed_count: usize,
-}
-
-struct AccountData {
-    account_id: AccountId,
-}
-
-impl std::cmp::PartialEq for AccountData {
-    fn eq(&self, other: &Self) -> bool {
-        self.account_id == other.account_id
-    }
-}
-
-impl std::cmp::Eq for AccountData {}
-
-impl std::hash::Hash for AccountData {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        self.account_id.hash(state);
-    }
 }
 
 impl AccountActivityMeasurement {
     fn handle_transaction(&mut self, consumed: &[LedgerSpent], created: &[LedgerOutput]) {
-        let map = |ledger_output: &LedgerOutput| {
-            ledger_output.output().as_account_opt().map(|output| AccountData {
-                account_id: output.account_id_non_null(&ledger_output.output_id),
-            })
-        };
+        fn map(ledger_output: &LedgerOutput) -> Option<(AccountId, &AccountOutput)> {
+            ledger_output
+                .output()
+                .as_account_opt()
+                .map(|output| (output.account_id_non_null(&ledger_output.output_id), output))
+        }
 
         let account_inputs = consumed
             .iter()
             .map(|o| &o.output)
             .filter_map(map)
-            .collect::<HashSet<_>>();
+            .collect::<HashMap<_, _>>();
 
-        let account_outputs = created.iter().filter_map(map).collect::<HashSet<_>>();
+        let account_outputs = created.iter().filter_map(map).collect::<HashMap<_, _>>();
 
-        self.created_count += account_outputs.difference(&account_inputs).count();
-        self.destroyed_count += account_inputs.difference(&account_outputs).count();
+        self.created_count += account_outputs.difference_count(&account_inputs);
+        self.transferred_count += account_outputs.intersection_count(&account_inputs);
+        self.destroyed_count += account_inputs.difference_count(&account_outputs);
+        for (account_id, output_feature) in account_outputs
+            .into_iter()
+            .filter_map(|(id, o)| o.features().block_issuer().map(|f| (id, f)))
+        {
+            if let Some(input_feature) = account_inputs
+                .get(&account_id)
+                .and_then(|o| o.features().block_issuer())
+            {
+                if input_feature.block_issuer_keys() != output_feature.block_issuer_keys() {
+                    self.block_issuer_key_rotated += 1;
+                }
+            }
+        }
     }
 }
 
@@ -213,33 +221,17 @@ impl FoundryActivityMeasurement {
 #[derive(Copy, Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub(crate) struct DelegationActivityMeasurement {
     pub(crate) created_count: usize,
+    pub(crate) delayed_count: usize,
     pub(crate) destroyed_count: usize,
-}
-
-struct DelegationData {
-    delegation_id: DelegationId,
-}
-
-impl std::cmp::PartialEq for DelegationData {
-    fn eq(&self, other: &Self) -> bool {
-        self.delegation_id == other.delegation_id
-    }
-}
-
-impl std::cmp::Eq for DelegationData {}
-
-impl std::hash::Hash for DelegationData {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        self.delegation_id.hash(state);
-    }
 }
 
 impl DelegationActivityMeasurement {
     fn handle_transaction(&mut self, consumed: &[LedgerSpent], created: &[LedgerOutput]) {
         let map = |ledger_output: &LedgerOutput| {
-            ledger_output.output().as_delegation_opt().map(|output| DelegationData {
-                delegation_id: output.delegation_id_non_null(&ledger_output.output_id),
-            })
+            ledger_output
+                .output()
+                .as_delegation_opt()
+                .map(|output| output.delegation_id_non_null(&ledger_output.output_id))
         };
         let delegation_inputs = consumed
             .iter()
@@ -250,6 +242,56 @@ impl DelegationActivityMeasurement {
         let delegation_outputs = created.iter().filter_map(map).collect::<HashSet<_>>();
 
         self.created_count += delegation_outputs.difference(&delegation_inputs).count();
+        // self.delayed_count += todo!();
         self.destroyed_count += delegation_inputs.difference(&delegation_outputs).count();
+    }
+}
+
+/// Delegation activity statistics.
+#[derive(Copy, Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+pub(crate) struct NativeTokenActivityMeasurement {
+    pub(crate) minted_count: usize,
+    pub(crate) melted_count: usize,
+}
+
+impl NativeTokenActivityMeasurement {
+    fn handle_transaction(&mut self, consumed: &[LedgerSpent], created: &[LedgerOutput]) {
+        let map = |ledger_output: &LedgerOutput| ledger_output.output().native_token().map(|nt| *nt.token_id());
+        let native_token_inputs = consumed
+            .iter()
+            .map(|o| &o.output)
+            .filter_map(map)
+            .collect::<HashSet<_>>();
+
+        let native_token_outputs = created.iter().filter_map(map).collect::<HashSet<_>>();
+
+        self.minted_count += native_token_outputs.difference(&native_token_inputs).count();
+        self.melted_count += native_token_inputs.difference(&native_token_outputs).count();
+    }
+}
+
+trait SetOps {
+    fn difference_count(&self, other: &Self) -> usize;
+
+    fn intersection_count(&self, other: &Self) -> usize;
+}
+
+impl<K: Eq + core::hash::Hash> SetOps for HashSet<K> {
+    fn difference_count(&self, other: &Self) -> usize {
+        self.difference(other).count()
+    }
+
+    fn intersection_count(&self, other: &Self) -> usize {
+        self.intersection(other).count()
+    }
+}
+
+impl<K: Eq + core::hash::Hash, V> SetOps for HashMap<K, V> {
+    fn difference_count(&self, other: &Self) -> usize {
+        self.keys().filter(|k| !other.contains_key(k)).count()
+    }
+
+    fn intersection_count(&self, other: &Self) -> usize {
+        self.keys().filter(|k| other.contains_key(k)).count()
     }
 }

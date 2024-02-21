@@ -75,15 +75,18 @@ impl Default for InfluxDbConfig {
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, clap::ValueEnum)]
 pub enum AnalyticsChoice {
     // Please keep the alphabetic order.
+    ActiveAddresses,
     AddressBalance,
     BaseTokenActivity,
     BlockActivity,
-    ActiveAddresses,
+    BlockIssuerActivity,
+    Features,
     LedgerOutputs,
     LedgerSize,
-    SlotSize,
+    ManaActivity,
     OutputActivity,
     ProtocolParameters,
+    SlotSize,
     TransactionSizeDistribution,
     UnlockConditions,
 }
@@ -92,15 +95,18 @@ pub enum AnalyticsChoice {
 pub fn all_analytics() -> HashSet<AnalyticsChoice> {
     // Please keep the alphabetic order.
     [
+        AnalyticsChoice::ActiveAddresses,
         AnalyticsChoice::AddressBalance,
         AnalyticsChoice::BaseTokenActivity,
         AnalyticsChoice::BlockActivity,
-        AnalyticsChoice::ActiveAddresses,
+        AnalyticsChoice::BlockIssuerActivity,
+        AnalyticsChoice::Features,
         AnalyticsChoice::LedgerOutputs,
         AnalyticsChoice::LedgerSize,
-        AnalyticsChoice::SlotSize,
+        AnalyticsChoice::ManaActivity,
         AnalyticsChoice::OutputActivity,
         AnalyticsChoice::ProtocolParameters,
+        AnalyticsChoice::SlotSize,
         AnalyticsChoice::TransactionSizeDistribution,
         AnalyticsChoice::UnlockConditions,
     ]

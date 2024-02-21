@@ -121,6 +121,7 @@ pub struct BlockPayloadTypeDto {
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct BlocksBySlotResponse {
+    pub count: usize,
     pub blocks: Vec<BlockPayloadTypeDto>,
     pub cursor: Option<String>,
 }

@@ -4,17 +4,23 @@
 //! Various analytics that give insight into the usage of the tangle.
 
 use futures::TryStreamExt;
-use iota_sdk::types::block::{output::OutputId, protocol::ProtocolParameters, slot::SlotIndex, Block};
+use iota_sdk::types::block::{
+    output::OutputId, payload::SignedTransactionPayload, protocol::ProtocolParameters, slot::SlotIndex, Block,
+};
+use rayon::iter::{IntoParallelRefMutIterator, ParallelIterator};
 use thiserror::Error;
 
 use self::{
     influx::PrepareQuery,
     ledger::{
         AddressActivityAnalytics, AddressActivityMeasurement, AddressBalancesAnalytics, BaseTokenActivityMeasurement,
-        LedgerOutputMeasurement, LedgerSizeAnalytics, OutputActivityMeasurement, TransactionSizeMeasurement,
-        UnlockConditionMeasurement,
+        FeaturesMeasurement, LedgerOutputMeasurement, LedgerSizeAnalytics, OutputActivityMeasurement,
+        TransactionSizeMeasurement, UnlockConditionMeasurement,
     },
-    tangle::{BlockActivityMeasurement, ProtocolParamsAnalytics, SlotSizeMeasurement},
+    tangle::{
+        BlockActivityMeasurement, BlockIssuerAnalytics, ManaActivityMeasurement, ProtocolParamsAnalytics,
+        SlotSizeMeasurement,
+    },
 };
 use crate::{
     db::{
@@ -47,6 +53,7 @@ pub trait Analytics {
     /// Handle a transaction consisting of inputs (consumed [`LedgerSpent`]) and outputs (created [`LedgerOutput`]).
     fn handle_transaction(
         &mut self,
+        _payload: &SignedTransactionPayload,
         _consumed: &[LedgerSpent],
         _created: &[LedgerOutput],
         _ctx: &dyn AnalyticsContext,
@@ -60,7 +67,13 @@ pub trait Analytics {
 
 // This trait allows using the above implementation dynamically
 trait DynAnalytics: Send {
-    fn handle_transaction(&mut self, consumed: &[LedgerSpent], created: &[LedgerOutput], ctx: &dyn AnalyticsContext);
+    fn handle_transaction(
+        &mut self,
+        payload: &SignedTransactionPayload,
+        consumed: &[LedgerSpent],
+        created: &[LedgerOutput],
+        ctx: &dyn AnalyticsContext,
+    );
     fn handle_block(&mut self, block: &Block, metadata: &BlockMetadata, ctx: &dyn AnalyticsContext);
     fn take_measurement(&mut self, ctx: &dyn AnalyticsContext) -> Box<dyn PrepareQuery>;
 }
@@ -69,8 +82,14 @@ impl<T: Analytics + Send> DynAnalytics for T
 where
     PerSlot<T::Measurement>: 'static + PrepareQuery,
 {
-    fn handle_transaction(&mut self, consumed: &[LedgerSpent], created: &[LedgerOutput], ctx: &dyn AnalyticsContext) {
-        Analytics::handle_transaction(self, consumed, created, ctx)
+    fn handle_transaction(
+        &mut self,
+        payload: &SignedTransactionPayload,
+        consumed: &[LedgerSpent],
+        created: &[LedgerOutput],
+        ctx: &dyn AnalyticsContext,
+    ) {
+        Analytics::handle_transaction(self, payload, consumed, created, ctx)
     }
 
     fn handle_block(&mut self, block: &Block, metadata: &BlockMetadata, ctx: &dyn AnalyticsContext) {
@@ -145,17 +164,22 @@ impl Analytic {
         unspent_outputs: impl IntoIterator<Item = &'a LedgerOutput>,
     ) -> Self {
         Self(match choice {
+            // Need ledger state
             AnalyticsChoice::AddressBalance => Box::new(AddressBalancesAnalytics::init(unspent_outputs)) as _,
-            AnalyticsChoice::BaseTokenActivity => Box::<BaseTokenActivityMeasurement>::default() as _,
-            AnalyticsChoice::BlockActivity => Box::<BlockActivityMeasurement>::default() as _,
-            AnalyticsChoice::ActiveAddresses => Box::<AddressActivityAnalytics>::default() as _,
+            AnalyticsChoice::Features => Box::new(FeaturesMeasurement::init(unspent_outputs)) as _,
             AnalyticsChoice::LedgerOutputs => Box::new(LedgerOutputMeasurement::init(unspent_outputs)) as _,
             AnalyticsChoice::LedgerSize => Box::new(LedgerSizeAnalytics::init(protocol_params, unspent_outputs)) as _,
-            AnalyticsChoice::SlotSize => Box::<SlotSizeMeasurement>::default() as _,
+            AnalyticsChoice::UnlockConditions => Box::new(UnlockConditionMeasurement::init(unspent_outputs)) as _,
+            // Can default
+            AnalyticsChoice::ActiveAddresses => Box::<AddressActivityAnalytics>::default() as _,
+            AnalyticsChoice::BaseTokenActivity => Box::<BaseTokenActivityMeasurement>::default() as _,
+            AnalyticsChoice::BlockActivity => Box::<BlockActivityMeasurement>::default() as _,
+            AnalyticsChoice::BlockIssuerActivity => Box::<BlockIssuerAnalytics>::default() as _,
+            AnalyticsChoice::ManaActivity => Box::<ManaActivityMeasurement>::default() as _,
             AnalyticsChoice::OutputActivity => Box::<OutputActivityMeasurement>::default() as _,
             AnalyticsChoice::ProtocolParameters => Box::<ProtocolParamsAnalytics>::default() as _,
+            AnalyticsChoice::SlotSize => Box::<SlotSizeMeasurement>::default() as _,
             AnalyticsChoice::TransactionSizeDistribution => Box::<TransactionSizeMeasurement>::default() as _,
-            AnalyticsChoice::UnlockConditions => Box::new(UnlockConditionMeasurement::init(unspent_outputs)) as _,
         })
     }
 }
@@ -164,15 +188,21 @@ impl<T: AsMut<[Analytic]>> Analytics for T {
     type Measurement = Vec<Box<dyn PrepareQuery>>;
 
     fn handle_block(&mut self, block: &Block, metadata: &BlockMetadata, ctx: &dyn AnalyticsContext) {
-        for analytic in self.as_mut().iter_mut() {
+        self.as_mut().par_iter_mut().for_each(|analytic| {
             analytic.0.handle_block(block, metadata, ctx);
-        }
+        })
     }
 
-    fn handle_transaction(&mut self, consumed: &[LedgerSpent], created: &[LedgerOutput], ctx: &dyn AnalyticsContext) {
-        for analytic in self.as_mut().iter_mut() {
-            analytic.0.handle_transaction(consumed, created, ctx);
-        }
+    fn handle_transaction(
+        &mut self,
+        payload: &SignedTransactionPayload,
+        consumed: &[LedgerSpent],
+        created: &[LedgerOutput],
+        ctx: &dyn AnalyticsContext,
+    ) {
+        self.as_mut().par_iter_mut().for_each(|analytic| {
+            analytic.0.handle_transaction(payload, consumed, created, ctx);
+        })
     }
 
     fn take_measurement(&mut self, ctx: &dyn AnalyticsContext) -> Self::Measurement {
@@ -281,7 +311,7 @@ impl<'a, I: InputSource> Slot<'a, I> {
                             .clone())
                     })
                     .collect::<eyre::Result<Vec<_>>>()?;
-                analytics.handle_transaction(&consumed, &created, ctx)
+                analytics.handle_transaction(payload, &consumed, &created, ctx)
             }
         }
         analytics.handle_block(block, &block_data.metadata, ctx);

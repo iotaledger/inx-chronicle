@@ -3,6 +3,7 @@
 
 use iota_sdk::types::block::{
     output::{Output, StorageScore},
+    payload::SignedTransactionPayload,
     protocol::ProtocolParameters,
 };
 use serde::{Deserialize, Serialize};
@@ -67,7 +68,13 @@ impl LedgerSizeAnalytics {
 impl Analytics for LedgerSizeAnalytics {
     type Measurement = LedgerSizeMeasurement;
 
-    fn handle_transaction(&mut self, consumed: &[LedgerSpent], created: &[LedgerOutput], ctx: &dyn AnalyticsContext) {
+    fn handle_transaction(
+        &mut self,
+        _payload: &SignedTransactionPayload,
+        consumed: &[LedgerSpent],
+        created: &[LedgerOutput],
+        ctx: &dyn AnalyticsContext,
+    ) {
         for output in created {
             self.measurement
                 .wrapping_add(output.output().ledger_size(ctx.protocol_parameters()));

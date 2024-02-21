@@ -39,15 +39,6 @@ impl Inx {
         self.inx.read_node_status(proto::NoParams {}).await?.try_convert()
     }
 
-    // /// Stream status updates from the node.
-    // pub async fn get_node_status_updates(
-    //     &mut self,
-    //     cooldown_in_milliseconds: u32,
-    // ) -> Result<impl Stream<Item = Result<NodeStatus, InxError>>, InxError> { Ok(self .inx
-    //   .listen_to_node_status(proto::NodeStatusRequest { cooldown_in_milliseconds, }) .await? .into_inner() .map(|msg|
-    //   TryConvertTo::try_convert(msg?)))
-    // }
-
     /// Get the configuration of the node.
     pub async fn get_node_configuration(&mut self) -> Result<NodeConfiguration, InxError> {
         self.inx
@@ -55,15 +46,6 @@ impl Inx {
             .await?
             .try_convert()
     }
-
-    // /// Get the active root blocks of the node.
-    // pub async fn get_active_root_blocks(&mut self) -> Result<RootBlocks, InxError> {
-    //     Ok(self
-    //         .inx
-    //         .read_active_root_blocks(proto::NoParams {})
-    //         .await?
-    //         .try_convert()?)
-    // }
 
     /// Get a commitment from a slot index.
     pub async fn get_commitment(&mut self, slot_index: SlotIndex) -> Result<Commitment, InxError> {

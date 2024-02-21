@@ -8,10 +8,11 @@ use iota_sdk::types::block::protocol::ProtocolParameters;
 
 use super::{
     ledger::{
-        AddressActivityMeasurement, AddressBalanceMeasurement, BaseTokenActivityMeasurement, LedgerOutputMeasurement,
-        LedgerSizeMeasurement, OutputActivityMeasurement, TransactionSizeMeasurement, UnlockConditionMeasurement,
+        AddressActivityMeasurement, AddressBalanceMeasurement, BaseTokenActivityMeasurement, FeaturesMeasurement,
+        LedgerOutputMeasurement, LedgerSizeMeasurement, OutputActivityMeasurement, TransactionSizeMeasurement,
+        UnlockConditionMeasurement,
     },
-    tangle::{BlockActivityMeasurement, SlotSizeMeasurement},
+    tangle::{BlockActivityMeasurement, BlockIssuerMeasurement, ManaActivityMeasurement, SlotSizeMeasurement},
     AnalyticsInterval, PerInterval, PerSlot,
 };
 use crate::db::influxdb::InfluxDb;
@@ -112,11 +113,42 @@ impl Measurement for AddressBalanceMeasurement {
     const NAME: &'static str = "iota_addresses";
 
     fn add_fields(&self, query: WriteQuery) -> WriteQuery {
-        let mut query = query.add_field("address_with_balance_count", self.address_with_balance_count as u64);
+        let mut query = query
+            .add_field(
+                "ed25519_address_with_balance_count",
+                self.ed25519_address_with_balance_count as u64,
+            )
+            .add_field(
+                "account_address_with_balance_count",
+                self.account_address_with_balance_count as u64,
+            )
+            .add_field(
+                "nft_address_with_balance_count",
+                self.nft_address_with_balance_count as u64,
+            )
+            .add_field(
+                "anchor_address_with_balance_count",
+                self.anchor_address_with_balance_count as u64,
+            )
+            .add_field(
+                "implicit_account_address_with_balance_count",
+                self.implicit_address_with_balance_count as u64,
+            );
         for (index, stat) in self.token_distribution.iter().enumerate() {
             query = query
-                .add_field(format!("address_count_{index}"), stat.address_count)
-                .add_field(format!("total_amount_{index}"), stat.total_amount);
+                .add_field(format!("ed25519_address_count_{index}"), stat.ed25519_count as u64)
+                .add_field(format!("ed25519_total_amount_{index}"), stat.ed25519_amount)
+                .add_field(format!("account_address_count_{index}"), stat.account_count as u64)
+                .add_field(format!("account_total_amount_{index}"), stat.account_amount)
+                .add_field(format!("nft_address_count_{index}"), stat.nft_count as u64)
+                .add_field(format!("nft_total_amount_{index}"), stat.nft_amount)
+                .add_field(format!("anchor_address_count_{index}"), stat.anchor_count as u64)
+                .add_field(format!("anchor_total_amount_{index}"), stat.anchor_amount)
+                .add_field(
+                    format!("implicit_account_address_count_{index}"),
+                    stat.implicit_count as u64,
+                )
+                .add_field(format!("implicit_account_total_amount_{index}"), stat.implicit_amount);
         }
         query
     }
@@ -158,11 +190,35 @@ impl Measurement for BlockActivityMeasurement {
     }
 }
 
+impl Measurement for BlockIssuerMeasurement {
+    const NAME: &'static str = "iota_block_issuer_activity";
+
+    fn add_fields(&self, query: WriteQuery) -> WriteQuery {
+        query.add_field("active_issuer_count", self.active_issuer_count as u64)
+    }
+}
+
+impl Measurement for ManaActivityMeasurement {
+    const NAME: &'static str = "iota_mana_activity";
+
+    fn add_fields(&self, query: WriteQuery) -> WriteQuery {
+        query
+            .add_field("rewards_claimed", self.rewards_claimed)
+            .add_field("mana_burned", self.mana_burned)
+            .add_field("bic_burned", self.bic_burned)
+    }
+}
+
 impl Measurement for AddressActivityMeasurement {
     const NAME: &'static str = "iota_active_addresses";
 
     fn add_fields(&self, query: WriteQuery) -> WriteQuery {
-        query.add_field("count", self.count as u64)
+        query
+            .add_field("ed25519_count", self.ed25519_count as u64)
+            .add_field("account_count", self.account_count as u64)
+            .add_field("nft_count", self.nft_count as u64)
+            .add_field("anchor_count", self.anchor_count as u64)
+            .add_field("implicit_account_count", self.implicit_count as u64)
     }
 }
 
@@ -203,8 +259,9 @@ impl Measurement for LedgerOutputMeasurement {
         query
             .add_field("basic_count", self.basic.count as u64)
             .add_field("basic_amount", self.basic.amount)
-            .add_field("account_count", self.account.count as u64)
-            .add_field("account_amount", self.account.amount)
+            .add_field("account_count", self.account.count_and_amount.count as u64)
+            .add_field("account_amount", self.account.count_and_amount.amount)
+            .add_field("block_issuer_accounts", self.account.block_issuers_count as u64)
             .add_field("anchor_count", self.anchor.count as u64)
             .add_field("anchor_amount", self.anchor.amount)
             .add_field("foundry_count", self.foundry.count as u64)
@@ -251,6 +308,10 @@ impl Measurement for OutputActivityMeasurement {
     fn add_fields(&self, query: WriteQuery) -> WriteQuery {
         query
             .add_field("account_created_count", self.account.created_count as u64)
+            .add_field(
+                "account_block_issuer_key_rotated_count",
+                self.account.block_issuer_key_rotated as u64,
+            )
             .add_field("account_destroyed_count", self.account.destroyed_count as u64)
             .add_field("anchor_created_count", self.anchor.created_count as u64)
             .add_field("anchor_state_changed_count", self.anchor.state_changed_count as u64)
@@ -266,7 +327,10 @@ impl Measurement for OutputActivityMeasurement {
             .add_field("foundry_transferred_count", self.foundry.transferred_count as u64)
             .add_field("foundry_destroyed_count", self.foundry.destroyed_count as u64)
             .add_field("delegation_created_count", self.delegation.created_count as u64)
+            .add_field("delegation_delayed_count", self.delegation.delayed_count as u64)
             .add_field("delegation_destroyed_count", self.delegation.destroyed_count as u64)
+            .add_field("native_token_minted_count", self.native_token.minted_count as u64)
+            .add_field("native_token_melted_count", self.native_token.melted_count as u64)
     }
 }
 
@@ -294,6 +358,20 @@ impl Measurement for UnlockConditionMeasurement {
                 "storage_deposit_return_inner_amount",
                 self.storage_deposit_return_inner_amount,
             )
+    }
+}
+
+impl Measurement for FeaturesMeasurement {
+    const NAME: &'static str = "iota_features";
+
+    fn add_fields(&self, query: WriteQuery) -> WriteQuery {
+        query
+            .add_field("native_tokens_count", self.native_tokens.count as u64)
+            .add_field("native_tokens_amount", self.native_tokens.amount)
+            .add_field("block_issuer_key_count", self.block_issuer.count as u64)
+            .add_field("block_issuer_key_amount", self.block_issuer.amount)
+            .add_field("staking_count", self.staking.count as u64)
+            .add_field("staking_amount", self.staking.amount)
     }
 }
 

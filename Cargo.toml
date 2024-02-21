@@ -30,7 +30,7 @@ dotenvy = { version = "0.15", default-features = false }
 eyre = { version = "0.6", default-features = false, features = [ "track-caller", "auto-install" ] }
 futures = { version = "0.3", default-features = false }
 hex = { version = "0.4", default-features = false }
-humantime = { version = "2.1.0", default-features = false }
+humantime = { version = "2.1", default-features = false }
 humantime-serde = { version = "1.1", default-features = false }
 iota-crypto = { version = "0.23", default-features = false, features = [ "blake2b", "ed25519", "slip10", "bip39-en", "random", "zeroize" ] }
 iota-sdk = { git = "https://github.com/iotaledger/iota-sdk", branch = "2.0", default-features = false, features = [ "std", "serde" ] }
@@ -55,20 +55,21 @@ uuid = { version = "1.3", default-features = false, features = [ "v4" ] }
 # Optional
 chrono = { version = "0.4", default-features = false, features = [ "std" ], optional = true }
 influxdb = { version = "0.7", default-features = false, features = [ "use-serde", "reqwest-client-rustls", "derive" ], optional = true }
+rayon = { version = "1.8", default-features = false }
 
 # API
 auth-helper = { version = "0.3", default-features = false, optional = true }
-axum = { version = "0.7.4", default-features = false, features = [ "http1", "json", "query", "original-uri", "tokio", "macros" ], optional = true }
-axum-extra = { version = "*", default-features = false, features = [ "typed-header" ] }
+axum = { version = "0.7", default-features = false, features = [ "http1", "json", "query", "original-uri", "tokio", "macros" ], optional = true }
+axum-extra = { version = "0.9", default-features = false, features = [ "typed-header" ] }
 ed25519-zebra = { version = "4.0", default-features = false, features = [ "std", "pkcs8", "pem" ], optional = true }
 hyper = { version = "1.1.0", default-features = false, features = [ "server" ], optional = true }
-hyper-util = { version = "0.1.3", default-features = false }
+hyper-util = { version = "0.1", default-features = false }
 rand = { version = "0.8", default-features = false, features = [ "std" ], optional = true }
-regex = { version = "1.7", default-features = false, features = [ "std" ], optional = true }
-rust-argon2 = { version = "2.0.0", default-features = false, optional = true }
+regex = { version = "1.8.4", default-features = false, features = [ "std" ], optional = true }
+rust-argon2 = { version = "2.0", default-features = false, optional = true }
 serde_urlencoded = { version = "0.7", default-features = false, optional = true }
 tower = { version = "0.4", default-features = false, optional = true }
-tower-http = { version = "0.5.1", default-features = false, features = [ "cors", "catch-panic", "trace" ], optional = true }
+tower-http = { version = "0.5", default-features = false, features = [ "cors", "catch-panic", "trace" ], optional = true }
 zeroize = { version = "1.5", default-features = false, features = [ "std", "zeroize_derive" ], optional = true }
 
 # INX

@@ -3,7 +3,10 @@
 
 use std::collections::HashMap;
 
-use iota_sdk::types::block::address::{Bech32Address, ToBech32Ext};
+use iota_sdk::types::block::{
+    address::{Bech32Address, ToBech32Ext},
+    payload::SignedTransactionPayload,
+};
 
 use crate::{
     analytics::{Analytics, AnalyticsContext},
@@ -23,7 +26,13 @@ pub(crate) struct BaseTokenActivityMeasurement {
 impl Analytics for BaseTokenActivityMeasurement {
     type Measurement = Self;
 
-    fn handle_transaction(&mut self, consumed: &[LedgerSpent], created: &[LedgerOutput], ctx: &dyn AnalyticsContext) {
+    fn handle_transaction(
+        &mut self,
+        _payload: &SignedTransactionPayload,
+        consumed: &[LedgerSpent],
+        created: &[LedgerOutput],
+        ctx: &dyn AnalyticsContext,
+    ) {
         let hrp = ctx.protocol_parameters().bech32_hrp();
         // The idea behind the following code is that we keep track of the deltas that are applied to each account that
         // is represented by an address.

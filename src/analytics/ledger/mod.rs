@@ -10,6 +10,7 @@ pub(super) use self::{
     active_addresses::{AddressActivityAnalytics, AddressActivityMeasurement},
     address_balance::{AddressBalanceMeasurement, AddressBalancesAnalytics},
     base_token::BaseTokenActivityMeasurement,
+    features::FeaturesMeasurement,
     ledger_outputs::LedgerOutputMeasurement,
     ledger_size::{LedgerSizeAnalytics, LedgerSizeMeasurement},
     output_activity::OutputActivityMeasurement,
@@ -21,6 +22,7 @@ use crate::model::ledger::LedgerOutput;
 mod active_addresses;
 mod address_balance;
 mod base_token;
+mod features;
 mod ledger_outputs;
 mod ledger_size;
 mod output_activity;

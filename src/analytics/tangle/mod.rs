@@ -4,10 +4,16 @@
 //! Statistics about the tangle.
 
 pub(crate) use self::{
-    block_activity::BlockActivityMeasurement, protocol_params::ProtocolParamsAnalytics, slot_size::SlotSizeMeasurement,
+    block_activity::BlockActivityMeasurement,
+    block_issuers::{BlockIssuerAnalytics, BlockIssuerMeasurement},
+    mana_activity::ManaActivityMeasurement,
+    protocol_params::ProtocolParamsAnalytics,
+    slot_size::SlotSizeMeasurement,
 };
 
 mod block_activity;
+mod block_issuers;
+mod mana_activity;
 mod protocol_params;
 mod slot_size;
 

@@ -1,6 +1,7 @@
 // Copyright 2023 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
+use iota_sdk::types::block::payload::SignedTransactionPayload;
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -58,7 +59,13 @@ pub(crate) struct TransactionSizeMeasurement {
 impl Analytics for TransactionSizeMeasurement {
     type Measurement = TransactionSizeMeasurement;
 
-    fn handle_transaction(&mut self, consumed: &[LedgerSpent], created: &[LedgerOutput], _ctx: &dyn AnalyticsContext) {
+    fn handle_transaction(
+        &mut self,
+        _payload: &SignedTransactionPayload,
+        consumed: &[LedgerSpent],
+        created: &[LedgerOutput],
+        _ctx: &dyn AnalyticsContext,
+    ) {
         self.input_buckets.add(consumed.len());
         self.output_buckets.add(created.len());
     }
