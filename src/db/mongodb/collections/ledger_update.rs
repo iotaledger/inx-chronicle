@@ -6,6 +6,7 @@ use iota_sdk::types::block::{
     address::Address,
     output::{Output, OutputId},
     payload::signed_transaction::TransactionId,
+    protocol::ProtocolParameters,
     slot::{SlotCommitmentId, SlotIndex},
     BlockId,
 };
@@ -145,21 +146,25 @@ fn oldest() -> Document {
 impl LedgerUpdateCollection {
     /// Inserts spent ledger updates.
     #[instrument(skip_all, err, level = "trace")]
-    pub async fn insert_spent_ledger_updates<'a, I>(&self, outputs: I) -> Result<(), DbError>
+    pub async fn insert_spent_ledger_updates<'a, I>(
+        &self,
+        outputs: I,
+        params: &ProtocolParameters,
+    ) -> Result<(), DbError>
     where
         I: IntoIterator<Item = &'a LedgerSpent>,
         I::IntoIter: Send + Sync,
     {
-        let ledger_updates = outputs.into_iter().filter_map(|LedgerSpent { output, .. }| {
+        let ledger_updates = outputs.into_iter().map(|output| {
             // Ledger updates
-            output.address().map(|address| LedgerUpdateDocument {
+            LedgerUpdateDocument {
                 _id: LedgerUpdateByAddressRecord {
-                    slot_index: output.slot_booked,
-                    output_id: output.output_id,
+                    slot_index: output.slot_booked(),
+                    output_id: output.output_id(),
                     is_spent: true,
                 },
-                address: address.into(),
-            })
+                address: output.locked_address(params).into(),
+            }
         });
         self.insert_many_ignore_duplicates(ledger_updates, InsertManyOptions::builder().ordered(false).build())
             .await?;
@@ -169,21 +174,25 @@ impl LedgerUpdateCollection {
 
     /// Inserts unspent ledger updates.
     #[instrument(skip_all, err, level = "trace")]
-    pub async fn insert_unspent_ledger_updates<'a, I>(&self, outputs: I) -> Result<(), DbError>
+    pub async fn insert_unspent_ledger_updates<'a, I>(
+        &self,
+        outputs: I,
+        params: &ProtocolParameters,
+    ) -> Result<(), DbError>
     where
         I: IntoIterator<Item = &'a LedgerOutput>,
         I::IntoIter: Send + Sync,
     {
-        let ledger_updates = outputs.into_iter().filter_map(|output| {
+        let ledger_updates = outputs.into_iter().map(|output| {
             // Ledger updates
-            output.address().map(|address| LedgerUpdateDocument {
+            LedgerUpdateDocument {
                 _id: LedgerUpdateByAddressRecord {
                     slot_index: output.slot_booked,
                     output_id: output.output_id,
                     is_spent: false,
                 },
-                address: address.into(),
-            })
+                address: output.locked_address(params).into(),
+            }
         });
         self.insert_many_ignore_duplicates(ledger_updates, InsertManyOptions::builder().ordered(false).build())
             .await?;

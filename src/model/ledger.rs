@@ -9,6 +9,7 @@ use iota_sdk::types::block::{
     address::Address,
     output::{Output, OutputId},
     payload::signed_transaction::TransactionId,
+    protocol::ProtocolParameters,
     slot::{SlotCommitmentId, SlotIndex},
     BlockId,
 };
@@ -41,11 +42,40 @@ impl LedgerOutput {
         self.output().amount()
     }
 
-    pub fn address(&self) -> Option<&Address> {
+    pub fn mana(&self) -> u64 {
+        self.output().mana()
+    }
+
+    pub fn owning_address(&self) -> Address {
+        match self.output() {
+            Output::Basic(output) => output.address().clone(),
+            Output::Account(output) => output.address().clone(),
+            Output::Anchor(output) => output.state_controller_address().clone(),
+            Output::Foundry(output) => Address::from(*output.account_address()),
+            Output::Nft(output) => output.address().clone(),
+            Output::Delegation(output) => output.address().clone(),
+        }
+    }
+
+    /// Returns the [`Address`] that is in control of the output at the given slot.
+    pub fn locked_address_at(&self, slot: impl Into<SlotIndex>, protocol_parameters: &ProtocolParameters) -> Address {
+        let owning_address = self.owning_address();
         self.output()
             .unlock_conditions()
-            .and_then(|uc| uc.address())
-            .map(|uc| uc.address())
+            .unwrap()
+            .locked_address(
+                &owning_address,
+                slot.into(),
+                protocol_parameters.committable_age_range(),
+            )
+            .unwrap()
+            .cloned()
+            .unwrap_or(owning_address)
+    }
+
+    /// Returns the [`Address`] that is in control of the output at the spent slot.
+    pub fn locked_address(&self, protocol_parameters: &ProtocolParameters) -> Address {
+        self.locked_address_at(self.slot_booked, protocol_parameters)
     }
 
     pub fn kind(&self) -> &str {
@@ -84,8 +114,22 @@ impl LedgerSpent {
         self.output().amount()
     }
 
-    pub fn address(&self) -> Option<&Address> {
-        self.output.address()
+    pub fn slot_booked(&self) -> SlotIndex {
+        self.output.slot_booked
+    }
+
+    pub fn owning_address(&self) -> Address {
+        self.output.owning_address()
+    }
+
+    /// Returns the [`Address`] that is in control of the output at the given slot.
+    pub fn locked_address_at(&self, slot: impl Into<SlotIndex>, protocol_parameters: &ProtocolParameters) -> Address {
+        self.output.locked_address_at(slot, protocol_parameters)
+    }
+
+    /// Returns the [`Address`] that is in control of the output at the booked slot.
+    pub fn locked_address(&self, protocol_parameters: &ProtocolParameters) -> Address {
+        self.locked_address_at(self.slot_spent, protocol_parameters)
     }
 }
 

@@ -1,3 +1,20 @@
+## [1.0.0-rc.4](https://github.com/iotaledger/inx-chronicle/compare/v1.0.0-rc.3...v1.0.0-rc.4) (2024-01-24)
+
+### Features
+
+* **api:** explorer balance endpoint now returns `availableBalance` ([#1314](https://github.com/iotaledger/inx-chronicle/issues/1314))  ([ca605a7](https://github.com/iotaledger/inx-chronicle/commit/ca605a7e48b377c77a1064f83a1abe3a394b1315))
+
+### Bug Fixes
+
+* **db:** consider expiration return address for ledger updates ([#1314](https://github.com/iotaledger/inx-chronicle/issues/1314)) ([ca605a7](https://github.com/iotaledger/inx-chronicle/commit/ca605a7e48b377c77a1064f83a1abe3a394b1315))
+* **db:** fix balance calculation ([#1314](https://github.com/iotaledger/inx-chronicle/issues/1314)) ([ca605a7](https://github.com/iotaledger/inx-chronicle/commit/ca605a7e48b377c77a1064f83a1abe3a394b1315))
+
+## [1.0.0-rc.3](https://github.com/iotaledger/inx-chronicle/compare/v1.0.0-rc.2...v1.0.0-rc.3) (2024-01-22)
+
+### Miscellaneous Chores
+
+* **deps:** update `iota-sdk` to fix validation bug
+
 ## [1.0.0-rc.2](https://github.com/iotaledger/inx-chronicle/compare/v1.0.0-rc.1...v1.0.0-rc.2) (2023-09-12)
 
 

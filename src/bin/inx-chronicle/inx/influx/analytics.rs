@@ -73,7 +73,7 @@ impl InxWorker {
                     *state = Some(
                         analytics_choices
                             .iter()
-                            .map(|choice| Analytic::init(choice, protocol_params, &ledger_state))
+                            .map(|choice| Analytic::init(choice, slot.index(), protocol_params, &ledger_state))
                             .collect(),
                     );
                 }

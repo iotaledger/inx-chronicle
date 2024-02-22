@@ -10,12 +10,13 @@ use chronicle::{
             config::{all_analytics, all_interval_analytics, IntervalAnalyticsChoice},
             AnalyticsChoice, InfluxDb,
         },
-        mongodb::collections::{ApplicationStateCollection, OutputCollection},
+        mongodb::collections::{ApplicationStateCollection, CommittedSlotCollection, OutputCollection},
         MongoDb,
     },
     tangle::{InputSource, Tangle},
 };
 use clap::Parser;
+use eyre::OptionExt;
 use futures::TryStreamExt;
 use iota_sdk::types::block::slot::SlotIndex;
 use time::{Date, OffsetDateTime};
@@ -106,7 +107,11 @@ impl FillAnalyticsCommand {
                 protocol_params.slot_duration_in_seconds(),
             )
         } else {
-            todo!("get the oldest slot in the DB")
+            db.collection::<CommittedSlotCollection>()
+                .get_earliest_committed_slot()
+                .await?
+                .ok_or_eyre("no slots in database")?
+                .slot_index
         };
         let (start_index, start_date) = (
             start_index,
@@ -135,7 +140,11 @@ impl FillAnalyticsCommand {
                 protocol_params.slot_duration_in_seconds(),
             )
         } else {
-            todo!("get the newest slot in the DB")
+            db.collection::<CommittedSlotCollection>()
+                .get_latest_committed_slot()
+                .await?
+                .ok_or_eyre("no slots in database")?
+                .slot_index
         };
         let (end_index, end_date) = (
             end_index,
@@ -257,7 +266,7 @@ pub async fn fill_analytics<I: 'static + InputSource + Clone>(
                         state = Some(
                             analytics_choices
                                 .iter()
-                                .map(|choice| Analytic::init(choice, &protocol_params, &ledger_state))
+                                .map(|choice| Analytic::init(choice, slot.index(), &protocol_params, &ledger_state))
                                 .collect(),
                         );
                     }

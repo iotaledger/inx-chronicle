@@ -9,7 +9,7 @@ use futures::{Stream, TryStreamExt};
 use iota_sdk::{
     types::block::{
         address::Address,
-        output::{AccountId, MinimumOutputAmount, Output, OutputId, StorageScoreParameters},
+        output::{AccountId, MinimumOutputAmount, Output, OutputId},
         payload::signed_transaction::TransactionId,
         protocol::ProtocolParameters,
         slot::{SlotCommitmentId, SlotIndex},
@@ -142,8 +142,7 @@ struct OutputDetails {
     generation_amount: u64,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     indexed_id: Option<IndexedId>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    address: Option<AddressDto>,
+    address: AddressDto,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     governor_address: Option<AddressDto>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -173,7 +172,7 @@ struct OutputDetails {
 }
 
 impl OutputDocument {
-    pub fn from_ledger_output(rec: &LedgerOutput, params: StorageScoreParameters) -> Self {
+    pub fn from_ledger_output(rec: &LedgerOutput, params: &ProtocolParameters) -> Self {
         Self {
             output_id: rec.output_id,
             output: rec.output.clone(),
@@ -187,7 +186,9 @@ impl OutputDocument {
                 kind: rec.kind().to_owned(),
                 amount: rec.amount(),
                 stored_mana: rec.output().mana(),
-                generation_amount: rec.amount().saturating_sub(rec.output().minimum_amount(params)),
+                generation_amount: rec
+                    .amount()
+                    .saturating_sub(rec.output().minimum_amount(params.storage_score_parameters())),
                 indexed_id: match rec.output() {
                     Output::Account(output) => Some(output.account_id_non_null(&rec.output_id).into()),
                     Output::Anchor(output) => Some(output.anchor_id_non_null(&rec.output_id).into()),
@@ -196,11 +197,7 @@ impl OutputDocument {
                     Output::Foundry(output) => Some(output.id().into()),
                     _ => None,
                 },
-                address: rec
-                    .output()
-                    .unlock_conditions()
-                    .and_then(|uc| uc.address())
-                    .map(|uc| uc.address().into()),
+                address: rec.locked_address(params).into(),
                 governor_address: rec
                     .output()
                     .unlock_conditions()
@@ -262,8 +259,10 @@ impl OutputDocument {
         }
     }
 
-    fn from_ledger_spent(rec: &LedgerSpent, params: StorageScoreParameters) -> Self {
+    fn from_ledger_spent(rec: &LedgerSpent, params: &ProtocolParameters) -> Self {
         let mut res = Self::from_ledger_output(&rec.output, params);
+        // Update the address as the spending may have changed it
+        res.details.address = rec.locked_address(params).into();
         res.metadata.spent_metadata.replace(SpentMetadata {
             slot_spent: rec.slot_spent,
             commitment_id_spent: rec.commitment_id_spent,
@@ -390,7 +389,7 @@ impl OutputCollection {
     pub async fn update_spent_outputs(
         &self,
         outputs: impl IntoIterator<Item = &LedgerSpent>,
-        params: StorageScoreParameters,
+        params: &ProtocolParameters,
     ) -> Result<(), DbError> {
         // TODO: Replace `db.run_command` once the `BulkWrite` API lands in the Rust driver.
         let update_docs = outputs
@@ -421,7 +420,7 @@ impl OutputCollection {
 
     /// Inserts unspent ledger outputs.
     #[instrument(skip_all, err, level = "trace")]
-    pub async fn insert_unspent_outputs<I, B>(&self, outputs: I, params: StorageScoreParameters) -> Result<(), DbError>
+    pub async fn insert_unspent_outputs<I, B>(&self, outputs: I, params: &ProtocolParameters) -> Result<(), DbError>
     where
         I: IntoIterator<Item = B>,
         I::IntoIter: Send + Sync,
@@ -863,7 +862,7 @@ impl OutputCollection {
         }
     }
 
-    /// Get the address activity in a date
+    /// Get the address activity in a date range
     pub async fn get_address_activity_count_in_range(
         &self,
         start_date: time::Date,

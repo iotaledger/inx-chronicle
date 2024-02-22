@@ -46,6 +46,13 @@ impl MongoDbCollection for CommittedSlotCollection {
 }
 
 impl CommittedSlotCollection {
+    /// Gets the earliest committed slot.
+    pub async fn get_earliest_committed_slot(&self) -> Result<Option<CommittedSlotDocument>, DbError> {
+        Ok(self
+            .find_one(doc! {}, FindOneOptions::builder().sort(doc! { "_id": 1 }).build())
+            .await?)
+    }
+
     /// Gets the latest committed slot.
     pub async fn get_latest_committed_slot(&self) -> Result<Option<CommittedSlotDocument>, DbError> {
         Ok(self

@@ -22,7 +22,7 @@ use chronicle::{
 };
 use eyre::{bail, Result};
 use futures::{StreamExt, TryStreamExt};
-use iota_sdk::types::block::{output::StorageScoreParameters, protocol::ProtocolParameters, slot::SlotIndex};
+use iota_sdk::types::block::{protocol::ProtocolParameters, slot::SlotIndex};
 use tokio::{task::JoinSet, try_join};
 use tracing::{debug, info, instrument, trace_span, Instrument};
 
@@ -185,7 +185,7 @@ impl InxWorker {
                 .await?;
 
             let mut starting_index = None;
-            let protocol_params = node_configuration.latest_parameters();
+            let protocol_parameters = node_configuration.latest_parameters();
 
             let mut count = 0;
             let mut tasks = unspent_output_stream
@@ -212,8 +212,8 @@ impl InxWorker {
                 // Convert batches to tasks
                 .try_fold(JoinSet::new(), |mut tasks, batch| async {
                     let db = self.db.clone();
-                    let params = protocol_params.storage_score_parameters();
-                    tasks.spawn(async move { insert_unspent_outputs(&db, &batch, params).await });
+                    let protocol_parameters = protocol_parameters.clone();
+                    tasks.spawn(async move { insert_unspent_outputs(&db, &batch, &protocol_parameters).await });
                     Result::<_>::Ok(tasks)
                 })
                 .await?;
@@ -228,8 +228,8 @@ impl InxWorker {
 
             // Get the timestamp for the starting index
             let slot_timestamp = starting_index.to_timestamp(
-                protocol_params.genesis_unix_timestamp(),
-                protocol_params.slot_duration_in_seconds(),
+                protocol_parameters.genesis_unix_timestamp(),
+                protocol_parameters.slot_duration_in_seconds(),
             );
 
             info!(
@@ -247,7 +247,7 @@ impl InxWorker {
             info!(
                 "Linking database `{}` to network `{}`.",
                 self.db.name(),
-                protocol_params.network_name()
+                protocol_parameters.network_name()
             );
         }
 
@@ -279,15 +279,15 @@ impl InxWorker {
         for batch in slot.ledger_updates().created_outputs().chunks(INSERT_BATCH_SIZE) {
             let db = self.db.clone();
             let batch = batch.to_vec();
-            let params = protocol_parameters.storage_score_parameters();
-            tasks.spawn(async move { insert_unspent_outputs(&db, &batch, params).await });
+            let protocol_parameters = protocol_parameters.clone();
+            tasks.spawn(async move { insert_unspent_outputs(&db, &batch, &protocol_parameters).await });
         }
 
         for batch in slot.ledger_updates().consumed_outputs().chunks(INSERT_BATCH_SIZE) {
             let db = self.db.clone();
             let batch = batch.to_vec();
-            let params = protocol_parameters.storage_score_parameters();
-            tasks.spawn(async move { update_spent_outputs(&db, &batch, params).await });
+            let protocol_parameters = protocol_parameters.clone();
+            tasks.spawn(async move { update_spent_outputs(&db, &batch, &protocol_parameters).await });
         }
 
         while let Some(res) = tasks.join_next().await {
@@ -350,7 +350,7 @@ impl InxWorker {
 }
 
 #[instrument(skip_all, err, fields(num = outputs.len()), level = "trace")]
-async fn insert_unspent_outputs(db: &MongoDb, outputs: &[LedgerOutput], params: StorageScoreParameters) -> Result<()> {
+async fn insert_unspent_outputs(db: &MongoDb, outputs: &[LedgerOutput], params: &ProtocolParameters) -> Result<()> {
     let output_collection = db.collection::<OutputCollection>();
     let ledger_collection = db.collection::<LedgerUpdateCollection>();
     try_join! {
@@ -359,7 +359,7 @@ async fn insert_unspent_outputs(db: &MongoDb, outputs: &[LedgerOutput], params: 
             Result::<_>::Ok(())
         },
         async {
-            ledger_collection.insert_unspent_ledger_updates(outputs).await?;
+            ledger_collection.insert_unspent_ledger_updates(outputs, params).await?;
             Ok(())
         }
     }?;
@@ -367,7 +367,7 @@ async fn insert_unspent_outputs(db: &MongoDb, outputs: &[LedgerOutput], params: 
 }
 
 #[instrument(skip_all, err, fields(num = outputs.len()), level = "trace")]
-async fn update_spent_outputs(db: &MongoDb, outputs: &[LedgerSpent], params: StorageScoreParameters) -> Result<()> {
+async fn update_spent_outputs(db: &MongoDb, outputs: &[LedgerSpent], params: &ProtocolParameters) -> Result<()> {
     let output_collection = db.collection::<OutputCollection>();
     let ledger_collection = db.collection::<LedgerUpdateCollection>();
     try_join! {
@@ -376,7 +376,7 @@ async fn update_spent_outputs(db: &MongoDb, outputs: &[LedgerSpent], params: Sto
             Ok(())
         },
         async {
-            ledger_collection.insert_spent_ledger_updates(outputs).await?;
+            ledger_collection.insert_spent_ledger_updates(outputs, params).await?;
             Ok(())
         }
     }

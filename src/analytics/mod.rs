@@ -160,12 +160,15 @@ impl Analytic {
     /// Init an analytic from a choice and ledger state.
     pub fn init<'a>(
         choice: &AnalyticsChoice,
+        slot: SlotIndex,
         protocol_params: &ProtocolParameters,
         unspent_outputs: impl IntoIterator<Item = &'a LedgerOutput>,
     ) -> Self {
         Self(match choice {
             // Need ledger state
-            AnalyticsChoice::AddressBalance => Box::new(AddressBalancesAnalytics::init(unspent_outputs)) as _,
+            AnalyticsChoice::AddressBalance => {
+                Box::new(AddressBalancesAnalytics::init(protocol_params, slot, unspent_outputs)) as _
+            }
             AnalyticsChoice::Features => Box::new(FeaturesMeasurement::init(unspent_outputs)) as _,
             AnalyticsChoice::LedgerOutputs => Box::new(LedgerOutputMeasurement::init(unspent_outputs)) as _,
             AnalyticsChoice::LedgerSize => Box::new(LedgerSizeAnalytics::init(protocol_params, unspent_outputs)) as _,

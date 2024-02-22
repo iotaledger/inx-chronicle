@@ -6,6 +6,8 @@ use std::collections::HashMap;
 use iota_sdk::types::block::{
     address::{AccountAddress, Address, AnchorAddress, Ed25519Address, ImplicitAccountCreationAddress, NftAddress},
     payload::SignedTransactionPayload,
+    protocol::ProtocolParameters,
+    slot::SlotIndex,
 };
 use serde::{Deserialize, Serialize};
 
@@ -51,23 +53,25 @@ pub(crate) struct AddressBalancesAnalytics {
 
 impl AddressBalancesAnalytics {
     /// Initialize the analytics by reading the current ledger state.
-    pub(crate) fn init<'a>(unspent_outputs: impl IntoIterator<Item = &'a LedgerOutput>) -> Self {
+    pub(crate) fn init<'a>(
+        protocol_parameters: &ProtocolParameters,
+        slot: SlotIndex,
+        unspent_outputs: impl IntoIterator<Item = &'a LedgerOutput>,
+    ) -> Self {
         let mut balances = AddressBalancesAnalytics::default();
         for output in unspent_outputs {
-            if let Some(a) = output.address() {
-                balances.add_address(a, output.amount());
-            }
+            balances.add_address(output.locked_address_at(slot, protocol_parameters), output.amount());
         }
         balances
     }
 
-    fn add_address(&mut self, address: &Address, output_amount: u64) {
+    fn add_address(&mut self, address: Address, output_amount: u64) {
         match address {
-            Address::Ed25519(a) => *self.ed25519_balances.entry(*a).or_default() += output_amount,
-            Address::Account(a) => *self.account_balances.entry(*a).or_default() += output_amount,
-            Address::Nft(a) => *self.nft_balances.entry(*a).or_default() += output_amount,
-            Address::Anchor(a) => *self.anchor_balances.entry(*a).or_default() += output_amount,
-            Address::ImplicitAccountCreation(a) => *self.implicit_balances.entry(*a).or_default() += output_amount,
+            Address::Ed25519(a) => *self.ed25519_balances.entry(a).or_default() += output_amount,
+            Address::Account(a) => *self.account_balances.entry(a).or_default() += output_amount,
+            Address::Nft(a) => *self.nft_balances.entry(a).or_default() += output_amount,
+            Address::Anchor(a) => *self.anchor_balances.entry(a).or_default() += output_amount,
+            Address::ImplicitAccountCreation(a) => *self.implicit_balances.entry(a).or_default() += output_amount,
             _ => (),
         }
     }
@@ -127,18 +131,20 @@ impl Analytics for AddressBalancesAnalytics {
         _payload: &SignedTransactionPayload,
         consumed: &[LedgerSpent],
         created: &[LedgerOutput],
-        _ctx: &dyn AnalyticsContext,
+        ctx: &dyn AnalyticsContext,
     ) {
         for output in consumed {
-            if let Some(address) = output.address() {
-                self.remove_amount(address, output.amount());
-            }
+            self.remove_amount(
+                &output.locked_address_at(ctx.slot_index(), ctx.protocol_parameters()),
+                output.amount(),
+            );
         }
 
         for output in created {
-            if let Some(address) = output.address() {
-                self.add_address(address, output.amount())
-            }
+            self.add_address(
+                output.locked_address_at(ctx.slot_index(), ctx.protocol_parameters()),
+                output.amount(),
+            )
         }
     }
 

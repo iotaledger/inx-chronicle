@@ -3,10 +3,7 @@
 
 use std::collections::HashMap;
 
-use iota_sdk::types::block::{
-    address::{Bech32Address, ToBech32Ext},
-    payload::SignedTransactionPayload,
-};
+use iota_sdk::types::block::{address::Address, payload::SignedTransactionPayload};
 
 use crate::{
     analytics::{Analytics, AnalyticsContext},
@@ -33,25 +30,24 @@ impl Analytics for BaseTokenActivityMeasurement {
         created: &[LedgerOutput],
         ctx: &dyn AnalyticsContext,
     ) {
-        let hrp = ctx.protocol_parameters().bech32_hrp();
         // The idea behind the following code is that we keep track of the deltas that are applied to each account that
         // is represented by an address.
-        let mut balance_deltas: HashMap<Bech32Address, i128> = HashMap::new();
+        let mut balance_deltas: HashMap<Address, i128> = HashMap::new();
 
         // We first gather all tokens that have been moved to an individual address.
         for output in created {
-            if let Some(a) = output.address() {
-                *balance_deltas.entry(a.clone().to_bech32(hrp)).or_default() += output.amount() as i128;
-            }
+            *balance_deltas
+                .entry(output.locked_address_at(ctx.slot_index(), ctx.protocol_parameters()))
+                .or_default() += output.amount() as i128;
         }
 
         self.booked_amount += balance_deltas.values().sum::<i128>() as u64;
 
         // Afterwards, we subtract the tokens from that address to get the actual deltas of each account.
         for output in consumed {
-            if let Some(a) = output.address() {
-                *balance_deltas.entry(a.clone().to_bech32(hrp)).or_default() -= output.amount() as i128;
-            }
+            *balance_deltas
+                .entry(output.locked_address_at(ctx.slot_index(), ctx.protocol_parameters()))
+                .or_default() -= output.amount() as i128;
         }
 
         // The number of transferred tokens is then the sum of all deltas.

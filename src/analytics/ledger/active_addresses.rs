@@ -66,18 +66,14 @@ impl Analytics for AddressActivityAnalytics {
         _payload: &SignedTransactionPayload,
         consumed: &[LedgerSpent],
         created: &[LedgerOutput],
-        _ctx: &dyn AnalyticsContext,
+        ctx: &dyn AnalyticsContext,
     ) {
         for output in consumed {
-            if let Some(a) = output.address() {
-                self.add_address(a);
-            }
+            self.add_address(output.locked_address_at(ctx.slot_index(), ctx.protocol_parameters()));
         }
 
         for output in created {
-            if let Some(a) = output.address() {
-                self.add_address(a);
-            }
+            self.add_address(output.locked_address_at(ctx.slot_index(), ctx.protocol_parameters()));
         }
     }
 
@@ -93,22 +89,22 @@ impl Analytics for AddressActivityAnalytics {
 }
 
 impl AddressActivityAnalytics {
-    fn add_address(&mut self, address: &Address) {
+    fn add_address(&mut self, address: Address) {
         match address {
             Address::Ed25519(a) => {
-                self.ed25519_addresses.insert(*a);
+                self.ed25519_addresses.insert(a);
             }
             Address::Account(a) => {
-                self.account_addresses.insert(*a);
+                self.account_addresses.insert(a);
             }
             Address::Nft(a) => {
-                self.nft_addresses.insert(*a);
+                self.nft_addresses.insert(a);
             }
             Address::Anchor(a) => {
-                self.anchor_addresses.insert(*a);
+                self.anchor_addresses.insert(a);
             }
             Address::ImplicitAccountCreation(a) => {
-                self.implicit_addresses.insert(*a);
+                self.implicit_addresses.insert(a);
             }
             _ => (),
         }

@@ -2,9 +2,13 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use inx::proto;
-use iota_sdk::types::block::{
-    payload::signed_transaction::TransactionId,
-    slot::{SlotCommitmentId, SlotIndex},
+use iota_sdk::types::{
+    api::core::BlockFailureReason,
+    block::{
+        payload::signed_transaction::TransactionId,
+        semantic::TransactionFailureReason,
+        slot::{SlotCommitmentId, SlotIndex},
+    },
 };
 
 use super::{
@@ -14,7 +18,7 @@ use super::{
 use crate::{
     maybe_missing,
     model::{
-        block_metadata::{BlockFailureReason, BlockState, TransactionFailureReason, TransactionState},
+        block_metadata::{BlockState, TransactionState},
         ledger::{LedgerOutput, LedgerSpent},
     },
 };
@@ -241,6 +245,11 @@ impl ConvertFrom<proto::transaction_metadata::TransactionFailureReason> for Opti
             ProtoState::InputAlreadySpent => TransactionFailureReason::InputAlreadySpent,
             ProtoState::InputCreationAfterTxCreation => TransactionFailureReason::InputCreationAfterTxCreation,
             ProtoState::UnlockSignatureInvalid => TransactionFailureReason::UnlockSignatureInvalid,
+            ProtoState::ChainAddressUnlockInvalid => TransactionFailureReason::ChainAddressUnlockInvalid,
+            ProtoState::DirectUnlockableAddressUnlockInvalid => {
+                TransactionFailureReason::DirectUnlockableAddressUnlockInvalid
+            }
+            ProtoState::MultiAddressUnlockInvalid => TransactionFailureReason::MultiAddressUnlockInvalid,
             ProtoState::CommitmentInputReferenceInvalid => TransactionFailureReason::CommitmentInputReferenceInvalid,
             ProtoState::BicInputReferenceInvalid => TransactionFailureReason::BicInputReferenceInvalid,
             ProtoState::RewardInputReferenceInvalid => TransactionFailureReason::RewardInputReferenceInvalid,
