@@ -51,6 +51,7 @@ tracing-subscriber = { version = "0.3", default-features = false, features = [ "
 uint = { version = "0.9", default-features = false }
 url = { version = "2.3", default-features = false }
 uuid = { version = "1.3", default-features = false, features = [ "v4" ] }
+once_cell = "1.17.1"
 
 # Optional
 chrono = { version = "0.4", default-features = false, features = [ "std" ], optional = true }
@@ -112,7 +113,7 @@ api = [
 influx = [
     "dep:influxdb",
 ]
-inx = [ 
+inx = [
     "dep:inx",
     "dep:tonic",
 ]

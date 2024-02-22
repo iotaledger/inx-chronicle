@@ -2,6 +2,9 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use std::str::FromStr;
+use std::time::SystemTime;
+
+use tracing::info;
 
 use axum::{extract::Path, routing::get, Extension};
 use chronicle::{
@@ -19,7 +22,7 @@ use chronicle::{
     },
 };
 use futures::{StreamExt, TryStreamExt};
-use iota_sdk::types::block::address::ToBech32Ext;
+use iota_sdk::types::block::address::{Hrp, ToBech32Ext};
 
 use super::{
     extractors::{
@@ -39,6 +42,10 @@ use crate::api::{
     router::Router,
     ApiResult,
 };
+
+use once_cell::sync::Lazy;
+use std::time::{Duration, Instant};
+use tokio::sync::RwLock;
 
 pub fn routes() -> Router {
     Router::new()
@@ -319,17 +326,49 @@ async fn blocks_by_milestone_id(
     .await
 }
 
+struct RichestCacheData {
+    last_updated: Instant,
+    data: RichestAddressesResponse,
+}
+
+struct TokenCacheData {
+    last_updated: Instant,
+    data: TokenDistributionResponse,
+}
+
+fn calculate_seconds_until_midnight() -> u64 {
+    let now = SystemTime::now();
+    let since_epoch = now.duration_since(SystemTime::UNIX_EPOCH).expect("Time went backwards");
+    let seconds_today = since_epoch.as_secs() % 86400;
+    86400 - seconds_today
+}
+
+static RICHEST_ADDRESSES_CACHE: Lazy<RwLock<Option<RichestCacheData>>> = Lazy::new(|| RwLock::new(None));
+static TOKEN_DISTRIBUTION_CACHE: Lazy<RwLock<Option<TokenCacheData>>> = Lazy::new(|| RwLock::new(None));
+
 async fn richest_addresses_ledger_analytics(
     database: Extension<MongoDb>,
     RichestAddressesQuery { top, ledger_index }: RichestAddressesQuery,
 ) -> ApiResult<RichestAddressesResponse> {
     let ledger_index = resolve_ledger_index(&database, ledger_index).await?;
+    let mut cache = RICHEST_ADDRESSES_CACHE.write().await;
+    let seconds_until_midnight = calculate_seconds_until_midnight();
+
+    if let Some(cached_data) = &*cache {
+        if cached_data.last_updated.elapsed() < Duration::from_secs(seconds_until_midnight) {
+            return Ok(cached_data.data.clone());
+        }
+    }
+
+    info!("refreshing richest-addresses cache ...");
+    let refresh_start = SystemTime::now();
+
     let res = database
         .collection::<OutputCollection>()
         .get_richest_addresses(ledger_index, top)
         .await?;
 
-    let hrp = database
+    let hrp: Hrp = database
         .collection::<ProtocolUpdateCollection>()
         .get_protocol_parameters_for_ledger_index(ledger_index)
         .await?
@@ -338,7 +377,7 @@ async fn richest_addresses_ledger_analytics(
         .bech32_hrp
         .parse()?;
 
-    Ok(RichestAddressesResponse {
+    let response = RichestAddressesResponse {
         top: res
             .top
             .into_iter()
@@ -350,7 +389,16 @@ async fn richest_addresses_ledger_analytics(
             })
             .collect(),
         ledger_index,
-    })
+    };
+
+    // Store the response in the cache
+    *cache = Some(RichestCacheData { last_updated: Instant::now(), data: response.clone() });
+
+    let refresh_elapsed = refresh_start.elapsed().unwrap();
+    info!("refreshing richest-addresses cache done. Took {:?}", refresh_elapsed);
+    info!("next refresh in {} seconds", seconds_until_midnight);
+
+    Ok(response)
 }
 
 async fn token_distribution_ledger_analytics(
@@ -358,15 +406,36 @@ async fn token_distribution_ledger_analytics(
     LedgerIndex { ledger_index }: LedgerIndex,
 ) -> ApiResult<TokenDistributionResponse> {
     let ledger_index = resolve_ledger_index(&database, ledger_index).await?;
+    let mut cache = TOKEN_DISTRIBUTION_CACHE.write().await;
+
+    let seconds_until_midnight = calculate_seconds_until_midnight();
+    if let Some(cached_data) = &*cache {
+        if cached_data.last_updated.elapsed() < Duration::from_secs(seconds_until_midnight) {
+            return Ok(cached_data.data.clone());
+        }
+    }
+
+    info!("refreshing token-distribution cache ...");
+    let refresh_start = SystemTime::now();
+
     let res = database
         .collection::<OutputCollection>()
         .get_token_distribution(ledger_index)
         .await?;
 
-    Ok(TokenDistributionResponse {
+    let response = TokenDistributionResponse {
         distribution: res.distribution.into_iter().map(Into::into).collect(),
         ledger_index,
-    })
+    };
+
+    // Store the response in the cache
+    *cache = Some(TokenCacheData { last_updated: Instant::now(), data: response.clone() });
+
+    let refresh_elapsed = refresh_start.elapsed().unwrap();
+    info!("refreshing token-distribution cache done. Took {:?}", refresh_elapsed);
+    info!("next refresh in {} seconds", seconds_until_midnight);
+
+    Ok(response)
 }
 
 /// This is just a helper fn to either unwrap an optional ledger index param or fetch the latest
