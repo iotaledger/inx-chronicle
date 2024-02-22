@@ -19,7 +19,9 @@ impl LedgerSize for Output {
             iota_sdk::types::block::output::Output::try_from_with_context(&protocol_params, self.clone()).unwrap();
         let rent_bytes = RentStructureBytes::compute(&output);
         LedgerSizeMeasurement {
-            total_storage_deposit_amount: Rent::rent_cost(&output, protocol_params.rent_structure()).into(),
+            total_storage_deposit_amount: Rent::rent_cost(&output, protocol_params.rent_structure())
+                .min(output.amount())
+                .into(),
             total_key_bytes: rent_bytes.num_key_bytes,
             total_data_bytes: rent_bytes.num_data_bytes,
         }
