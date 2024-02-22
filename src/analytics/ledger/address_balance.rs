@@ -135,16 +135,13 @@ impl Analytics for AddressBalancesAnalytics {
     ) {
         for output in consumed {
             self.remove_amount(
-                &output.locked_address_at(ctx.slot_index(), ctx.protocol_parameters()),
+                &output.output.locked_address(ctx.protocol_parameters()),
                 output.amount(),
             );
         }
 
         for output in created {
-            self.add_address(
-                output.locked_address_at(ctx.slot_index(), ctx.protocol_parameters()),
-                output.amount(),
-            )
+            self.add_address(output.locked_address(ctx.protocol_parameters()), output.amount())
         }
     }
 

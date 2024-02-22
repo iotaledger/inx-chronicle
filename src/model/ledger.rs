@@ -73,7 +73,7 @@ impl LedgerOutput {
             .unwrap_or(owning_address)
     }
 
-    /// Returns the [`Address`] that is in control of the output at the spent slot.
+    /// Returns the [`Address`] that is in control of the output at the booked slot.
     pub fn locked_address(&self, protocol_parameters: &ProtocolParameters) -> Address {
         self.locked_address_at(self.slot_booked, protocol_parameters)
     }
@@ -127,7 +127,7 @@ impl LedgerSpent {
         self.output.locked_address_at(slot, protocol_parameters)
     }
 
-    /// Returns the [`Address`] that is in control of the output at the booked slot.
+    /// Returns the [`Address`] that is in control of the output at the spent slot.
     pub fn locked_address(&self, protocol_parameters: &ProtocolParameters) -> Address {
         self.locked_address_at(self.slot_spent, protocol_parameters)
     }

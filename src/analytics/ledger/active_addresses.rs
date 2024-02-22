@@ -1,4 +1,4 @@
-// Copyright 2023 IOTA Stiftung
+// Copyright 2024 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
 use std::collections::HashSet;
@@ -69,11 +69,11 @@ impl Analytics for AddressActivityAnalytics {
         ctx: &dyn AnalyticsContext,
     ) {
         for output in consumed {
-            self.add_address(output.locked_address_at(ctx.slot_index(), ctx.protocol_parameters()));
+            self.add_address(output.output.locked_address(ctx.protocol_parameters()));
         }
 
         for output in created {
-            self.add_address(output.locked_address_at(ctx.slot_index(), ctx.protocol_parameters()));
+            self.add_address(output.locked_address(ctx.protocol_parameters()));
         }
     }
 
