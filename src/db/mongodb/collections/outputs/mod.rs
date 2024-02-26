@@ -682,8 +682,7 @@ impl OutputCollection {
             stored_mana: u64,
             #[serde(with = "string")]
             generation_amount: u64,
-            #[serde(default, skip_serializing_if = "Option::is_none")]
-            address: Option<AddressDto>,
+            address: AddressDto,
             #[serde(default, skip_serializing_if = "Option::is_none")]
             storage_deposit_return: Option<StorageDepositReturnUnlockConditionDto>,
             #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -706,8 +705,8 @@ impl OutputCollection {
                                 "details.expiration.return_address": address.to_bson()
                             }
                         ],
-                        "metadata.booked.milestone_index": { "$lte": slot_index.0 },
-                        "metadata.spent_metadata.spent.milestone_index": { "$not": { "$lte": slot_index.0 } }
+                        "metadata.slot_booked": { "$lte": slot_index.0 },
+                        "metadata.spent_metadata.slot_spent": { "$not": { "$lte": slot_index.0 } }
                     } },
                     doc! { "$project": {
                         "slot_booked": "$metadata.slot_booked",
@@ -734,7 +733,7 @@ impl OutputCollection {
                     .map(|sdruc| sdruc.amount)
                     .unwrap_or_default();
             // If this output is trivially unlocked by this address
-            if matches!(details.address, Some(a) if a == address) {
+            if details.address == address {
                 // And the output has no expiration or is not expired
                 if details.expiration.map_or(true, |exp| exp.slot_index > slot_index) {
                     balance.total.add(
