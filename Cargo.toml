@@ -68,7 +68,7 @@ regex = { version = "1.7", default-features = false, features = [ "std" ], optio
 rust-argon2 = { version = "2.0.0", default-features = false, optional = true }
 serde_urlencoded = { version = "0.7", default-features = false, optional = true }
 tower = { version = "0.4", default-features = false, optional = true }
-tower-http = { version = "0.4", default-features = false, features = [ "cors", "catch-panic", "trace" ], optional = true }
+tower-http = { version = "0.5", default-features = false, features = [ "cors", "catch-panic", "trace" ], optional = true }
 zeroize = { version = "1.5", default-features = false, features = [ "std", "zeroize_derive" ], optional = true }
 
 # INX
