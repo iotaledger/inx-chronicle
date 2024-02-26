@@ -128,7 +128,7 @@ impl InxWorker {
             .first_slot_of(node_status.pruning_epoch);
 
         // Check if there is an unfixable gap in our node data.
-        let start_index = if let Some(latest_committed_slot) = self
+        let mut start_index = if let Some(latest_committed_slot) = self
             .db
             .collection::<CommittedSlotCollection>()
             .get_latest_committed_slot()
@@ -150,6 +150,10 @@ impl InxWorker {
         } else {
             self.config.sync_start_slot.max(pruning_slot)
         };
+        // Skip the genesis slot
+        if start_index == node_configuration.latest_parameters().genesis_slot() {
+            start_index += 1;
+        }
 
         if let Some(db_node_config) = self
             .db
