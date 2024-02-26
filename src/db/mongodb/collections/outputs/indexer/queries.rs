@@ -118,11 +118,12 @@ impl AppendToQuery for UnlockableByAddressQuery {
     fn append_to(self, queries: &mut Vec<Document>) {
         match (self.address, self.slot_index) {
             (Some(address), Some(SlotIndex(slot_index))) => {
+                let address = AddressDto::from(address);
                 queries.push(doc! {
                     "$or": [
                         // If this output is trivially unlocked by this address
                         { "$and": [
-                            { "details.address": address.to_bson() },
+                            { "details.address": &address },
                             // And the output has no expiration or is not expired
                             { "$or": [
                                 { "$lte": [ "$details.expiration", null ] },
@@ -136,7 +137,7 @@ impl AppendToQuery for UnlockableByAddressQuery {
                         ] },
                         // Otherwise, if this output has expiring funds that will be returned to this address
                         { "$and": [
-                            { "details.expiration.return_address": address.to_bson() },
+                            { "details.expiration.return_address": &address },
                             // And the output is expired
                             { "$lte": [ "$details.expiration.slot_index", slot_index ] },
                         ] },
@@ -144,10 +145,11 @@ impl AppendToQuery for UnlockableByAddressQuery {
                 });
             }
             (Some(address), None) => {
+                let address = AddressDto::from(address);
                 queries.push(doc! {
                     "$or": [
-                        { "details.address": address.to_bson() },
-                        { "details.expiration.return_address": address.to_bson() },
+                        { "details.address": &address },
+                        { "details.expiration.return_address": &address },
                     ]
                 });
             }

@@ -213,7 +213,7 @@ impl LedgerUpdateCollection {
             SortOrder::Oldest => (oldest(), "$gt", "$gte"),
         };
 
-        let mut queries = vec![doc! { "address": address.to_bson() }];
+        let mut queries = vec![doc! { "address": AddressDto::from(address) }];
 
         if let Some((slot_index, rest)) = cursor {
             let mut cursor_queries = vec![doc! { "_id.slot_index": { cmp1: slot_index.to_bson() } }];

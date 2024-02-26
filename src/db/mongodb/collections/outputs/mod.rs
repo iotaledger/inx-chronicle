@@ -691,6 +691,7 @@ impl OutputCollection {
             expiration: Option<ExpirationUnlockConditionDto>,
         }
 
+        let address = AddressDto::from(address);
         let mut balance = None;
 
         let mut stream = self
@@ -699,10 +700,10 @@ impl OutputCollection {
                     // Look at all (at ledger index o'clock) unspent output documents for the given address.
                     doc! { "$match": {
                         "$or": [
-                            { "details.address": address.to_bson() },
+                            { "details.address": &address },
                             {
                                 "details.expiration": { "$exists": true },
-                                "details.expiration.return_address": address.to_bson()
+                                "details.expiration.return_address": &address
                             }
                         ],
                         "metadata.slot_booked": { "$lte": slot_index.0 },
@@ -722,8 +723,6 @@ impl OutputCollection {
                 None,
             )
             .await?;
-
-        let address = AddressDto::from(address);
 
         while let Some(details) = stream.try_next().await? {
             let balance = balance.get_or_insert(BalanceResult::default());
@@ -780,6 +779,7 @@ impl OutputCollection {
         address: Address,
         SlotIndex(slot_index): SlotIndex,
     ) -> Result<impl Stream<Item = Result<ManaInfoResult, DbError>>, DbError> {
+        let address = AddressDto::from(address);
         Ok(self
             .aggregate::<ManaInfoResult>(
                 [
@@ -787,7 +787,7 @@ impl OutputCollection {
                         "$or": [
                             // If this output is trivially unlocked by this address
                             { "$and": [
-                                { "details.address": address.to_bson() },
+                                { "details.address": &address },
                                 // And the output has no expiration or is not expired
                                 { "$or": [
                                     { "$lte": [ "$details.expiration", null ] },
@@ -801,7 +801,7 @@ impl OutputCollection {
                             ] },
                             // Otherwise, if this output has expiring funds that will be returned to this address
                             { "$and": [
-                                { "details.expiration.return_address": address.to_bson() },
+                                { "details.expiration.return_address": &address },
                                 // And the output is expired
                                 { "$lte": [ "$details.expiration.slot_index", slot_index ] },
                             ] },
