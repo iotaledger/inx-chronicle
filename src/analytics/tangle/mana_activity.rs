@@ -57,8 +57,7 @@ impl Analytics for ManaActivityMeasurement {
     }
 
     fn handle_block(&mut self, block: &Block, _metadata: &BlockMetadata, ctx: &dyn AnalyticsContext) {
-        // TODO: need RMC from INX
-        let rmc = 1;
+        let rmc = ctx.slot_commitment().reference_mana_cost();
         if let Some(body) = block.body().as_basic_opt() {
             self.bic_burned += body.work_score(ctx.protocol_parameters().work_score_parameters()) as u64 * rmc;
         }

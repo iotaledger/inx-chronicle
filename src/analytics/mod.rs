@@ -5,7 +5,11 @@
 
 use futures::TryStreamExt;
 use iota_sdk::types::block::{
-    output::OutputId, payload::SignedTransactionPayload, protocol::ProtocolParameters, slot::SlotIndex, Block,
+    output::OutputId,
+    payload::SignedTransactionPayload,
+    protocol::ProtocolParameters,
+    slot::{SlotCommitment, SlotIndex},
+    Block,
 };
 use rayon::iter::{IntoParallelRefMutIterator, ParallelIterator};
 use thiserror::Error;
@@ -19,7 +23,7 @@ use self::{
     },
     tangle::{
         BlockActivityMeasurement, BlockIssuerAnalytics, ManaActivityMeasurement, ProtocolParamsAnalytics,
-        SlotSizeMeasurement,
+        SlotCommitmentMeasurement, SlotSizeMeasurement,
     },
 };
 use crate::{
@@ -43,7 +47,11 @@ mod tangle;
 pub trait AnalyticsContext: Send + Sync {
     fn protocol_parameters(&self) -> &ProtocolParameters;
 
-    fn slot_index(&self) -> SlotIndex;
+    fn slot_index(&self) -> SlotIndex {
+        self.slot_commitment().slot()
+    }
+
+    fn slot_commitment(&self) -> &SlotCommitment;
 }
 
 /// Defines how analytics are gathered.
@@ -181,6 +189,7 @@ impl Analytic {
             AnalyticsChoice::ManaActivity => Box::<ManaActivityMeasurement>::default() as _,
             AnalyticsChoice::OutputActivity => Box::<OutputActivityMeasurement>::default() as _,
             AnalyticsChoice::ProtocolParameters => Box::<ProtocolParamsAnalytics>::default() as _,
+            AnalyticsChoice::SlotCommitment => Box::<SlotCommitmentMeasurement>::default() as _,
             AnalyticsChoice::SlotSize => Box::<SlotSizeMeasurement>::default() as _,
             AnalyticsChoice::TransactionSizeDistribution => Box::<TransactionSizeMeasurement>::default() as _,
         })
@@ -249,7 +258,7 @@ impl<'a, I: InputSource> Slot<'a, I> {
         PerSlot<A::Measurement>: 'static + PrepareQuery,
     {
         let ctx = BasicContext {
-            slot_index: self.index(),
+            slot_commitment: self.commitment().inner(),
             protocol_parameters,
         };
 
@@ -323,7 +332,7 @@ impl<'a, I: InputSource> Slot<'a, I> {
 }
 
 struct BasicContext<'a> {
-    slot_index: SlotIndex,
+    slot_commitment: &'a SlotCommitment,
     protocol_parameters: &'a ProtocolParameters,
 }
 
@@ -332,8 +341,8 @@ impl<'a> AnalyticsContext for BasicContext<'a> {
         self.protocol_parameters
     }
 
-    fn slot_index(&self) -> SlotIndex {
-        self.slot_index
+    fn slot_commitment(&self) -> &SlotCommitment {
+        self.slot_commitment
     }
 }
 

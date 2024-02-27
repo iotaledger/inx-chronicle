@@ -12,7 +12,10 @@ use super::{
         LedgerOutputMeasurement, LedgerSizeMeasurement, OutputActivityMeasurement, TransactionSizeMeasurement,
         UnlockConditionMeasurement,
     },
-    tangle::{BlockActivityMeasurement, BlockIssuerMeasurement, ManaActivityMeasurement, SlotSizeMeasurement},
+    tangle::{
+        BlockActivityMeasurement, BlockIssuerMeasurement, ManaActivityMeasurement, SlotCommitmentMeasurement,
+        SlotSizeMeasurement,
+    },
     AnalyticsInterval, PerInterval, PerSlot,
 };
 use crate::db::influxdb::InfluxDb;
@@ -62,12 +65,10 @@ where
     M: Measurement,
 {
     fn prepare_query(&self) -> Vec<WriteQuery> {
-        vec![
-            influxdb::Timestamp::Seconds(self.slot_timestamp as _)
-                .into_query(M::NAME)
-                .add_field("slot_index", self.slot_index.0)
-                .add_fields(&self.inner),
-        ]
+        vec![influxdb::Timestamp::Seconds(self.slot_timestamp as _)
+            .into_query(M::NAME)
+            .add_field("slot_index", self.slot_index.0)
+            .add_fields(&self.inner)]
     }
 }
 
@@ -278,6 +279,14 @@ impl Measurement for LedgerSizeMeasurement {
 
     fn add_fields(&self, query: WriteQuery) -> WriteQuery {
         query.add_field("total_storage_score", self.total_storage_score)
+    }
+}
+
+impl Measurement for SlotCommitmentMeasurement {
+    const NAME: &'static str = "iota_slot_commitment";
+
+    fn add_fields(&self, query: WriteQuery) -> WriteQuery {
+        query.add_field("reference_mana_cost", self.reference_mana_cost)
     }
 }
 
