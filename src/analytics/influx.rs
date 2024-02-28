@@ -376,11 +376,11 @@ impl Measurement for FeaturesMeasurement {
     fn add_fields(&self, query: WriteQuery) -> WriteQuery {
         query
             .add_field("native_tokens_count", self.native_tokens.count as u64)
-            .add_field("native_tokens_amount", self.native_tokens.amount)
-            .add_field("block_issuer_key_count", self.block_issuer.count as u64)
-            .add_field("block_issuer_key_amount", self.block_issuer.amount)
+            .add_field("native_tokens_amount", self.native_tokens.amount.to_string())
+            .add_field("block_issuer_count", self.block_issuer.count as u64)
+            .add_field("block_issuer_amount", self.block_issuer.amount)
             .add_field("staking_count", self.staking.count as u64)
-            .add_field("staking_amount", self.staking.amount)
+            .add_field("staked_amount", self.staking.staked_amount)
     }
 }
 

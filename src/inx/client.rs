@@ -3,20 +3,17 @@
 
 use futures::stream::{Stream, StreamExt};
 use inx::{client::InxClient, proto};
-use iota_sdk::types::block::{self as iota, output::OutputId, slot::SlotIndex, BlockId};
-use packable::PackableExt;
+use iota_sdk::types::block::slot::SlotIndex;
 
 use super::{
     convert::TryConvertTo,
-    ledger::{AcceptedTransaction, LedgerUpdate, UnspentOutput},
+    ledger::{LedgerUpdate, UnspentOutput},
     request::SlotRangeRequest,
-    responses::{Block, Output},
     InxError,
 };
 use crate::model::{
-    block_metadata::{BlockMetadata, BlockWithMetadata},
+    block_metadata::BlockWithMetadata,
     node::{NodeConfiguration, NodeStatus},
-    raw::Raw,
     slot::Commitment,
 };
 
@@ -47,17 +44,6 @@ impl Inx {
             .try_convert()
     }
 
-    /// Get a commitment from a slot index.
-    pub async fn get_commitment(&mut self, slot_index: SlotIndex) -> Result<Commitment, InxError> {
-        self.inx
-            .read_commitment(proto::CommitmentRequest {
-                commitment_slot: slot_index.0,
-                commitment_id: None,
-            })
-            .await?
-            .try_convert()
-    }
-
     /// Get a stream of committed slots.
     pub async fn get_committed_slots(
         &mut self,
@@ -66,58 +52,6 @@ impl Inx {
         Ok(self
             .inx
             .listen_to_commitments(proto::SlotRangeRequest::from(request))
-            .await?
-            .into_inner()
-            .map(|msg| TryConvertTo::try_convert(msg?)))
-    }
-
-    /// Get a block using a block id.
-    pub async fn get_block(&mut self, block_id: BlockId) -> Result<Raw<iota::Block>, InxError> {
-        Ok(self
-            .inx
-            .read_block(proto::BlockId { id: block_id.to_vec() })
-            .await?
-            .into_inner()
-            .try_into()?)
-    }
-
-    /// Get a block's metadata using a block id.
-    pub async fn get_block_metadata(&mut self, block_id: BlockId) -> Result<BlockMetadata, InxError> {
-        self.inx
-            .read_block_metadata(proto::BlockId { id: block_id.to_vec() })
-            .await?
-            .try_convert()
-    }
-
-    /// Convenience wrapper that gets all blocks.
-    pub async fn get_blocks(&mut self) -> Result<impl Stream<Item = Result<Block, InxError>>, InxError> {
-        Ok(self
-            .inx
-            .listen_to_blocks(proto::NoParams {})
-            .await?
-            .into_inner()
-            .map(|msg| TryConvertTo::try_convert(msg?)))
-    }
-
-    /// Convenience wrapper that gets accepted blocks.
-    pub async fn get_accepted_blocks(
-        &mut self,
-    ) -> Result<impl Stream<Item = Result<BlockMetadata, InxError>>, InxError> {
-        Ok(self
-            .inx
-            .listen_to_accepted_blocks(proto::NoParams {})
-            .await?
-            .into_inner()
-            .map(|msg| TryConvertTo::try_convert(msg?)))
-    }
-
-    /// Convenience wrapper that gets confirmed blocks.
-    pub async fn get_confirmed_blocks(
-        &mut self,
-    ) -> Result<impl Stream<Item = Result<BlockMetadata, InxError>>, InxError> {
-        Ok(self
-            .inx
-            .listen_to_confirmed_blocks(proto::NoParams {})
             .await?
             .into_inner()
             .map(|msg| TryConvertTo::try_convert(msg?)))
@@ -159,27 +93,5 @@ impl Inx {
             .await?
             .into_inner()
             .map(|msg| TryConvertTo::try_convert(msg?)))
-    }
-
-    /// Convenience wrapper that listen to accepted transactions.
-    pub async fn get_accepted_transactions(
-        &mut self,
-    ) -> Result<impl Stream<Item = Result<AcceptedTransaction, InxError>>, InxError> {
-        Ok(self
-            .inx
-            .listen_to_accepted_transactions(proto::NoParams {})
-            .await?
-            .into_inner()
-            .map(|msg| TryConvertTo::try_convert(msg?)))
-    }
-
-    /// Get an output using an output id.
-    pub async fn get_output(&mut self, output_id: OutputId) -> Result<Output, InxError> {
-        self.inx
-            .read_output(proto::OutputId {
-                id: output_id.pack_to_vec(),
-            })
-            .await?
-            .try_convert()
     }
 }
