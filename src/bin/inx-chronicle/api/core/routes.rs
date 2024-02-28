@@ -26,6 +26,7 @@ use iota_sdk::types::{
     block::{
         output::{
             OutputConsumptionMetadata, OutputId, OutputInclusionMetadata, OutputMetadata as OutputMetadataResponse,
+            OutputWithMetadata,
         },
         payload::signed_transaction::TransactionId,
         slot::{SlotCommitment, SlotCommitmentId, SlotIndex},
@@ -67,7 +68,7 @@ pub fn routes() -> Router<ApiState> {
             Router::new()
                 .route("/:output_id", get(output))
                 .route("/:output_id/metadata", get(output_metadata))
-                .route("/:output_id/full", get(not_implemented)),
+                .route("/:output_id/full", get(output_full)),
         )
         .nest(
             "/transactions",
@@ -240,14 +241,13 @@ async fn output(
 
 async fn output_metadata(
     database: State<MongoDb>,
-    Path(output_id): Path<String>,
+    Path(output_id): Path<OutputId>,
 ) -> ApiResult<IotaResponse<OutputMetadataResponse>> {
     let latest_slot = database
         .collection::<CommittedSlotCollection>()
         .get_latest_committed_slot()
         .await?
         .ok_or(MissingError::NoResults)?;
-    let output_id = OutputId::from_str(&output_id).map_err(RequestError::from)?;
     let metadata = database
         .collection::<OutputCollection>()
         .get_output_metadata(&output_id, latest_slot.slot_index)
@@ -255,6 +255,41 @@ async fn output_metadata(
         .ok_or(MissingError::NoResults)?;
 
     Ok(create_output_metadata_response(metadata.output_id, metadata.metadata, latest_slot.commitment_id)?.into())
+}
+
+async fn output_full(
+    database: State<MongoDb>,
+    Path(output_id): Path<OutputId>,
+) -> ApiResult<IotaResponse<OutputWithMetadata>> {
+    let latest_slot = database
+        .collection::<CommittedSlotCollection>()
+        .get_latest_committed_slot()
+        .await?
+        .ok_or(MissingError::NoResults)?;
+    let output_with_metadata = database
+        .collection::<OutputCollection>()
+        .get_output_with_metadata(&output_id, latest_slot.slot_index)
+        .await?
+        .ok_or(MissingError::NoResults)?;
+    let included_block = database
+        .collection::<BlockCollection>()
+        .get_block_for_transaction(output_id.transaction_id())
+        .await?
+        .ok_or(MissingError::NoResults)?;
+
+    Ok(OutputWithMetadata {
+        output: output_with_metadata.output,
+        output_id_proof: included_block
+            .block
+            .as_basic()
+            .payload()
+            .unwrap()
+            .as_signed_transaction()
+            .transaction()
+            .output_id_proof(output_id.index())?,
+        metadata: create_output_metadata_response(output_id, output_with_metadata.metadata, latest_slot.commitment_id)?,
+    }
+    .into())
 }
 
 async fn included_block(
@@ -359,3 +394,75 @@ async fn utxo_changes_by_index(
     }
     .into())
 }
+
+// async fn issuance(database: State<MongoDb>) -> ApiResult<IotaResponse<IssuanceBlockHeaderResponse>> {
+//     Ok(IssuanceBlockHeaderResponse {
+//         strong_parents: todo!(),
+//         weak_parents: todo!(),
+//         shallow_like_parents: todo!(),
+//         latest_parent_block_issuing_time: todo!(),
+//         latest_finalized_slot: todo!(),
+//         latest_commitment: todo!(),
+//     }
+//     .into())
+// }
+
+// async fn account_congestion(
+//     database: State<MongoDb>,
+//     Path(account_id): Path<AccountId>,
+// ) -> ApiResult<IotaResponse<CongestionResponse>> {
+//     Ok(CongestionResponse {
+//         slot: todo!(),
+//         ready: todo!(),
+//         reference_mana_cost: todo!(),
+//         block_issuance_credits: todo!(),
+//     }
+//     .into())
+// }
+
+// async fn output_rewards(
+//     database: State<MongoDb>,
+//     Path(output_id): Path<OutputId>,
+// ) -> ApiResult<IotaResponse<ManaRewardsResponse>> {
+//     Ok(ManaRewardsResponse {
+//         start_epoch: todo!(),
+//         end_epoch: todo!(),
+//         rewards: todo!(),
+//         latest_committed_epoch_pool_rewards: todo!(),
+//     }
+//     .into())
+// }
+
+// async fn all_validators(database: State<MongoDb>) -> ApiResult<ValidatorsResponse> {
+//     Ok(ValidatorsResponse {
+//         stakers: todo!(),
+//         page_size: todo!(),
+//         cursor: todo!(),
+//     })
+// }
+
+// async fn validator(database: State<MongoDb>, Path(account_id): Path<AccountId>) -> ApiResult<ValidatorResponse> {
+//     Ok(ValidatorResponse {
+//         address: todo!(),
+//         staking_end_epoch: todo!(),
+//         pool_stake: todo!(),
+//         validator_stake: todo!(),
+//         fixed_cost: todo!(),
+//         active: todo!(),
+//         latest_supported_protocol_version: todo!(),
+//         latest_supported_protocol_hash: todo!(),
+//     })
+// }
+
+// async fn committee(
+//     database: State<MongoDb>,
+//     Query(epochIndex): Query<EpochIndex>,
+// ) -> ApiResult<IotaResponse<CommitteeResponse>> {
+//     Ok(CommitteeResponse {
+//         committee: todo!(),
+//         total_stake: todo!(),
+//         total_validator_stake: todo!(),
+//         epoch: todo!(),
+//     }
+//     .into())
+// }

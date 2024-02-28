@@ -35,7 +35,7 @@ humantime-serde = { version = "1.1", default-features = false }
 iota-crypto = { version = "0.23", default-features = false, features = [ "blake2b", "ed25519", "slip10", "bip39-en", "random", "zeroize" ] }
 iota-sdk = { git = "https://github.com/iotaledger/iota-sdk", branch = "2.0", default-features = false, features = [ "std", "serde" ] }
 mongodb = { version = "2.4", default-features = false, features = [ "tokio-runtime" ] }
-packable = { version = "0.10", default-features = false }
+packable = { version = "0.11", default-features = false }
 pin-project = { version = "1.0", default-features = false }
 prefix-hex = { version = "0.7.0", default-features = false, features = [ "primitive-types", "std" ] }
 primitive-types = { version = "0.12", default-features = false }

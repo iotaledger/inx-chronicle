@@ -23,7 +23,7 @@ impl<T: Packable> Raw<T> {
     pub fn from_bytes(bytes: impl Into<Vec<u8>>) -> Result<Self, InvalidRawBytesError> {
         let data = bytes.into();
         Ok(Self {
-            inner: T::unpack_unverified(&data)
+            inner: T::unpack_bytes_unverified(&data)
                 .map_err(|e| InvalidRawBytesError(format!("error unpacking {}: {e:?}", std::any::type_name::<T>())))?,
             data,
         })

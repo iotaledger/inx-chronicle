@@ -1,7 +1,7 @@
 // Copyright 2023 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-use futures::{Stream, TryStreamExt};
+use futures::{Stream, StreamExt, TryStreamExt};
 use iota_sdk::types::block::{
     output::OutputId, payload::signed_transaction::TransactionId, slot::SlotIndex, Block, BlockId,
 };
@@ -195,13 +195,13 @@ impl BlockCollection {
     /// Get the accepted blocks from a slot.
     pub async fn get_accepted_blocks(
         &self,
-        index: SlotIndex,
+        SlotIndex(index): SlotIndex,
     ) -> Result<impl Stream<Item = Result<BlockWithMetadata, DbError>>, DbError> {
         Ok(self
             .aggregate(
                 [
                     doc! { "$match": {
-                        "slot_index": index.0,
+                        "slot_index": index,
                         "metadata.block_state": BlockState::Confirmed.to_bson()
                     } },
                     doc! { "$sort": { "_id": 1 } },
@@ -329,9 +329,15 @@ impl BlockCollection {
     }
 }
 
+#[allow(missing_docs)]
+pub struct BlocksBySlotResult<S> {
+    pub count: usize,
+    pub stream: S,
+}
+
 #[derive(Clone, Debug, Deserialize)]
 #[allow(missing_docs)]
-pub struct BlocksBySlotResult {
+pub struct BlockResult {
     #[serde(rename = "_id")]
     pub block_id: BlockId,
     pub payload_type: Option<u8>,
@@ -341,35 +347,45 @@ impl BlockCollection {
     /// Get the blocks in a slot by index as a stream of [`BlockId`]s.
     pub async fn get_blocks_by_slot_index(
         &self,
-        slot_index: SlotIndex,
+        SlotIndex(slot_index): SlotIndex,
         page_size: usize,
         cursor: Option<BlockId>,
         sort: SortOrder,
-    ) -> Result<impl Stream<Item = Result<BlocksBySlotResult, DbError>>, DbError> {
+    ) -> Result<BlocksBySlotResult<impl Stream<Item = Result<BlockResult, DbError>>>, DbError> {
         let (sort, cmp) = match sort {
             SortOrder::Newest => (doc! {"slot_index": -1 }, "$lte"),
             SortOrder::Oldest => (doc! {"slot_index": 1 }, "$gte"),
         };
 
-        let mut queries = vec![doc! { "slot_index": slot_index.0 }];
+        let mut queries = vec![doc! { "slot_index": slot_index }];
         if let Some(block_id) = cursor {
             queries.push(doc! { "_id": { cmp: block_id.to_bson() } });
         }
 
-        Ok(self
-            .aggregate(
-                [
-                    doc! { "$match": { "$and": queries } },
-                    doc! { "$sort": sort },
-                    doc! { "$limit": page_size as i64 },
-                    doc! { "$project": {
-                        "_id": 1,
-                        "payload_type": 1,
-                    } },
-                ],
-                None,
-            )
+        let count = self
+            .collection()
+            .find(doc! { "slot_index": slot_index }, None)
             .await?
-            .map_err(Into::into))
+            .count()
+            .await;
+
+        Ok(BlocksBySlotResult {
+            count,
+            stream: self
+                .aggregate::<BlockResult>(
+                    [
+                        doc! { "$match": { "$and": queries } },
+                        doc! { "$sort": sort },
+                        doc! { "$limit": page_size as i64 },
+                        doc! { "$project": {
+                            "_id": 1,
+                            "payload_type": 1,
+                        } },
+                    ],
+                    None,
+                )
+                .await?
+                .map_err(Into::into),
+        })
     }
 }

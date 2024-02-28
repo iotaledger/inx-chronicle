@@ -61,7 +61,7 @@ impl TryConvertFrom<proto::RawProtocolParameters> for ProtocolParameters {
     {
         Ok(Self {
             start_epoch: proto.start_epoch.into(),
-            parameters: PackableExt::unpack_unverified(proto.params)
+            parameters: PackableExt::unpack_bytes_unverified(proto.params)
                 .map_err(|e| InvalidRawBytesError(format!("error unpacking protocol parameters: {e:?}")))?,
         })
     }

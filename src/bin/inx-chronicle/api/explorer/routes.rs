@@ -259,10 +259,12 @@ async fn blocks_by_slot_index(
         cursor,
     }: BlocksBySlotIndexPagination,
 ) -> ApiResult<BlocksBySlotResponse> {
-    let mut record_stream = database
+    let record_stream = database
         .collection::<BlockCollection>()
         .get_blocks_by_slot_index(index, page_size + 1, cursor, sort)
         .await?;
+    let count = record_stream.count;
+    let mut record_stream = record_stream.stream;
 
     // Take all of the requested records first
     let blocks = record_stream
@@ -284,7 +286,7 @@ async fn blocks_by_slot_index(
         .to_string()
     });
 
-    Ok(BlocksBySlotResponse { blocks, cursor })
+    Ok(BlocksBySlotResponse { count, blocks, cursor })
 }
 
 async fn blocks_by_commitment_id(
