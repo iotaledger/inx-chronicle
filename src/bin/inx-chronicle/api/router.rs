@@ -132,6 +132,21 @@ where
         }
     }
 
+    pub fn merge(mut self, other: Router<S>) -> Self {
+        for (path, node) in other.root.children {
+            match self.root.children.entry(path) {
+                Entry::Occupied(mut o) => o.get_mut().merge(node),
+                Entry::Vacant(v) => {
+                    v.insert(node);
+                }
+            }
+        }
+        Self {
+            inner: self.inner.merge(other.inner),
+            root: self.root,
+        }
+    }
+
     pub fn layer<L>(self, layer: L) -> Router<S>
     where
         L: Layer<Route> + Clone + Send + 'static,

@@ -58,16 +58,17 @@ impl IntervalAnalytics for AddressActivityMeasurement {
     }
 }
 
+#[async_trait::async_trait]
 impl Analytics for AddressActivityAnalytics {
     type Measurement = AddressActivityMeasurement;
 
-    fn handle_transaction(
+    async fn handle_transaction(
         &mut self,
         _payload: &SignedTransactionPayload,
         consumed: &[LedgerSpent],
         created: &[LedgerOutput],
         ctx: &dyn AnalyticsContext,
-    ) {
+    ) -> eyre::Result<()> {
         for output in consumed {
             self.add_address(output.output.locked_address(ctx.protocol_parameters()));
         }
@@ -75,16 +76,17 @@ impl Analytics for AddressActivityAnalytics {
         for output in created {
             self.add_address(output.locked_address(ctx.protocol_parameters()));
         }
+        Ok(())
     }
 
-    fn take_measurement(&mut self, _ctx: &dyn AnalyticsContext) -> Self::Measurement {
-        AddressActivityMeasurement {
+    async fn take_measurement(&mut self, _ctx: &dyn AnalyticsContext) -> eyre::Result<Self::Measurement> {
+        Ok(AddressActivityMeasurement {
             ed25519_count: std::mem::take(&mut self.ed25519_addresses).len(),
             account_count: std::mem::take(&mut self.account_addresses).len(),
             nft_count: std::mem::take(&mut self.nft_addresses).len(),
             anchor_count: std::mem::take(&mut self.anchor_addresses).len(),
             implicit_count: std::mem::take(&mut self.implicit_addresses).len(),
-        }
+        })
     }
 }
 

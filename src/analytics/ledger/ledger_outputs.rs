@@ -66,16 +66,17 @@ impl LedgerOutputMeasurement {
     }
 }
 
+#[async_trait::async_trait]
 impl Analytics for LedgerOutputMeasurement {
     type Measurement = Self;
 
-    fn handle_transaction(
+    async fn handle_transaction(
         &mut self,
         _payload: &SignedTransactionPayload,
         consumed: &[LedgerSpent],
         created: &[LedgerOutput],
         _ctx: &dyn AnalyticsContext,
-    ) {
+    ) -> eyre::Result<()> {
         fn map(ledger_output: &LedgerOutput) -> Option<AccountId> {
             ledger_output.output().as_account_opt().and_then(|output| {
                 output
@@ -106,10 +107,12 @@ impl Analytics for LedgerOutputMeasurement {
 
         self.wrapping_sub(consumed);
         self.wrapping_add(created);
+
+        Ok(())
     }
 
-    fn take_measurement(&mut self, _ctx: &dyn AnalyticsContext) -> Self::Measurement {
-        *self
+    async fn take_measurement(&mut self, _ctx: &dyn AnalyticsContext) -> eyre::Result<Self::Measurement> {
+        Ok(*self)
     }
 }
 

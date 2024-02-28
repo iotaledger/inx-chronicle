@@ -56,21 +56,24 @@ pub(crate) struct TransactionSizeMeasurement {
     pub(crate) output_buckets: TransactionSizeBuckets,
 }
 
+#[async_trait::async_trait]
 impl Analytics for TransactionSizeMeasurement {
     type Measurement = TransactionSizeMeasurement;
 
-    fn handle_transaction(
+    async fn handle_transaction(
         &mut self,
         _payload: &SignedTransactionPayload,
         consumed: &[LedgerSpent],
         created: &[LedgerOutput],
         _ctx: &dyn AnalyticsContext,
-    ) {
+    ) -> eyre::Result<()> {
         self.input_buckets.add(consumed.len());
         self.output_buckets.add(created.len());
+
+        Ok(())
     }
 
-    fn take_measurement(&mut self, _ctx: &dyn AnalyticsContext) -> Self::Measurement {
-        std::mem::take(self)
+    async fn take_measurement(&mut self, _ctx: &dyn AnalyticsContext) -> eyre::Result<Self::Measurement> {
+        Ok(std::mem::take(self))
     }
 }

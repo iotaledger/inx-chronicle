@@ -23,16 +23,17 @@ pub(crate) struct ManaActivityMeasurement {
     pub(crate) bic_burned: u64,
 }
 
+#[async_trait::async_trait]
 impl Analytics for ManaActivityMeasurement {
     type Measurement = Self;
 
-    fn handle_transaction(
+    async fn handle_transaction(
         &mut self,
         payload: &SignedTransactionPayload,
         consumed: &[LedgerSpent],
         created: &[LedgerOutput],
         ctx: &dyn AnalyticsContext,
-    ) {
+    ) -> eyre::Result<()> {
         if payload
             .transaction()
             .capabilities()
@@ -54,16 +55,25 @@ impl Analytics for ManaActivityMeasurement {
                 self.mana_burned += input_mana - output_mana;
             }
         }
+
+        Ok(())
     }
 
-    fn handle_block(&mut self, block: &Block, _metadata: &BlockMetadata, ctx: &dyn AnalyticsContext) {
+    async fn handle_block(
+        &mut self,
+        block: &Block,
+        _metadata: &BlockMetadata,
+        ctx: &dyn AnalyticsContext,
+    ) -> eyre::Result<()> {
         let rmc = ctx.slot_commitment().reference_mana_cost();
         if let Some(body) = block.body().as_basic_opt() {
             self.bic_burned += body.work_score(ctx.protocol_parameters().work_score_parameters()) as u64 * rmc;
         }
+
+        Ok(())
     }
 
-    fn take_measurement(&mut self, _ctx: &dyn AnalyticsContext) -> Self::Measurement {
-        std::mem::take(self)
+    async fn take_measurement(&mut self, _ctx: &dyn AnalyticsContext) -> eyre::Result<Self::Measurement> {
+        Ok(std::mem::take(self))
     }
 }

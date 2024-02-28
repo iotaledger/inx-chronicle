@@ -7,8 +7,8 @@ use axum::{
 };
 use chronicle::db::{
     mongodb::collections::{
-        ApplicationStateCollection, BlockCollection, CommittedSlotCollection, LedgerUpdateCollection, OutputCollection,
-        ParentsCollection,
+        AddressBalanceCollection, ApplicationStateCollection, BlockCollection, CommittedSlotCollection,
+        LedgerUpdateCollection, OutputCollection, ParentsCollection,
     },
     MongoDb,
 };
@@ -21,7 +21,7 @@ use iota_sdk::types::block::{
 
 use super::{
     extractors::{
-        BlocksBySlotCursor, BlocksBySlotIndexPagination, LedgerIndex, LedgerUpdatesByAddressCursor,
+        BlocksBySlotCursor, BlocksBySlotIndexPagination, LedgerUpdatesByAddressCursor,
         LedgerUpdatesByAddressPagination, LedgerUpdatesBySlotCursor, LedgerUpdatesBySlotPagination,
         RichestAddressesQuery, SlotsCursor, SlotsPagination,
     },
@@ -39,7 +39,8 @@ use crate::api::{
 };
 
 pub fn routes() -> Router<ApiState> {
-    Router::new()
+    #[allow(unused_mut)]
+    let mut routes = Router::new()
         .route("/balance/:address", get(balance))
         .route("/blocks/:block_id/children", get(block_children))
         .nest(
@@ -51,16 +52,26 @@ pub fn routes() -> Router<ApiState> {
         )
         .nest(
             "/ledger",
-            Router::new()
-                .route("/richest-addresses", get(richest_addresses_ledger_analytics))
-                .route("/token-distribution", get(token_distribution_ledger_analytics))
-                .nest(
-                    "/updates",
-                    Router::new()
-                        .route("/by-address/:address", get(ledger_updates_by_address))
-                        .route("/by-slot-index/:index", get(ledger_updates_by_slot)),
-                ),
-        )
+            Router::new().nest(
+                "/updates",
+                Router::new()
+                    .route("/by-address/:address", get(ledger_updates_by_address))
+                    .route("/by-slot-index/:index", get(ledger_updates_by_slot)),
+            ),
+        );
+
+    #[cfg(feature = "analytics")]
+    {
+        routes = routes.merge(
+            Router::new().nest(
+                "/ledger",
+                Router::new()
+                    .route("/richest-addresses", get(richest_addresses_ledger_analytics))
+                    .route("/token-distribution", get(token_distribution_ledger_analytics)),
+            ),
+        );
+    }
+    routes
 }
 
 async fn ledger_updates_by_address(
@@ -310,14 +321,20 @@ async fn blocks_by_commitment_id(
     .await
 }
 
+#[cfg(feature = "analytics")]
 async fn richest_addresses_ledger_analytics(
     database: State<MongoDb>,
-    RichestAddressesQuery { top, ledger_index }: RichestAddressesQuery,
+    RichestAddressesQuery { top }: RichestAddressesQuery,
 ) -> ApiResult<RichestAddressesResponse> {
-    let ledger_index = resolve_ledger_index(&database, ledger_index).await?;
+    let ledger_index = database
+        .collection::<CommittedSlotCollection>()
+        .get_latest_committed_slot()
+        .await?
+        .ok_or(MissingError::NoResults)?
+        .slot_index;
     let res = database
-        .collection::<OutputCollection>()
-        .get_richest_addresses(ledger_index, top)
+        .collection::<AddressBalanceCollection>()
+        .get_richest_addresses(top)
         .await?;
 
     let hrp = database
@@ -340,33 +357,21 @@ async fn richest_addresses_ledger_analytics(
     })
 }
 
-async fn token_distribution_ledger_analytics(
-    database: State<MongoDb>,
-    LedgerIndex { ledger_index }: LedgerIndex,
-) -> ApiResult<TokenDistributionResponse> {
-    let ledger_index = resolve_ledger_index(&database, ledger_index).await?;
+#[cfg(feature = "analytics")]
+async fn token_distribution_ledger_analytics(database: State<MongoDb>) -> ApiResult<TokenDistributionResponse> {
+    let ledger_index = database
+        .collection::<CommittedSlotCollection>()
+        .get_latest_committed_slot()
+        .await?
+        .ok_or(MissingError::NoResults)?
+        .slot_index;
     let res = database
-        .collection::<OutputCollection>()
-        .get_token_distribution(ledger_index)
+        .collection::<AddressBalanceCollection>()
+        .get_token_distribution()
         .await?;
 
     Ok(TokenDistributionResponse {
         distribution: res.distribution.into_iter().map(Into::into).collect(),
         ledger_index,
-    })
-}
-
-/// This is just a helper fn to either unwrap an optional ledger index param or fetch the latest
-/// index from the database.
-async fn resolve_ledger_index(database: &MongoDb, ledger_index: Option<SlotIndex>) -> ApiResult<SlotIndex> {
-    Ok(if let Some(ledger_index) = ledger_index {
-        ledger_index
-    } else {
-        database
-            .collection::<CommittedSlotCollection>()
-            .get_latest_committed_slot()
-            .await?
-            .ok_or(MissingError::NoResults)?
-            .slot_index
     })
 }

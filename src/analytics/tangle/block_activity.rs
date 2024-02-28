@@ -31,10 +31,16 @@ pub(crate) struct BlockActivityMeasurement {
     pub(crate) txn_failed_count: usize,
 }
 
+#[async_trait::async_trait]
 impl Analytics for BlockActivityMeasurement {
     type Measurement = Self;
 
-    fn handle_block(&mut self, block: &Block, metadata: &BlockMetadata, _ctx: &dyn AnalyticsContext) {
+    async fn handle_block(
+        &mut self,
+        block: &Block,
+        metadata: &BlockMetadata,
+        _ctx: &dyn AnalyticsContext,
+    ) -> eyre::Result<()> {
         match block.body() {
             BlockBody::Basic(_) => self.basic_count += 1,
             BlockBody::Validation(_) => self.validation_count += 1,
@@ -63,9 +69,11 @@ impl Analytics for BlockActivityMeasurement {
                 TransactionState::Failed => self.txn_failed_count += 1,
             }
         }
+
+        Ok(())
     }
 
-    fn take_measurement(&mut self, _ctx: &dyn AnalyticsContext) -> Self::Measurement {
-        std::mem::take(self)
+    async fn take_measurement(&mut self, _ctx: &dyn AnalyticsContext) -> eyre::Result<Self::Measurement> {
+        Ok(std::mem::take(self))
     }
 }

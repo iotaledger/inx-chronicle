@@ -20,16 +20,17 @@ pub(crate) struct BaseTokenActivityMeasurement {
     pub(crate) transferred_amount: u64,
 }
 
+#[async_trait::async_trait]
 impl Analytics for BaseTokenActivityMeasurement {
     type Measurement = Self;
 
-    fn handle_transaction(
+    async fn handle_transaction(
         &mut self,
         _payload: &SignedTransactionPayload,
         consumed: &[LedgerSpent],
         created: &[LedgerOutput],
         ctx: &dyn AnalyticsContext,
-    ) {
+    ) -> eyre::Result<()> {
         // The idea behind the following code is that we keep track of the deltas that are applied to each account that
         // is represented by an address.
         let mut balance_deltas: HashMap<Address, i128> = HashMap::new();
@@ -52,9 +53,11 @@ impl Analytics for BaseTokenActivityMeasurement {
 
         // The number of transferred tokens is then the sum of all deltas.
         self.transferred_amount += balance_deltas.values().copied().map(|d| d.max(0) as u64).sum::<u64>();
+
+        Ok(())
     }
 
-    fn take_measurement(&mut self, _ctx: &dyn AnalyticsContext) -> Self::Measurement {
-        std::mem::take(self)
+    async fn take_measurement(&mut self, _ctx: &dyn AnalyticsContext) -> eyre::Result<Self::Measurement> {
+        Ok(std::mem::take(self))
     }
 }

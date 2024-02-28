@@ -65,16 +65,17 @@ impl LedgerSizeAnalytics {
     }
 }
 
+#[async_trait::async_trait]
 impl Analytics for LedgerSizeAnalytics {
     type Measurement = LedgerSizeMeasurement;
 
-    fn handle_transaction(
+    async fn handle_transaction(
         &mut self,
         _payload: &SignedTransactionPayload,
         consumed: &[LedgerSpent],
         created: &[LedgerOutput],
         ctx: &dyn AnalyticsContext,
-    ) {
+    ) -> eyre::Result<()> {
         for output in created {
             self.measurement
                 .wrapping_add(output.output().ledger_size(ctx.protocol_parameters()));
@@ -83,9 +84,11 @@ impl Analytics for LedgerSizeAnalytics {
             self.measurement
                 .wrapping_sub(output.output().ledger_size(ctx.protocol_parameters()));
         }
+
+        Ok(())
     }
 
-    fn take_measurement(&mut self, _ctx: &dyn AnalyticsContext) -> Self::Measurement {
-        self.measurement
+    async fn take_measurement(&mut self, _ctx: &dyn AnalyticsContext) -> eyre::Result<Self::Measurement> {
+        Ok(self.measurement)
     }
 }

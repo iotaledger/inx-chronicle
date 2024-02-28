@@ -26,26 +26,29 @@ pub(crate) struct OutputActivityMeasurement {
     pub(crate) native_token: NativeTokenActivityMeasurement,
 }
 
+#[async_trait::async_trait]
 impl Analytics for OutputActivityMeasurement {
     type Measurement = Self;
 
-    fn handle_transaction(
+    async fn handle_transaction(
         &mut self,
         _payload: &SignedTransactionPayload,
         consumed: &[LedgerSpent],
         created: &[LedgerOutput],
         _ctx: &dyn AnalyticsContext,
-    ) {
+    ) -> eyre::Result<()> {
         self.nft.handle_transaction(consumed, created);
         self.account.handle_transaction(consumed, created);
         self.anchor.handle_transaction(consumed, created);
         self.foundry.handle_transaction(consumed, created);
         self.delegation.handle_transaction(consumed, created);
         self.native_token.handle_transaction(consumed, created);
+
+        Ok(())
     }
 
-    fn take_measurement(&mut self, _ctx: &dyn AnalyticsContext) -> Self::Measurement {
-        std::mem::take(self)
+    async fn take_measurement(&mut self, _ctx: &dyn AnalyticsContext) -> eyre::Result<Self::Measurement> {
+        Ok(std::mem::take(self))
     }
 }
 

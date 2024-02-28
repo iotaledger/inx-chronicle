@@ -9,12 +9,13 @@ pub(crate) struct SlotCommitmentMeasurement {
     pub(crate) reference_mana_cost: u64,
 }
 
+#[async_trait::async_trait]
 impl Analytics for SlotCommitmentMeasurement {
     type Measurement = Self;
 
-    fn take_measurement(&mut self, ctx: &dyn AnalyticsContext) -> Self::Measurement {
-        SlotCommitmentMeasurement {
+    async fn take_measurement(&mut self, ctx: &dyn AnalyticsContext) -> eyre::Result<Self::Measurement> {
+        Ok(SlotCommitmentMeasurement {
             reference_mana_cost: ctx.slot_commitment().reference_mana_cost(),
-        }
+        })
     }
 }

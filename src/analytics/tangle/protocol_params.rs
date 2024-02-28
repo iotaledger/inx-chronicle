@@ -10,14 +10,17 @@ pub(crate) struct ProtocolParamsAnalytics {
     params: Option<ProtocolParameters>,
 }
 
+#[async_trait::async_trait]
 impl Analytics for ProtocolParamsAnalytics {
     type Measurement = Option<ProtocolParameters>;
 
-    fn take_measurement(&mut self, ctx: &dyn AnalyticsContext) -> Self::Measurement {
+    async fn take_measurement(&mut self, ctx: &dyn AnalyticsContext) -> eyre::Result<Self::Measurement> {
         // Ensure that we record it if either the protocol changes or we had no params
-        (!matches!(&self.params, Some(last_params) if last_params == ctx.protocol_parameters())).then(|| {
-            self.params.replace(ctx.protocol_parameters().clone());
-            ctx.protocol_parameters().clone()
-        })
+        Ok(
+            (!matches!(&self.params, Some(last_params) if last_params == ctx.protocol_parameters())).then(|| {
+                self.params.replace(ctx.protocol_parameters().clone());
+                ctx.protocol_parameters().clone()
+            }),
+        )
     }
 }

@@ -1,6 +1,9 @@
 // Copyright 2023 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
+/// Module containing collections for analytics.
+#[cfg(feature = "analytics")]
+mod analytics;
 mod application_state;
 /// Module containing the block collection.
 mod block;
@@ -20,15 +23,17 @@ use iota_sdk::types::block::output::{
 };
 use thiserror::Error;
 
+#[cfg(feature = "analytics")]
+pub use self::analytics::{AddressBalanceCollection, AddressStat, DistributionStat};
 pub use self::{
     application_state::{ApplicationStateCollection, MigrationVersion},
     block::BlockCollection,
     committed_slot::CommittedSlotCollection,
     ledger_update::{LedgerUpdateByAddressRecord, LedgerUpdateBySlotRecord, LedgerUpdateCollection},
     outputs::{
-        AccountOutputsQuery, AddressStat, AnchorOutputsQuery, BasicOutputsQuery, DelegationOutputsQuery,
-        DistributionStat, FoundryOutputsQuery, IndexedId, NftOutputsQuery, OutputCollection, OutputMetadata,
-        OutputMetadataResult, OutputWithMetadataResult, OutputsResult, UtxoChangesResult,
+        AccountOutputsQuery, AnchorOutputsQuery, BasicOutputsQuery, DelegationOutputsQuery, FoundryOutputsQuery,
+        IndexedId, NftOutputsQuery, OutputCollection, OutputMetadata, OutputMetadataResult, OutputWithMetadataResult,
+        OutputsResult, UtxoChangesResult,
     },
     parents::ParentsCollection,
 };

@@ -265,14 +265,12 @@ const DEFAULT_TOP_RICHLIST: usize = 100;
 #[serde(default, deny_unknown_fields)]
 pub struct RichestAddressesQuery {
     pub top: usize,
-    pub ledger_index: Option<SlotIndex>,
 }
 
 impl Default for RichestAddressesQuery {
     fn default() -> Self {
         Self {
             top: DEFAULT_TOP_RICHLIST,
-            ledger_index: None,
         }
     }
 }

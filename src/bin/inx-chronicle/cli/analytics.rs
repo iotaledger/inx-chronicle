@@ -266,15 +266,15 @@ pub async fn fill_analytics<I: 'static + InputSource + Clone>(
                         };
 
                         state = Some(
-                            analytics_choices
-                                .iter()
-                                .map(|choice| Analytic::init(choice, slot.index(), &protocol_params, &ledger_state))
-                                .collect(),
+                            futures::future::try_join_all(analytics_choices.iter().map(|choice| {
+                                Analytic::init(choice, slot.index(), &protocol_params, &ledger_state, &db)
+                            }))
+                            .await?,
                         );
                     }
 
                     // Unwrap: safe because we guarantee it is initialized above
-                    slot.update_analytics(&protocol_params, &mut state.as_mut().unwrap(), &influx_db)
+                    slot.update_analytics(&protocol_params, &mut state.as_mut().unwrap(), &db, &influx_db)
                         .await?;
 
                     let elapsed = start_time.elapsed();

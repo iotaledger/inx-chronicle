@@ -60,25 +60,28 @@ impl FeaturesMeasurement {
     }
 }
 
+#[async_trait::async_trait]
 impl Analytics for FeaturesMeasurement {
     type Measurement = Self;
 
-    fn handle_transaction(
+    async fn handle_transaction(
         &mut self,
         _payload: &SignedTransactionPayload,
         consumed: &[LedgerSpent],
         created: &[LedgerOutput],
         _ctx: &dyn AnalyticsContext,
-    ) {
+    ) -> eyre::Result<()> {
         let consumed = Self::init(consumed.iter().map(|input| &input.output));
         let created = Self::init(created);
 
         self.wrapping_add(created);
         self.wrapping_sub(consumed);
+
+        Ok(())
     }
 
-    fn take_measurement(&mut self, _ctx: &dyn AnalyticsContext) -> Self::Measurement {
-        *self
+    async fn take_measurement(&mut self, _ctx: &dyn AnalyticsContext) -> eyre::Result<Self::Measurement> {
+        Ok(*self)
     }
 }
 

@@ -19,21 +19,24 @@ pub(crate) struct BlockIssuerAnalytics {
     issuer_accounts: HashSet<AccountId>,
 }
 
+#[async_trait::async_trait]
 impl Analytics for BlockIssuerAnalytics {
     type Measurement = BlockIssuerMeasurement;
 
-    fn handle_block(
+    async fn handle_block(
         &mut self,
         block: &iota_sdk::types::block::Block,
         _metadata: &crate::model::block_metadata::BlockMetadata,
         _ctx: &dyn AnalyticsContext,
-    ) {
+    ) -> eyre::Result<()> {
         self.issuer_accounts.insert(block.issuer_id());
+
+        Ok(())
     }
 
-    fn take_measurement(&mut self, _ctx: &dyn AnalyticsContext) -> Self::Measurement {
-        BlockIssuerMeasurement {
+    async fn take_measurement(&mut self, _ctx: &dyn AnalyticsContext) -> eyre::Result<Self::Measurement> {
+        Ok(BlockIssuerMeasurement {
             active_issuer_count: std::mem::take(&mut self.issuer_accounts).len(),
-        }
+        })
     }
 }

@@ -11,7 +11,6 @@ use iota_sdk::types::block::{
     slot::{SlotCommitment, SlotIndex},
     Block,
 };
-use rayon::iter::{IntoParallelRefMutIterator, ParallelIterator};
 use thiserror::Error;
 
 use self::{
@@ -52,67 +51,90 @@ pub trait AnalyticsContext: Send + Sync {
     }
 
     fn slot_commitment(&self) -> &SlotCommitment;
+
+    fn database(&self) -> &MongoDb;
 }
 
 /// Defines how analytics are gathered.
+#[async_trait::async_trait]
 pub trait Analytics {
     /// The resulting measurement.
     type Measurement;
     /// Handle a transaction consisting of inputs (consumed [`LedgerSpent`]) and outputs (created [`LedgerOutput`]).
-    fn handle_transaction(
+    async fn handle_transaction(
         &mut self,
         _payload: &SignedTransactionPayload,
         _consumed: &[LedgerSpent],
         _created: &[LedgerOutput],
         _ctx: &dyn AnalyticsContext,
-    ) {
+    ) -> eyre::Result<()> {
+        Ok(())
     }
     /// Handle a block.
-    fn handle_block(&mut self, _block: &Block, _metadata: &BlockMetadata, _ctx: &dyn AnalyticsContext) {}
+    async fn handle_block(
+        &mut self,
+        _block: &Block,
+        _metadata: &BlockMetadata,
+        _ctx: &dyn AnalyticsContext,
+    ) -> eyre::Result<()> {
+        Ok(())
+    }
     /// Take the measurement from the analytic. This should prepare the analytic for the next slot.
-    fn take_measurement(&mut self, ctx: &dyn AnalyticsContext) -> Self::Measurement;
+    async fn take_measurement(&mut self, ctx: &dyn AnalyticsContext) -> eyre::Result<Self::Measurement>;
 }
 
 // This trait allows using the above implementation dynamically
+#[async_trait::async_trait]
 trait DynAnalytics: Send {
-    fn handle_transaction(
+    async fn handle_transaction(
         &mut self,
         payload: &SignedTransactionPayload,
         consumed: &[LedgerSpent],
         created: &[LedgerOutput],
         ctx: &dyn AnalyticsContext,
-    );
-    fn handle_block(&mut self, block: &Block, metadata: &BlockMetadata, ctx: &dyn AnalyticsContext);
-    fn take_measurement(&mut self, ctx: &dyn AnalyticsContext) -> Box<dyn PrepareQuery>;
+    ) -> eyre::Result<()>;
+    async fn handle_block(
+        &mut self,
+        block: &Block,
+        metadata: &BlockMetadata,
+        ctx: &dyn AnalyticsContext,
+    ) -> eyre::Result<()>;
+    async fn take_measurement(&mut self, ctx: &dyn AnalyticsContext) -> eyre::Result<Box<dyn PrepareQuery>>;
 }
 
+#[async_trait::async_trait]
 impl<T: Analytics + Send> DynAnalytics for T
 where
     PerSlot<T::Measurement>: 'static + PrepareQuery,
 {
-    fn handle_transaction(
+    async fn handle_transaction(
         &mut self,
         payload: &SignedTransactionPayload,
         consumed: &[LedgerSpent],
         created: &[LedgerOutput],
         ctx: &dyn AnalyticsContext,
-    ) {
-        Analytics::handle_transaction(self, payload, consumed, created, ctx)
+    ) -> eyre::Result<()> {
+        Analytics::handle_transaction(self, payload, consumed, created, ctx).await
     }
 
-    fn handle_block(&mut self, block: &Block, metadata: &BlockMetadata, ctx: &dyn AnalyticsContext) {
-        Analytics::handle_block(self, block, metadata, ctx)
+    async fn handle_block(
+        &mut self,
+        block: &Block,
+        metadata: &BlockMetadata,
+        ctx: &dyn AnalyticsContext,
+    ) -> eyre::Result<()> {
+        Analytics::handle_block(self, block, metadata, ctx).await
     }
 
-    fn take_measurement(&mut self, ctx: &dyn AnalyticsContext) -> Box<dyn PrepareQuery> {
-        Box::new(PerSlot {
+    async fn take_measurement(&mut self, ctx: &dyn AnalyticsContext) -> eyre::Result<Box<dyn PrepareQuery>> {
+        Ok(Box::new(PerSlot {
             slot_timestamp: ctx.slot_index().to_timestamp(
                 ctx.protocol_parameters().genesis_unix_timestamp(),
                 ctx.protocol_parameters().slot_duration_in_seconds(),
             ),
             slot_index: ctx.slot_index(),
-            inner: Analytics::take_measurement(self, ctx),
-        }) as _
+            inner: Analytics::take_measurement(self, ctx).await?,
+        }) as _)
     }
 }
 
@@ -166,16 +188,17 @@ pub struct Analytic(Box<dyn DynAnalytics>);
 
 impl Analytic {
     /// Init an analytic from a choice and ledger state.
-    pub fn init<'a>(
+    pub async fn init<'a>(
         choice: &AnalyticsChoice,
         slot: SlotIndex,
         protocol_params: &ProtocolParameters,
         unspent_outputs: impl IntoIterator<Item = &'a LedgerOutput>,
-    ) -> Self {
-        Self(match choice {
+        db: &MongoDb,
+    ) -> eyre::Result<Self> {
+        Ok(Self(match choice {
             // Need ledger state
             AnalyticsChoice::AddressBalance => {
-                Box::new(AddressBalancesAnalytics::init(protocol_params, slot, unspent_outputs)) as _
+                Box::new(AddressBalancesAnalytics::init(protocol_params, slot, unspent_outputs, db).await?) as _
             }
             AnalyticsChoice::Features => Box::new(FeaturesMeasurement::init(unspent_outputs)) as _,
             AnalyticsChoice::LedgerOutputs => Box::new(LedgerOutputMeasurement::init(unspent_outputs)) as _,
@@ -192,36 +215,52 @@ impl Analytic {
             AnalyticsChoice::SlotCommitment => Box::<SlotCommitmentMeasurement>::default() as _,
             AnalyticsChoice::SlotSize => Box::<SlotSizeMeasurement>::default() as _,
             AnalyticsChoice::TransactionSizeDistribution => Box::<TransactionSizeMeasurement>::default() as _,
-        })
+        }))
     }
 }
 
-impl<T: AsMut<[Analytic]>> Analytics for T {
+#[async_trait::async_trait]
+impl<T: AsMut<[Analytic]> + Send> Analytics for T {
     type Measurement = Vec<Box<dyn PrepareQuery>>;
 
-    fn handle_block(&mut self, block: &Block, metadata: &BlockMetadata, ctx: &dyn AnalyticsContext) {
-        self.as_mut().par_iter_mut().for_each(|analytic| {
-            analytic.0.handle_block(block, metadata, ctx);
-        })
+    async fn handle_block(
+        &mut self,
+        block: &Block,
+        metadata: &BlockMetadata,
+        ctx: &dyn AnalyticsContext,
+    ) -> eyre::Result<()> {
+        futures::future::join_all(
+            self.as_mut()
+                .iter_mut()
+                .map(|analytic| analytic.0.handle_block(block, metadata, ctx)),
+        )
+        .await;
+        Ok(())
     }
 
-    fn handle_transaction(
+    async fn handle_transaction(
         &mut self,
         payload: &SignedTransactionPayload,
         consumed: &[LedgerSpent],
         created: &[LedgerOutput],
         ctx: &dyn AnalyticsContext,
-    ) {
-        self.as_mut().par_iter_mut().for_each(|analytic| {
-            analytic.0.handle_transaction(payload, consumed, created, ctx);
-        })
+    ) -> eyre::Result<()> {
+        futures::future::join_all(
+            self.as_mut()
+                .iter_mut()
+                .map(|analytic| analytic.0.handle_transaction(payload, consumed, created, ctx)),
+        )
+        .await;
+        Ok(())
     }
 
-    fn take_measurement(&mut self, ctx: &dyn AnalyticsContext) -> Self::Measurement {
-        self.as_mut()
-            .iter_mut()
-            .map(|analytic| analytic.0.take_measurement(ctx))
-            .collect()
+    async fn take_measurement(&mut self, ctx: &dyn AnalyticsContext) -> eyre::Result<Self::Measurement> {
+        futures::future::try_join_all(
+            self.as_mut()
+                .iter_mut()
+                .map(|analytic| analytic.0.take_measurement(ctx)),
+        )
+        .await
     }
 }
 
@@ -252,6 +291,7 @@ impl<'a, I: InputSource> Slot<'a, I> {
         &self,
         protocol_parameters: &ProtocolParameters,
         analytics: &mut A,
+        db: &MongoDb,
         influxdb: &InfluxDb,
     ) -> eyre::Result<()>
     where
@@ -260,26 +300,27 @@ impl<'a, I: InputSource> Slot<'a, I> {
         let ctx = BasicContext {
             slot_commitment: self.commitment().inner(),
             protocol_parameters,
+            db,
         };
 
         let mut block_stream = self.accepted_block_stream().await?;
 
         while let Some(block_data) = block_stream.try_next().await? {
-            self.handle_block(analytics, &block_data, &ctx)?;
+            self.handle_block(analytics, &block_data, &ctx).await?;
         }
 
         influxdb
-            .insert_measurement((analytics as &mut dyn DynAnalytics).take_measurement(&ctx))
+            .insert_measurement((analytics as &mut dyn DynAnalytics).take_measurement(&ctx).await?)
             .await?;
 
         Ok(())
     }
 
-    fn handle_block<A: Analytics + Send>(
+    async fn handle_block<A: Analytics + Send>(
         &self,
         analytics: &mut A,
         block_data: &BlockWithMetadata,
-        ctx: &BasicContext,
+        ctx: &BasicContext<'_>,
     ) -> eyre::Result<()> {
         let block = block_data.block.inner();
         // TODO: Is this right?
@@ -323,10 +364,10 @@ impl<'a, I: InputSource> Slot<'a, I> {
                             .clone())
                     })
                     .collect::<eyre::Result<Vec<_>>>()?;
-                analytics.handle_transaction(payload, &consumed, &created, ctx)
+                analytics.handle_transaction(payload, &consumed, &created, ctx).await?;
             }
         }
-        analytics.handle_block(block, &block_data.metadata, ctx);
+        analytics.handle_block(block, &block_data.metadata, ctx).await?;
         Ok(())
     }
 }
@@ -334,6 +375,7 @@ impl<'a, I: InputSource> Slot<'a, I> {
 struct BasicContext<'a> {
     slot_commitment: &'a SlotCommitment,
     protocol_parameters: &'a ProtocolParameters,
+    db: &'a MongoDb,
 }
 
 impl<'a> AnalyticsContext for BasicContext<'a> {
@@ -343,6 +385,10 @@ impl<'a> AnalyticsContext for BasicContext<'a> {
 
     fn slot_commitment(&self) -> &SlotCommitment {
         self.slot_commitment
+    }
+
+    fn database(&self) -> &MongoDb {
+        self.db
     }
 }
 

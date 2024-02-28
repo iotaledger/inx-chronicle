@@ -221,10 +221,7 @@ paths:
       tags:
         - ledger
       summary: Returns the top richest addresses.
-      description: >-
-        Returns the top richest addresses at the ledger state specified by the provided index.
       parameters:
-        - $ref: "#/components/parameters/ledgerIndex"
         - $ref: "#/components/parameters/top"
       responses:
         "200":
@@ -248,9 +245,7 @@ paths:
         - ledger
       summary: Returns the current token distribution.
       description: >-
-        Returns the distribution of IOTA tokens at the ledger state specified by the provided index.
-      parameters:
-        - $ref: "#/components/parameters/ledgerIndex"
+        Returns the latest distribution of IOTA tokens.
       responses:
         "200":
           description: Successful operation.

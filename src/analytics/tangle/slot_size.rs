@@ -18,10 +18,16 @@ pub(crate) struct SlotSizeMeasurement {
     pub(crate) total_slot_bytes: usize,
 }
 
+#[async_trait::async_trait]
 impl Analytics for SlotSizeMeasurement {
     type Measurement = Self;
 
-    fn handle_block(&mut self, block: &Block, _metadata: &BlockMetadata, _ctx: &dyn AnalyticsContext) {
+    async fn handle_block(
+        &mut self,
+        block: &Block,
+        _metadata: &BlockMetadata,
+        _ctx: &dyn AnalyticsContext,
+    ) -> eyre::Result<()> {
         let byte_len = block.packed_len();
         self.total_slot_bytes += byte_len;
         match block.body().as_basic_opt().and_then(|b| b.payload()) {
@@ -30,9 +36,10 @@ impl Analytics for SlotSizeMeasurement {
             Some(Payload::CandidacyAnnouncement(_)) => self.total_candidacy_announcement_payload_bytes += byte_len,
             _ => {}
         }
+        Ok(())
     }
 
-    fn take_measurement(&mut self, _ctx: &dyn AnalyticsContext) -> Self::Measurement {
-        std::mem::take(self)
+    async fn take_measurement(&mut self, _ctx: &dyn AnalyticsContext) -> eyre::Result<Self::Measurement> {
+        Ok(std::mem::take(self))
     }
 }
