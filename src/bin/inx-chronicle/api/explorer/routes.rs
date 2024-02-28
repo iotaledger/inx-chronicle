@@ -173,16 +173,18 @@ async fn balance(database: State<MongoDb>, Path(address): Path<Bech32Address>) -
     Ok(BalanceResponse {
         total_balance: Balance {
             amount: res.total.amount,
-            mana: DecayedMana {
-                stored: res.total.mana.stored,
-                potential: res.total.mana.potential,
+            stored_mana: res.total.stored_mana,
+            decayed_mana: DecayedMana {
+                stored: res.total.decayed_mana.stored,
+                potential: res.total.decayed_mana.potential,
             },
         },
         available_balance: Balance {
             amount: res.available.amount,
-            mana: DecayedMana {
-                stored: res.available.mana.stored,
-                potential: res.available.mana.potential,
+            stored_mana: res.available.stored_mana,
+            decayed_mana: DecayedMana {
+                stored: res.available.decayed_mana.stored,
+                potential: res.available.decayed_mana.potential,
             },
         },
         ledger_index: latest_slot.slot_index,

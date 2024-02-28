@@ -78,7 +78,9 @@ impl_success_response!(BalanceResponse);
 pub struct Balance {
     #[serde(with = "string")]
     pub amount: u64,
-    pub mana: DecayedMana,
+    #[serde(with = "string")]
+    pub stored_mana: u64,
+    pub decayed_mana: DecayedMana,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

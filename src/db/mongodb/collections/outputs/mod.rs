@@ -313,12 +313,14 @@ impl BalanceResult {
     ) -> Result<(), DbError> {
         self.total.amount += amount;
         self.available.amount += amount;
+        self.total.stored_mana += stored_mana;
+        self.available.stored_mana += stored_mana;
         let stored = params.mana_with_decay(stored_mana, creation_slot, target_slot)?;
         let potential = params.generate_mana_with_decay(generation_amount, creation_slot, target_slot)?;
-        self.total.mana.stored += stored;
-        self.available.mana.stored += stored;
-        self.total.mana.potential += potential;
-        self.available.mana.potential += potential;
+        self.total.decayed_mana.stored += stored;
+        self.available.decayed_mana.stored += stored;
+        self.total.decayed_mana.potential += potential;
+        self.available.decayed_mana.potential += potential;
         Ok(())
     }
 }
@@ -327,7 +329,8 @@ impl BalanceResult {
 #[allow(missing_docs)]
 pub struct Balance {
     pub amount: u64,
-    pub mana: DecayedMana,
+    pub stored_mana: u64,
+    pub decayed_mana: DecayedMana,
 }
 
 impl Balance {
@@ -341,8 +344,10 @@ impl Balance {
         params: &ProtocolParameters,
     ) -> Result<(), DbError> {
         self.amount += amount;
-        self.mana.stored += params.mana_with_decay(stored_mana, creation_slot, target_slot)?;
-        self.mana.potential += params.generate_mana_with_decay(generation_amount, creation_slot, target_slot)?;
+        self.stored_mana += stored_mana;
+        self.decayed_mana.stored += params.mana_with_decay(stored_mana, creation_slot, target_slot)?;
+        self.decayed_mana.potential +=
+            params.generate_mana_with_decay(generation_amount, creation_slot, target_slot)?;
         Ok(())
     }
 }
