@@ -5,9 +5,12 @@
 
 use std::collections::HashSet;
 
-use iota_sdk::types::block::{
-    output::{AccountId, Output},
-    payload::SignedTransactionPayload,
+use iota_sdk::{
+    types::block::{
+        output::{AccountId, AccountOutput, DelegationOutput, Output},
+        payload::SignedTransactionPayload,
+    },
+    utils::serde::string,
 };
 use serde::{Deserialize, Serialize};
 
@@ -19,12 +22,12 @@ use crate::{
 
 #[derive(Copy, Clone, Debug, Default, Serialize, Deserialize)]
 pub(crate) struct LedgerOutputMeasurement {
-    pub(crate) account: AccountOutputMeasurement,
+    pub(crate) account: AccountCountAndAmount,
     pub(crate) basic: CountAndAmount,
     pub(crate) nft: CountAndAmount,
     pub(crate) foundry: CountAndAmount,
     pub(crate) anchor: CountAndAmount,
-    pub(crate) delegation: CountAndAmount,
+    pub(crate) delegation: DelegationCountAndAmount,
 }
 
 impl LedgerOutputMeasurement {
@@ -33,17 +36,12 @@ impl LedgerOutputMeasurement {
         let mut measurement = Self::default();
         for output in unspent_outputs {
             match output.output() {
-                Output::Account(account_output) => {
-                    measurement.account.count_and_amount.add_output(output);
-                    if account_output.is_block_issuer() {
-                        measurement.account.block_issuers_count += 1;
-                    }
-                }
+                Output::Account(o) => measurement.account.add_account_output(o),
                 Output::Basic(_) => measurement.basic.add_output(output),
                 Output::Nft(_) => measurement.nft.add_output(output),
                 Output::Foundry(_) => measurement.foundry.add_output(output),
                 Output::Anchor(_) => measurement.anchor.add_output(output),
-                Output::Delegation(_) => measurement.delegation.add_output(output),
+                Output::Delegation(o) => measurement.delegation.add_delegation_output(o),
             }
         }
         measurement
@@ -116,19 +114,68 @@ impl Analytics for LedgerOutputMeasurement {
 }
 
 #[derive(Copy, Clone, Debug, Default, Serialize, Deserialize)]
-pub(crate) struct AccountOutputMeasurement {
-    pub(crate) count_and_amount: CountAndAmount,
+pub(crate) struct AccountCountAndAmount {
+    pub(crate) count: usize,
+    #[serde(with = "string")]
+    pub(crate) amount: u64,
     pub(crate) block_issuers_count: usize,
 }
 
-impl AccountOutputMeasurement {
+impl AccountCountAndAmount {
     fn wrapping_add(&mut self, rhs: Self) {
-        self.count_and_amount.wrapping_add(rhs.count_and_amount);
-        self.block_issuers_count = self.block_issuers_count.wrapping_add(rhs.block_issuers_count);
+        *self = Self {
+            count: self.count.wrapping_add(rhs.count),
+            amount: self.amount.wrapping_add(rhs.amount),
+            block_issuers_count: self.block_issuers_count.wrapping_add(rhs.block_issuers_count),
+        }
     }
 
     fn wrapping_sub(&mut self, rhs: Self) {
-        self.count_and_amount.wrapping_sub(rhs.count_and_amount);
-        self.block_issuers_count = self.block_issuers_count.wrapping_sub(rhs.block_issuers_count);
+        *self = Self {
+            count: self.count.wrapping_sub(rhs.count),
+            amount: self.amount.wrapping_sub(rhs.amount),
+            block_issuers_count: self.block_issuers_count.wrapping_sub(rhs.block_issuers_count),
+        }
+    }
+
+    fn add_account_output(&mut self, account: &AccountOutput) {
+        self.count += 1;
+        self.amount += account.amount();
+        if account.is_block_issuer() {
+            self.block_issuers_count += 1;
+        }
+    }
+}
+
+#[derive(Copy, Clone, Debug, Default, Serialize, Deserialize)]
+pub(crate) struct DelegationCountAndAmount {
+    pub(crate) count: usize,
+    #[serde(with = "string")]
+    pub(crate) amount: u64,
+    #[serde(with = "string")]
+    pub(crate) delegated_amount: u64,
+}
+
+impl DelegationCountAndAmount {
+    fn wrapping_add(&mut self, rhs: Self) {
+        *self = Self {
+            count: self.count.wrapping_add(rhs.count),
+            amount: self.amount.wrapping_add(rhs.amount),
+            delegated_amount: self.delegated_amount.wrapping_add(rhs.delegated_amount),
+        }
+    }
+
+    fn wrapping_sub(&mut self, rhs: Self) {
+        *self = Self {
+            count: self.count.wrapping_sub(rhs.count),
+            amount: self.amount.wrapping_sub(rhs.amount),
+            delegated_amount: self.delegated_amount.wrapping_sub(rhs.delegated_amount),
+        }
+    }
+
+    fn add_delegation_output(&mut self, delegation: &DelegationOutput) {
+        self.count += 1;
+        self.amount += delegation.amount();
+        self.delegated_amount += delegation.delegated_amount();
     }
 }

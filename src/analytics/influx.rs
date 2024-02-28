@@ -260,8 +260,8 @@ impl Measurement for LedgerOutputMeasurement {
         query
             .add_field("basic_count", self.basic.count as u64)
             .add_field("basic_amount", self.basic.amount)
-            .add_field("account_count", self.account.count_and_amount.count as u64)
-            .add_field("account_amount", self.account.count_and_amount.amount)
+            .add_field("account_count", self.account.count as u64)
+            .add_field("account_amount", self.account.amount)
             .add_field("block_issuer_accounts", self.account.block_issuers_count as u64)
             .add_field("anchor_count", self.anchor.count as u64)
             .add_field("anchor_amount", self.anchor.amount)
@@ -271,6 +271,7 @@ impl Measurement for LedgerOutputMeasurement {
             .add_field("nft_amount", self.nft.amount)
             .add_field("delegation_count", self.delegation.count as u64)
             .add_field("delegation_amount", self.delegation.amount)
+            .add_field("delegated_amount", self.delegation.delegated_amount)
     }
 }
 
