@@ -65,10 +65,12 @@ where
     M: Measurement,
 {
     fn prepare_query(&self) -> Vec<WriteQuery> {
-        vec![influxdb::Timestamp::Seconds(self.slot_timestamp as _)
-            .into_query(M::NAME)
-            .add_field("slot_index", self.slot_index.0)
-            .add_fields(&self.inner)]
+        vec![
+            influxdb::Timestamp::Seconds(self.slot_timestamp as _)
+                .into_query(M::NAME)
+                .add_field("slot_index", self.slot_index.0)
+                .add_fields(&self.inner),
+        ]
     }
 }
 
