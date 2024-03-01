@@ -257,7 +257,7 @@ pub async fn fill_analytics<I: 'static + InputSource + Clone>(
                         // getting the previous slot data.
                         let ledger_state = if slot.index().0 > 0 {
                             db.collection::<OutputCollection>()
-                                .get_unspent_output_stream(slot.index() - 1)
+                                .get_unspent_output_stream(slot.index().0.saturating_sub(1).into())
                                 .await?
                                 .try_collect::<Vec<_>>()
                                 .await?

@@ -8,7 +8,7 @@ use iota_sdk::types::block::{
     output::OutputId,
     payload::SignedTransactionPayload,
     protocol::ProtocolParameters,
-    slot::{SlotCommitment, SlotIndex},
+    slot::{EpochIndex, SlotCommitment, SlotIndex},
     Block,
 };
 use thiserror::Error;
@@ -48,6 +48,10 @@ pub trait AnalyticsContext: Send + Sync {
 
     fn slot_index(&self) -> SlotIndex {
         self.slot_commitment().slot()
+    }
+
+    fn epoch_index(&self) -> EpochIndex {
+        self.protocol_parameters().epoch_index_of(self.slot_commitment().slot())
     }
 
     fn slot_commitment(&self) -> &SlotCommitment;
@@ -200,7 +204,7 @@ impl Analytic {
             AnalyticsChoice::AddressBalance => {
                 Box::new(AddressBalancesAnalytics::init(protocol_params, slot, unspent_outputs, db).await?) as _
             }
-            AnalyticsChoice::Features => Box::new(FeaturesMeasurement::init(unspent_outputs)) as _,
+            AnalyticsChoice::Features => Box::new(FeaturesMeasurement::init(unspent_outputs, db).await?) as _,
             AnalyticsChoice::LedgerOutputs => Box::new(LedgerOutputMeasurement::init(unspent_outputs)) as _,
             AnalyticsChoice::LedgerSize => Box::new(LedgerSizeAnalytics::init(protocol_params, unspent_outputs)) as _,
             AnalyticsChoice::UnlockConditions => Box::new(UnlockConditionMeasurement::init(unspent_outputs)) as _,

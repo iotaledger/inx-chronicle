@@ -57,7 +57,7 @@ impl Inx {
             .map(|msg| TryConvertTo::try_convert(msg?)))
     }
 
-    /// Convenience wrapper that gets accepted blocks for a given slot.
+    /// Get accepted blocks for a given slot.
     pub async fn get_accepted_blocks_for_slot(
         &mut self,
         slot_index: SlotIndex,
@@ -70,7 +70,7 @@ impl Inx {
             .map(|msg| TryConvertTo::try_convert(msg?)))
     }
 
-    /// Convenience wrapper that reads the current unspent outputs.
+    /// Read the current unspent outputs.
     pub async fn get_unspent_outputs(
         &mut self,
     ) -> Result<impl Stream<Item = Result<UnspentOutput, InxError>>, InxError> {
@@ -82,7 +82,7 @@ impl Inx {
             .map(|msg| TryConvertTo::try_convert(msg?)))
     }
 
-    /// Convenience wrapper that listen to ledger updates.
+    /// Listen to ledger updates.
     pub async fn get_ledger_updates(
         &mut self,
         request: SlotRangeRequest,

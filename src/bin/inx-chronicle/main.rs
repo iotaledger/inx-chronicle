@@ -187,7 +187,10 @@ async fn build_indexes(db: &MongoDb) -> eyre::Result<()> {
     db.create_indexes::<collections::LedgerUpdateCollection>().await?;
     db.create_indexes::<collections::CommittedSlotCollection>().await?;
     #[cfg(feature = "analytics")]
-    db.create_indexes::<collections::AddressBalanceCollection>().await?;
+    {
+        db.create_indexes::<collections::AddressBalanceCollection>().await?;
+        db.create_indexes::<collections::AccountCandidacyCollection>().await?;
+    }
     let end_indexes = db.get_index_names().await?;
     for (collection, indexes) in end_indexes {
         if let Some(old_indexes) = start_indexes.get(&collection) {

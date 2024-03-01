@@ -39,12 +39,12 @@ impl InputSource for MongoDb {
         use std::ops::Bound;
         let start = match range.start_bound() {
             Bound::Included(&idx) => idx.0,
-            Bound::Excluded(&idx) => idx.0 + 1,
+            Bound::Excluded(&idx) => idx.0.saturating_add(1),
             Bound::Unbounded => 0,
         };
         let end = match range.end_bound() {
             Bound::Included(&idx) => idx.0,
-            Bound::Excluded(&idx) => idx.0 - 1,
+            Bound::Excluded(&idx) => idx.0.saturating_sub(1),
             Bound::Unbounded => u32::MAX,
         };
         Ok(Box::pin(futures::stream::iter(start..=end).then(

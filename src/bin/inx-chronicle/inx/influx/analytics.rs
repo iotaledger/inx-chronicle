@@ -65,7 +65,7 @@ impl InxWorker {
                     let ledger_state = self
                         .db
                         .collection::<OutputCollection>()
-                        .get_unspent_output_stream(slot.index() - 1)
+                        .get_unspent_output_stream(slot.index().0.saturating_sub(1).into())
                         .await?
                         .try_collect::<Vec<_>>()
                         .await?;

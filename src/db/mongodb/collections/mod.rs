@@ -24,7 +24,10 @@ use iota_sdk::types::block::output::{
 use thiserror::Error;
 
 #[cfg(feature = "analytics")]
-pub use self::analytics::{AddressBalanceCollection, AddressStat, DistributionStat};
+pub use self::analytics::{
+    account_candidacy::AccountCandidacyCollection,
+    address_balance::{AddressBalanceCollection, AddressStat, DistributionStat},
+};
 pub use self::{
     application_state::{ApplicationStateCollection, MigrationVersion},
     block::BlockCollection,
