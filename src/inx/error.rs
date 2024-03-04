@@ -22,5 +22,5 @@ pub enum InxError {
     #[error(transparent)]
     TonicError(#[from] tonic::transport::Error),
     #[error("SDK type error: {0}")]
-    SDK(#[from] iota_sdk::types::block::Error),
+    SDK(#[from] iota_sdk::types::block::BlockError),
 }

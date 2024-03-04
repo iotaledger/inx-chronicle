@@ -12,7 +12,7 @@ use chronicle::{
     db::{
         mongodb::collections::{
             ApplicationStateCollection, BlockCollection, CommittedSlotCollection, OutputCollection, OutputMetadata,
-            OutputWithMetadataResult, UtxoChangesResult,
+            UtxoChangesResult,
         },
         MongoDb,
     },
@@ -20,13 +20,12 @@ use chronicle::{
 };
 use iota_sdk::types::{
     api::core::{
-        BaseTokenResponse, BlockMetadataResponse, OutputWithMetadataResponse, ProtocolParametersResponse,
-        TransactionMetadataResponse, UtxoChangesResponse,
+        BaseTokenResponse, BlockMetadataResponse, OutputResponse, OutputWithMetadataResponse,
+        ProtocolParametersResponse, TransactionMetadataResponse, UtxoChangesResponse,
     },
     block::{
         output::{
             OutputConsumptionMetadata, OutputId, OutputInclusionMetadata, OutputMetadata as OutputMetadataResponse,
-            OutputWithMetadata,
         },
         payload::signed_transaction::TransactionId,
         slot::{SlotCommitment, SlotCommitmentId, SlotIndex},
@@ -213,20 +212,10 @@ async fn output(
     database: State<MongoDb>,
     Path(output_id): Path<OutputId>,
     headers: HeaderMap,
-) -> ApiResult<IotaRawResponse<OutputWithMetadataResponse>> {
-    let latest_slot = database
-        .collection::<CommittedSlotCollection>()
-        .get_latest_committed_slot()
-        .await?
-        .ok_or(MissingError::NoResults)?;
-
-    let OutputWithMetadataResult {
-        output_id,
-        output,
-        metadata,
-    } = database
+) -> ApiResult<IotaRawResponse<OutputResponse>> {
+    let output = database
         .collection::<OutputCollection>()
-        .get_output_with_metadata(&output_id, latest_slot.slot_index)
+        .get_output(&output_id)
         .await?
         .ok_or(MissingError::NoResults)?;
 
@@ -234,9 +223,23 @@ async fn output(
         return Ok(IotaRawResponse::Raw(output.pack_to_vec()));
     }
 
-    let metadata = create_output_metadata_response(output_id, metadata, latest_slot.commitment_id)?;
+    let included_block = database
+        .collection::<BlockCollection>()
+        .get_block_for_transaction(output_id.transaction_id())
+        .await?
+        .ok_or(MissingError::NoResults)?;
 
-    Ok(IotaRawResponse::Json(OutputWithMetadataResponse { metadata, output }))
+    Ok(IotaRawResponse::Json(OutputResponse {
+        output,
+        output_id_proof: included_block
+            .block
+            .as_basic()
+            .payload()
+            .unwrap()
+            .as_signed_transaction()
+            .transaction()
+            .output_id_proof(output_id.index())?,
+    }))
 }
 
 async fn output_metadata(
@@ -260,7 +263,7 @@ async fn output_metadata(
 async fn output_full(
     database: State<MongoDb>,
     Path(output_id): Path<OutputId>,
-) -> ApiResult<IotaResponse<OutputWithMetadata>> {
+) -> ApiResult<IotaResponse<OutputWithMetadataResponse>> {
     let latest_slot = database
         .collection::<CommittedSlotCollection>()
         .get_latest_committed_slot()
@@ -277,7 +280,7 @@ async fn output_full(
         .await?
         .ok_or(MissingError::NoResults)?;
 
-    Ok(OutputWithMetadata {
+    Ok(OutputWithMetadataResponse {
         output: output_with_metadata.output,
         output_id_proof: included_block
             .block

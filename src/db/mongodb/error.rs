@@ -13,8 +13,10 @@ pub enum DbError {
     BsonDeserialization(#[from] mongodb::bson::de::Error),
     #[error("mongodb error: {0}")]
     MongoDb(#[from] mongodb::error::Error),
-    #[error("SDK type error: {0}")]
-    SDK(#[from] iota_sdk::types::block::Error),
+    #[error("SDK block error: {0}")]
+    SdkBlock(#[from] iota_sdk::types::block::BlockError),
+    #[error("SDK mana error: {0}")]
+    SdkMana(#[from] iota_sdk::types::block::mana::ManaError),
     #[error("missing record: {0}")]
     MissingRecord(String),
 }

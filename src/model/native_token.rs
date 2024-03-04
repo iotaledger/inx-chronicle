@@ -5,7 +5,7 @@
 
 use core::borrow::Borrow;
 
-use iota_sdk::types::block::output::{NativeToken, TokenId};
+use iota_sdk::types::block::output::{NativeToken, NativeTokenError, TokenId};
 use primitive_types::U256;
 use serde::{Deserialize, Serialize};
 
@@ -28,7 +28,7 @@ impl<T: Borrow<NativeToken>> From<T> for NativeTokenDto {
 }
 
 impl TryFrom<NativeTokenDto> for NativeToken {
-    type Error = iota_sdk::types::block::Error;
+    type Error = NativeTokenError;
 
     fn try_from(value: NativeTokenDto) -> Result<Self, Self::Error> {
         Self::new(value.token_id, value.amount)

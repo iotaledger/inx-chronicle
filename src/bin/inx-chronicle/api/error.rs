@@ -7,7 +7,7 @@ use axum::{extract::rejection::QueryRejection, response::IntoResponse};
 use axum_extra::typed_header::TypedHeaderRejection;
 use chronicle::db::mongodb::collections::ParseSortError;
 use hyper::{header::InvalidHeaderValue, StatusCode};
-use iota_sdk::types::block::output::ProofError;
+use iota_sdk::types::block::{output::ProofError, BlockError, IdentifierError};
 use serde::Serialize;
 use thiserror::Error;
 use tracing::error;
@@ -61,7 +61,8 @@ impl_internal_error!(
     axum::extract::rejection::ExtensionRejection,
     auth_helper::jwt::Error,
     argon2::Error,
-    iota_sdk::types::block::Error
+    BlockError,
+    IdentifierError
 );
 
 impl IntoResponse for ApiError {
@@ -159,8 +160,10 @@ pub enum RequestError {
     BadPagingState,
     #[error("invalid time range")]
     BadTimeRange,
-    #[error("invalid IOTA Stardust data: {0}")]
-    IotaStardust(#[from] iota_sdk::types::block::Error),
+    #[error("invalid block data: {0}")]
+    Block(#[from] BlockError),
+    #[error("invalid block data: {0}")]
+    Identifier(#[from] IdentifierError),
     #[error("invalid bool value provided: {0}")]
     Bool(#[from] ParseBoolError),
     #[error("invalid U256 value provided: {0}")]

@@ -5,7 +5,10 @@
 
 use core::borrow::Borrow;
 
-use iota_sdk::types::block::{output::unlock_condition::ExpirationUnlockCondition, slot::SlotIndex};
+use iota_sdk::types::block::{
+    output::unlock_condition::{ExpirationUnlockCondition, UnlockConditionError},
+    slot::SlotIndex,
+};
 use serde::{Deserialize, Serialize};
 
 use super::address::AddressDto;
@@ -30,7 +33,7 @@ impl<T: Borrow<ExpirationUnlockCondition>> From<T> for ExpirationUnlockCondition
 }
 
 impl TryFrom<ExpirationUnlockConditionDto> for ExpirationUnlockCondition {
-    type Error = iota_sdk::types::block::Error;
+    type Error = UnlockConditionError;
 
     fn try_from(value: ExpirationUnlockConditionDto) -> Result<Self, Self::Error> {
         Self::new(value.return_address, value.slot_index)

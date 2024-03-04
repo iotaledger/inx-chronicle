@@ -5,7 +5,7 @@
 
 use core::borrow::Borrow;
 
-use iota_sdk::types::block::output::unlock_condition::StorageDepositReturnUnlockCondition;
+use iota_sdk::types::block::output::unlock_condition::{StorageDepositReturnUnlockCondition, UnlockConditionError};
 use serde::{Deserialize, Serialize};
 
 use super::address::AddressDto;
@@ -30,7 +30,7 @@ impl<T: Borrow<StorageDepositReturnUnlockCondition>> From<T> for StorageDepositR
 }
 
 impl TryFrom<StorageDepositReturnUnlockConditionDto> for StorageDepositReturnUnlockCondition {
-    type Error = iota_sdk::types::block::Error;
+    type Error = UnlockConditionError;
 
     fn try_from(value: StorageDepositReturnUnlockConditionDto) -> Result<Self, Self::Error> {
         Self::new(value.return_address, value.amount)
