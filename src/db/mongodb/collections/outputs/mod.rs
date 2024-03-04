@@ -605,9 +605,9 @@ impl OutputCollection {
                         "output": {
                             "output_id": "$_id",
                             "block_id": "$metadata.block_id",
-                            "booked": "$metadata.booked",
+                            "slot_booked": "$metadata.slot_booked",
+                            "commitment_id_included": "$metadata.commitment_id_included",
                             "output": "$output",
-                            "rent_structure": "$details.rent_structure",
                         },
                         "spent_metadata": "$metadata.spent_metadata",
                     } },
