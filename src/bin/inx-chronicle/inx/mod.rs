@@ -139,9 +139,9 @@ impl InxWorker {
                     start: latest_committed_slot.slot_index + 1,
                     end: pruning_slot,
                 });
-            } else if node_status.last_confirmed_block_slot < latest_committed_slot.slot_index {
+            } else if node_status.last_accepted_block_slot < latest_committed_slot.slot_index {
                 bail!(InxWorkerError::SyncSlotIndexMismatch {
-                    node: node_status.last_confirmed_block_slot,
+                    node: node_status.last_accepted_block_slot,
                     db: latest_committed_slot.slot_index,
                 });
             } else {

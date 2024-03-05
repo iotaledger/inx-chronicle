@@ -17,6 +17,6 @@ pub enum InxWorkerError {
     NetworkChanged { old: String, new: String },
     #[error("node pruned required slots between `{start}` and `{end}`")]
     SyncSlotGap { start: SlotIndex, end: SlotIndex },
-    #[error("node confirmed slot index `{node}` is less than index in database `{db}`")]
+    #[error("node accepted block slot index `{node}` is less than index in database `{db}`")]
     SyncSlotIndexMismatch { node: SlotIndex, db: SlotIndex },
 }
