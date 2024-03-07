@@ -42,14 +42,16 @@ impl Analytics for BlockActivityMeasurement {
         _ctx: &dyn AnalyticsContext,
     ) -> eyre::Result<()> {
         match block.body() {
-            BlockBody::Basic(_) => self.basic_count += 1,
+            BlockBody::Basic(basic_body) => {
+                self.basic_count += 1;
+                match basic_body.payload() {
+                    Some(Payload::TaggedData(_)) => self.tagged_data_count += 1,
+                    Some(Payload::SignedTransaction(_)) => self.transaction_count += 1,
+                    Some(Payload::CandidacyAnnouncement(_)) => self.candidacy_announcement_count += 1,
+                    None => self.no_payload_count += 1,
+                }
+            }
             BlockBody::Validation(_) => self.validation_count += 1,
-        }
-        match block.body().as_basic_opt().and_then(|b| b.payload()) {
-            Some(Payload::TaggedData(_)) => self.tagged_data_count += 1,
-            Some(Payload::SignedTransaction(_)) => self.transaction_count += 1,
-            Some(Payload::CandidacyAnnouncement(_)) => self.candidacy_announcement_count += 1,
-            None => self.no_payload_count += 1,
         }
         match &metadata.block_state {
             BlockState::Pending => self.block_pending_count += 1,
