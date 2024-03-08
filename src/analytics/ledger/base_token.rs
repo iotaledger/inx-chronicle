@@ -7,7 +7,10 @@ use iota_sdk::types::block::{address::Address, payload::SignedTransactionPayload
 
 use crate::{
     analytics::{Analytics, AnalyticsContext},
-    model::ledger::{LedgerOutput, LedgerSpent},
+    model::{
+        block_metadata::TransactionMetadata,
+        ledger::{LedgerOutput, LedgerSpent},
+    },
 };
 
 /// Measures activity of the base token, such as Shimmer or IOTA.
@@ -27,6 +30,7 @@ impl Analytics for BaseTokenActivityMeasurement {
     async fn handle_transaction(
         &mut self,
         _payload: &SignedTransactionPayload,
+        _metadata: &TransactionMetadata,
         consumed: &[LedgerSpent],
         created: &[LedgerOutput],
         ctx: &dyn AnalyticsContext,

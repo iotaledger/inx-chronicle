@@ -6,11 +6,13 @@ use std::{
     task::{Context, Poll},
 };
 
-use futures::{stream::BoxStream, Stream};
+use futures::{stream::BoxStream, Stream, TryStreamExt};
 use iota_sdk::types::block::slot::{SlotCommitment, SlotCommitmentId, SlotIndex};
 
 use super::InputSource;
-use crate::model::{block_metadata::BlockWithMetadata, ledger::LedgerUpdateStore, raw::Raw, slot::Commitment};
+use crate::model::{
+    block_metadata::BlockWithTransactionMetadata, ledger::LedgerUpdateStore, raw::Raw, slot::Commitment,
+};
 
 #[allow(missing_docs)]
 pub struct Slot<'a, I: InputSource> {
@@ -38,8 +40,28 @@ impl<'a, I: InputSource> Slot<'a, I> {
 
 impl<'a, I: InputSource> Slot<'a, I> {
     /// Returns the accepted blocks of a slot.
-    pub async fn accepted_block_stream(&self) -> Result<BoxStream<Result<BlockWithMetadata, I::Error>>, I::Error> {
-        self.source.accepted_blocks(self.index()).await
+    pub async fn accepted_block_stream(
+        &self,
+    ) -> Result<impl Stream<Item = Result<BlockWithTransactionMetadata, I::Error>> + '_, I::Error> {
+        Ok(self.source.accepted_blocks(self.index()).await?.and_then(|res| async {
+            let transaction = if let Some(transaction_id) = res
+                .block
+                .inner()
+                .body()
+                .as_basic_opt()
+                .and_then(|body| body.payload())
+                .and_then(|p| p.as_signed_transaction_opt())
+                .map(|txn| txn.transaction().id())
+            {
+                Some(self.source.transaction_metadata(transaction_id).await?)
+            } else {
+                None
+            };
+            Ok(BlockWithTransactionMetadata {
+                transaction,
+                block: res,
+            })
+        }))
     }
 
     /// Returns the ledger update store.

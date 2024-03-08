@@ -10,9 +10,13 @@ use core::ops::RangeBounds;
 
 use async_trait::async_trait;
 use futures::stream::BoxStream;
-use iota_sdk::types::block::slot::SlotIndex;
+use iota_sdk::types::block::{payload::signed_transaction::TransactionId, slot::SlotIndex};
 
-use crate::model::{block_metadata::BlockWithMetadata, ledger::LedgerUpdateStore, slot::Commitment};
+use crate::model::{
+    block_metadata::{BlockWithMetadata, TransactionMetadata},
+    ledger::LedgerUpdateStore,
+    slot::Commitment,
+};
 
 /// Defines a type as a source for block and ledger update data.
 #[async_trait]
@@ -31,6 +35,9 @@ pub trait InputSource: Send + Sync {
         &self,
         index: SlotIndex,
     ) -> Result<BoxStream<Result<BlockWithMetadata, Self::Error>>, Self::Error>;
+
+    /// Retrieves metadata for a given transaction id.
+    async fn transaction_metadata(&self, transaction_id: TransactionId) -> Result<TransactionMetadata, Self::Error>;
 
     /// Retrieves the updates to the ledger for a given range of slots.
     async fn ledger_updates(&self, index: SlotIndex) -> Result<LedgerUpdateStore, Self::Error>;

@@ -5,7 +5,7 @@
 
 use iota_sdk::{
     types::{
-        api::core::BlockFailureReason,
+        api::core::{BlockState, TransactionState},
         block::{
             self as iota, payload::signed_transaction::TransactionId, semantic::TransactionFailureReason, BlockId,
         },
@@ -20,10 +20,8 @@ use super::raw::Raw;
 #[allow(missing_docs)]
 pub struct BlockMetadata {
     pub block_id: BlockId,
-    pub block_state: BlockState,
-    #[serde(with = "option_string")]
-    pub block_failure_reason: Option<BlockFailureReason>,
-    pub transaction_metadata: Option<TransactionMetadata>,
+    #[serde(default, with = "option_strum_string")]
+    pub block_state: Option<BlockState>,
 }
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -31,8 +29,9 @@ pub struct BlockMetadata {
 
 pub struct TransactionMetadata {
     pub transaction_id: TransactionId,
-    pub transaction_state: TransactionState,
-    #[serde(with = "option_string")]
+    #[serde(with = "option_strum_string")]
+    pub transaction_state: Option<TransactionState>,
+    #[serde(default, with = "option_string")]
     pub transaction_failure_reason: Option<TransactionFailureReason>,
 }
 
@@ -43,64 +42,39 @@ pub struct BlockWithMetadata {
     pub block: Raw<iota::Block>,
 }
 
-/// Describes the state of a block.
-#[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum BlockState {
-    /// Stored but not confirmed.
-    Pending,
-    /// Acccepted.
-    Accepted,
-    /// Confirmed with the first level of knowledge.
-    Confirmed,
-    /// Included and can no longer be reverted.
-    Finalized,
-    /// Rejected by the node, and user should reissue payload if it contains one.
-    Rejected,
-    /// Not successfully issued due to failure reason.
-    Failed,
-    /// Unknown state.
-    Unknown,
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[allow(missing_docs)]
+pub struct BlockWithTransactionMetadata {
+    pub block: BlockWithMetadata,
+    pub transaction: Option<TransactionMetadata>,
 }
 
-impl From<BlockState> for iota_sdk::types::api::core::BlockState {
-    fn from(value: BlockState) -> Self {
+/// Serializes types that `impl AsRef<str>`
+#[allow(missing_docs)]
+pub mod option_strum_string {
+    use core::{fmt::Display, str::FromStr};
+
+    use serde::{de, Deserialize, Deserializer, Serializer};
+
+    pub fn serialize<T, S>(value: &Option<T>, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        T: AsRef<str>,
+        S: Serializer,
+    {
         match value {
-            BlockState::Pending => Self::Pending,
-            BlockState::Accepted => Self::Pending,
-            BlockState::Confirmed => Self::Confirmed,
-            BlockState::Finalized => Self::Finalized,
-            BlockState::Rejected => Self::Rejected,
-            BlockState::Failed => Self::Failed,
-            BlockState::Unknown => panic!("invalid block state"),
+            Some(value) => serializer.collect_str(value.as_ref()),
+            None => serializer.serialize_none(),
         }
     }
-}
 
-/// Describes the state of a transaction.
-#[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum TransactionState {
-    /// Stored but not confirmed.
-    Pending,
-    /// Accepted.
-    Accepted,
-    /// Confirmed with the first level of knowledge.
-    Confirmed,
-    /// Included and can no longer be reverted.
-    Finalized,
-    /// The block is not successfully issued due to failure reason.
-    Failed,
-}
-
-impl From<TransactionState> for iota_sdk::types::api::core::TransactionState {
-    fn from(value: TransactionState) -> Self {
-        match value {
-            TransactionState::Pending => Self::Pending,
-            TransactionState::Accepted => Self::Pending,
-            TransactionState::Confirmed => Self::Confirmed,
-            TransactionState::Finalized => Self::Finalized,
-            TransactionState::Failed => Self::Failed,
-        }
+    pub fn deserialize<'de, T, D>(deserializer: D) -> Result<Option<T>, D::Error>
+    where
+        T: FromStr,
+        T::Err: Display,
+        D: Deserializer<'de>,
+    {
+        Option::<String>::deserialize(deserializer)?
+            .map(|string| string.parse().map_err(de::Error::custom))
+            .transpose()
     }
 }

@@ -21,7 +21,7 @@ use crate::{
     analytics::{Analytics, AnalyticsContext},
     db::{mongodb::collections::AccountCandidacyCollection, MongoDb},
     model::{
-        block_metadata::BlockMetadata,
+        block_metadata::{BlockMetadata, TransactionMetadata},
         ledger::{LedgerOutput, LedgerSpent},
     },
 };
@@ -85,6 +85,7 @@ impl Analytics for FeaturesMeasurement {
     async fn handle_transaction(
         &mut self,
         _payload: &SignedTransactionPayload,
+        _metadata: &TransactionMetadata,
         consumed: &[LedgerSpent],
         created: &[LedgerOutput],
         ctx: &dyn AnalyticsContext,

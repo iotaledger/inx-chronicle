@@ -3,7 +3,7 @@
 
 //! Various analytics that give insight into the usage of the tangle.
 
-use futures::TryStreamExt;
+use futures::{prelude::stream::StreamExt, TryStreamExt};
 use iota_sdk::types::block::{
     output::OutputId,
     payload::SignedTransactionPayload,
@@ -31,7 +31,7 @@ use crate::{
         MongoDb,
     },
     model::{
-        block_metadata::{BlockMetadata, BlockState, BlockWithMetadata},
+        block_metadata::{BlockMetadata, BlockWithMetadata, TransactionMetadata},
         ledger::{LedgerOutput, LedgerSpent},
     },
     tangle::{InputSource, Slot},
@@ -68,6 +68,7 @@ pub trait Analytics {
     async fn handle_transaction(
         &mut self,
         _payload: &SignedTransactionPayload,
+        _metadata: &TransactionMetadata,
         _consumed: &[LedgerSpent],
         _created: &[LedgerOutput],
         _ctx: &dyn AnalyticsContext,
@@ -93,6 +94,7 @@ trait DynAnalytics: Send {
     async fn handle_transaction(
         &mut self,
         payload: &SignedTransactionPayload,
+        metadata: &TransactionMetadata,
         consumed: &[LedgerSpent],
         created: &[LedgerOutput],
         ctx: &dyn AnalyticsContext,
@@ -114,11 +116,12 @@ where
     async fn handle_transaction(
         &mut self,
         payload: &SignedTransactionPayload,
+        metadata: &TransactionMetadata,
         consumed: &[LedgerSpent],
         created: &[LedgerOutput],
         ctx: &dyn AnalyticsContext,
     ) -> eyre::Result<()> {
-        Analytics::handle_transaction(self, payload, consumed, created, ctx).await
+        Analytics::handle_transaction(self, payload, metadata, consumed, created, ctx).await
     }
 
     async fn handle_block(
@@ -245,6 +248,7 @@ impl<T: AsMut<[Analytic]> + Send> Analytics for T {
     async fn handle_transaction(
         &mut self,
         payload: &SignedTransactionPayload,
+        metadata: &TransactionMetadata,
         consumed: &[LedgerSpent],
         created: &[LedgerOutput],
         ctx: &dyn AnalyticsContext,
@@ -252,7 +256,7 @@ impl<T: AsMut<[Analytic]> + Send> Analytics for T {
         futures::future::join_all(
             self.as_mut()
                 .iter_mut()
-                .map(|analytic| analytic.0.handle_transaction(payload, consumed, created, ctx)),
+                .map(|analytic| analytic.0.handle_transaction(payload, metadata, consumed, created, ctx)),
         )
         .await;
         Ok(())
@@ -307,16 +311,74 @@ impl<'a, I: InputSource> Slot<'a, I> {
             db,
         };
 
-        let mut block_stream = self.accepted_block_stream().await?;
+        let mut block_stream = self.accepted_block_stream().await?.boxed();
 
-        while let Some(block_data) = block_stream.try_next().await? {
-            self.handle_block(analytics, &block_data, &ctx).await?;
+        while let Some(data) = block_stream.try_next().await? {
+            if let Some((payload, metadata)) = data
+                .block
+                .block
+                .inner()
+                .body()
+                .as_basic_opt()
+                .and_then(|body| body.payload())
+                .and_then(|p| p.as_signed_transaction_opt())
+                .zip(data.transaction)
+            {
+                self.handle_transaction(analytics, payload, &metadata, &ctx).await?;
+            }
+            self.handle_block(analytics, &data.block, &ctx).await?;
         }
 
         influxdb
             .insert_measurement((analytics as &mut dyn DynAnalytics).take_measurement(&ctx).await?)
             .await?;
 
+        Ok(())
+    }
+
+    async fn handle_transaction<A: Analytics + Send>(
+        &self,
+        analytics: &mut A,
+        payload: &SignedTransactionPayload,
+        metadata: &TransactionMetadata,
+        ctx: &BasicContext<'_>,
+    ) -> eyre::Result<()> {
+        let consumed = payload
+            .transaction()
+            .inputs()
+            .iter()
+            .map(|input| input.as_utxo().output_id())
+            .map(|output_id| {
+                Ok(self
+                    .ledger_updates()
+                    .get_consumed(output_id)
+                    .ok_or(AnalyticsError::MissingLedgerSpent {
+                        output_id: *output_id,
+                        slot_index: metadata.transaction_id.slot_index(),
+                    })?
+                    .clone())
+            })
+            .collect::<eyre::Result<Vec<_>>>()?;
+        let created = payload
+            .transaction()
+            .outputs()
+            .iter()
+            .enumerate()
+            .map(|(index, _)| {
+                let output_id = metadata.transaction_id.into_output_id(index as _);
+                Ok(self
+                    .ledger_updates()
+                    .get_created(&output_id)
+                    .ok_or(AnalyticsError::MissingLedgerOutput {
+                        output_id,
+                        slot_index: metadata.transaction_id.slot_index(),
+                    })?
+                    .clone())
+            })
+            .collect::<eyre::Result<Vec<_>>>()?;
+        analytics
+            .handle_transaction(payload, metadata, &consumed, &created, ctx)
+            .await?;
         Ok(())
     }
 
@@ -327,50 +389,6 @@ impl<'a, I: InputSource> Slot<'a, I> {
         ctx: &BasicContext<'_>,
     ) -> eyre::Result<()> {
         let block = block_data.block.inner();
-        // TODO: Is this right?
-        if block_data.metadata.block_state == BlockState::Confirmed {
-            if let Some(payload) = block
-                .body()
-                .as_basic_opt()
-                .and_then(|b| b.payload())
-                .and_then(|p| p.as_signed_transaction_opt())
-            {
-                let consumed = payload
-                    .transaction()
-                    .inputs()
-                    .iter()
-                    .map(|input| input.as_utxo().output_id())
-                    .map(|output_id| {
-                        Ok(self
-                            .ledger_updates()
-                            .get_consumed(output_id)
-                            .ok_or(AnalyticsError::MissingLedgerSpent {
-                                output_id: *output_id,
-                                slot_index: block.slot_commitment_id().slot_index(),
-                            })?
-                            .clone())
-                    })
-                    .collect::<eyre::Result<Vec<_>>>()?;
-                let created = payload
-                    .transaction()
-                    .outputs()
-                    .iter()
-                    .enumerate()
-                    .map(|(index, _)| {
-                        let output_id = payload.transaction().id().into_output_id(index as _);
-                        Ok(self
-                            .ledger_updates()
-                            .get_created(&output_id)
-                            .ok_or(AnalyticsError::MissingLedgerOutput {
-                                output_id,
-                                slot_index: block.slot_commitment_id().slot_index(),
-                            })?
-                            .clone())
-                    })
-                    .collect::<eyre::Result<Vec<_>>>()?;
-                analytics.handle_transaction(payload, &consumed, &created, ctx).await?;
-            }
-        }
         analytics.handle_block(block, &block_data.metadata, ctx).await?;
         Ok(())
     }

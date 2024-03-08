@@ -10,7 +10,7 @@ use iota_sdk::types::block::{
 use crate::{
     analytics::{Analytics, AnalyticsContext},
     model::{
-        block_metadata::BlockMetadata,
+        block_metadata::{BlockMetadata, TransactionMetadata},
         ledger::{LedgerOutput, LedgerSpent},
     },
 };
@@ -30,6 +30,7 @@ impl Analytics for ManaActivityMeasurement {
     async fn handle_transaction(
         &mut self,
         payload: &SignedTransactionPayload,
+        _metadata: &TransactionMetadata,
         consumed: &[LedgerSpent],
         created: &[LedgerOutput],
         ctx: &dyn AnalyticsContext,

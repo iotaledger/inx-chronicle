@@ -6,7 +6,10 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     analytics::{Analytics, AnalyticsContext},
-    model::ledger::{LedgerOutput, LedgerSpent},
+    model::{
+        block_metadata::TransactionMetadata,
+        ledger::{LedgerOutput, LedgerSpent},
+    },
 };
 
 #[derive(Copy, Clone, Debug, Default, Serialize, Deserialize)]
@@ -63,6 +66,7 @@ impl Analytics for TransactionSizeMeasurement {
     async fn handle_transaction(
         &mut self,
         _payload: &SignedTransactionPayload,
+        _metadata: &TransactionMetadata,
         consumed: &[LedgerSpent],
         created: &[LedgerOutput],
         _ctx: &dyn AnalyticsContext,

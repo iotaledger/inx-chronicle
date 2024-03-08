@@ -3,7 +3,8 @@
 
 use futures::stream::{Stream, StreamExt};
 use inx::{client::InxClient, proto};
-use iota_sdk::types::block::slot::SlotIndex;
+use iota_sdk::types::block::{payload::signed_transaction::TransactionId, slot::SlotIndex};
+use packable::PackableExt;
 
 use super::{
     convert::TryConvertTo,
@@ -12,7 +13,7 @@ use super::{
     InxError,
 };
 use crate::model::{
-    block_metadata::BlockWithMetadata,
+    block_metadata::{BlockWithMetadata, TransactionMetadata},
     node::{NodeConfiguration, NodeStatus},
     slot::Commitment,
 };
@@ -54,20 +55,34 @@ impl Inx {
             .listen_to_commitments(proto::SlotRangeRequest::from(request))
             .await?
             .into_inner()
-            .map(|msg| TryConvertTo::try_convert(msg?)))
+            .map(|msg| msg?.try_convert()))
     }
 
     /// Get accepted blocks for a given slot.
     pub async fn get_accepted_blocks_for_slot(
         &mut self,
-        slot_index: SlotIndex,
+        SlotIndex(slot): SlotIndex,
     ) -> Result<impl Stream<Item = Result<BlockWithMetadata, InxError>>, InxError> {
         Ok(self
             .inx
-            .read_accepted_blocks(proto::SlotIndex { index: slot_index.0 })
+            .read_accepted_blocks(proto::SlotRequest { slot })
             .await?
             .into_inner()
-            .map(|msg| TryConvertTo::try_convert(msg?)))
+            .map(|msg| msg?.try_convert()))
+    }
+
+    /// Get the associated metadata by transaction id.
+    pub async fn get_transaction_metadata(
+        &mut self,
+        transaction_id: TransactionId,
+    ) -> Result<TransactionMetadata, InxError> {
+        self.inx
+            .read_transaction_metadata(proto::TransactionId {
+                id: transaction_id.pack_to_vec(),
+            })
+            .await?
+            .into_inner()
+            .try_convert()
     }
 
     /// Read the current unspent outputs.
@@ -79,7 +94,7 @@ impl Inx {
             .read_unspent_outputs(proto::NoParams {})
             .await?
             .into_inner()
-            .map(|msg| TryConvertTo::try_convert(msg?)))
+            .map(|msg| msg?.try_convert()))
     }
 
     /// Listen to ledger updates.
@@ -92,6 +107,6 @@ impl Inx {
             .listen_to_ledger_updates(proto::SlotRangeRequest::from(request))
             .await?
             .into_inner()
-            .map(|msg| TryConvertTo::try_convert(msg?)))
+            .map(|msg| msg?.try_convert()))
     }
 }

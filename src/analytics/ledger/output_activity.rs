@@ -12,7 +12,10 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     analytics::{Analytics, AnalyticsContext},
-    model::ledger::{LedgerOutput, LedgerSpent},
+    model::{
+        block_metadata::TransactionMetadata,
+        ledger::{LedgerOutput, LedgerSpent},
+    },
 };
 
 /// Nft activity statistics.
@@ -33,6 +36,7 @@ impl Analytics for OutputActivityMeasurement {
     async fn handle_transaction(
         &mut self,
         _payload: &SignedTransactionPayload,
+        _metadata: &TransactionMetadata,
         consumed: &[LedgerSpent],
         created: &[LedgerOutput],
         _ctx: &dyn AnalyticsContext,

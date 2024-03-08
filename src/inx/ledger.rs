@@ -3,7 +3,7 @@
 
 use inx::proto;
 use iota_sdk::types::{
-    api::core::BlockFailureReason,
+    api::core::{BlockState, TransactionState},
     block::{
         payload::signed_transaction::TransactionId,
         semantic::TransactionFailureReason,
@@ -17,10 +17,7 @@ use super::{
 };
 use crate::{
     maybe_missing,
-    model::{
-        block_metadata::{BlockState, TransactionState},
-        ledger::{LedgerOutput, LedgerSpent},
-    },
+    model::ledger::{LedgerOutput, LedgerSpent},
 };
 
 impl TryConvertFrom<proto::LedgerOutput> for LedgerOutput {
@@ -186,18 +183,18 @@ impl TryConvertFrom<inx::proto::AcceptedTransaction> for AcceptedTransaction {
     }
 }
 
-impl ConvertFrom<proto::block_metadata::BlockState> for BlockState {
+impl ConvertFrom<proto::block_metadata::BlockState> for Option<BlockState> {
     fn convert_from(proto: proto::block_metadata::BlockState) -> Self {
         use proto::block_metadata::BlockState as ProtoState;
-        match proto {
+        Some(match proto {
             ProtoState::Pending => BlockState::Pending,
             ProtoState::Confirmed => BlockState::Confirmed,
             ProtoState::Finalized => BlockState::Finalized,
-            ProtoState::Rejected => BlockState::Rejected,
-            ProtoState::Failed => BlockState::Failed,
+            ProtoState::Dropped => BlockState::Dropped,
+            ProtoState::Orphaned => BlockState::Orphaned,
             ProtoState::Accepted => BlockState::Accepted,
-            ProtoState::Unknown => BlockState::Unknown,
-        }
+            ProtoState::Unknown => return None,
+        })
     }
 }
 
@@ -206,32 +203,11 @@ impl ConvertFrom<proto::transaction_metadata::TransactionState> for Option<Trans
         use proto::transaction_metadata::TransactionState as ProtoState;
         Some(match proto {
             ProtoState::Pending => TransactionState::Pending,
-            ProtoState::Confirmed => TransactionState::Confirmed,
+            ProtoState::Committed => TransactionState::Committed,
             ProtoState::Finalized => TransactionState::Finalized,
             ProtoState::Failed => TransactionState::Failed,
             ProtoState::Accepted => TransactionState::Accepted,
-            ProtoState::NoTransaction => return None,
-        })
-    }
-}
-
-impl ConvertFrom<proto::block_metadata::BlockFailureReason> for Option<BlockFailureReason> {
-    fn convert_from(proto: proto::block_metadata::BlockFailureReason) -> Self {
-        use proto::block_metadata::BlockFailureReason as ProtoState;
-        Some(match proto {
-            ProtoState::None => return None,
-            ProtoState::IsTooOld => BlockFailureReason::TooOldToIssue,
-            ProtoState::ParentIsTooOld => BlockFailureReason::ParentTooOld,
-            ProtoState::ParentNotFound => BlockFailureReason::ParentDoesNotExist,
-            ProtoState::IssuerAccountNotFound => BlockFailureReason::IssuerAccountNotFound,
-            ProtoState::ManaCostCalculationFailed => BlockFailureReason::ManaCostCalculationFailed,
-            ProtoState::BurnedInsufficientMana => BlockFailureReason::BurnedInsufficientMana,
-            ProtoState::AccountLocked => BlockFailureReason::AccountLocked,
-            ProtoState::AccountExpired => BlockFailureReason::AccountLocked,
-            ProtoState::SignatureInvalid => BlockFailureReason::SignatureInvalid,
-            ProtoState::DroppedDueToCongestion => BlockFailureReason::DroppedDueToCongestion,
-            ProtoState::PayloadInvalid => BlockFailureReason::PayloadInvalid,
-            ProtoState::Invalid => BlockFailureReason::Invalid,
+            ProtoState::Unknown => return None,
         })
     }
 }
@@ -242,6 +218,7 @@ impl ConvertFrom<proto::transaction_metadata::TransactionFailureReason> for Opti
         Some(match proto {
             ProtoState::None => return None,
             ProtoState::ConflictRejected => TransactionFailureReason::ConflictRejected,
+            ProtoState::Orphaned => TransactionFailureReason::Orphaned,
             ProtoState::InputAlreadySpent => TransactionFailureReason::InputAlreadySpent,
             ProtoState::InputCreationAfterTxCreation => TransactionFailureReason::InputCreationAfterTxCreation,
             ProtoState::UnlockSignatureInvalid => TransactionFailureReason::UnlockSignatureInvalid,
@@ -282,7 +259,6 @@ impl ConvertFrom<proto::transaction_metadata::TransactionFailureReason> for Opti
             ProtoState::SenderFeatureNotUnlocked => TransactionFailureReason::SenderFeatureNotUnlocked,
             ProtoState::IssuerFeatureNotUnlocked => TransactionFailureReason::IssuerFeatureNotUnlocked,
             ProtoState::StakingRewardInputMissing => TransactionFailureReason::StakingRewardInputMissing,
-            ProtoState::StakingBlockIssuerFeatureMissing => TransactionFailureReason::StakingBlockIssuerFeatureMissing,
             ProtoState::StakingCommitmentInputMissing => TransactionFailureReason::StakingCommitmentInputMissing,
             ProtoState::StakingRewardClaimingInvalid => TransactionFailureReason::StakingRewardClaimingInvalid,
             ProtoState::StakingFeatureRemovedBeforeUnbonding => {

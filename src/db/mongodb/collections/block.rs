@@ -2,8 +2,9 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use futures::{Stream, StreamExt, TryStreamExt};
-use iota_sdk::types::block::{
-    output::OutputId, payload::signed_transaction::TransactionId, slot::SlotIndex, Block, BlockId,
+use iota_sdk::types::{
+    api::core::BlockState,
+    block::{payload::signed_transaction::TransactionId, slot::SlotIndex, Block, BlockId},
 };
 use mongodb::{
     bson::doc,
@@ -20,7 +21,7 @@ use crate::{
         MongoDb,
     },
     model::{
-        block_metadata::{BlockMetadata, BlockState, BlockWithMetadata},
+        block_metadata::{BlockMetadata, BlockWithMetadata, BlockWithTransactionMetadata, TransactionMetadata},
         raw::Raw,
         SerializeToBson,
     },
@@ -33,8 +34,8 @@ pub struct BlockDocument {
     block_id: BlockId,
     /// The block.
     block: Raw<Block>,
-    /// The block's metadata.
-    metadata: BlockMetadata,
+    /// The block's state.
+    block_state: Option<BlockState>,
     /// The index of the slot to which this block commits.
     slot_index: SlotIndex,
     /// The block's payload type.
@@ -43,23 +44,13 @@ pub struct BlockDocument {
     transaction: Option<TransactionMetadata>,
 }
 
-impl From<BlockWithMetadata> for BlockDocument {
-    fn from(BlockWithMetadata { block, metadata }: BlockWithMetadata) -> Self {
-        let transaction = block
-            .inner()
-            .body()
-            .as_basic_opt()
-            .and_then(|b| b.payload())
-            .and_then(|p| p.as_signed_transaction_opt())
-            .map(|txn| TransactionMetadata {
-                transaction_id: txn.transaction().id(),
-                inputs: txn
-                    .transaction()
-                    .inputs()
-                    .iter()
-                    .map(|i| *i.as_utxo().output_id())
-                    .collect(),
-            });
+impl From<BlockWithTransactionMetadata> for BlockDocument {
+    fn from(
+        BlockWithTransactionMetadata {
+            block: BlockWithMetadata { metadata, block },
+            transaction,
+        }: BlockWithTransactionMetadata,
+    ) -> Self {
         Self {
             block_id: metadata.block_id,
             slot_index: block.inner().slot_commitment_id().slot_index(),
@@ -70,16 +61,10 @@ impl From<BlockWithMetadata> for BlockDocument {
                 .and_then(|b| b.payload())
                 .map(|p| p.kind()),
             block,
-            metadata,
+            block_state: metadata.block_state,
             transaction,
         }
     }
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-struct TransactionMetadata {
-    transaction_id: TransactionId,
-    inputs: Vec<OutputId>,
 }
 
 /// The iota blocks collection.
@@ -109,8 +94,7 @@ impl MongoDbCollection for BlockCollection {
                         .unique(true)
                         .name("transaction_id_index".to_string())
                         .partial_filter_expression(doc! {
-                            "transaction.transaction_id": { "$exists": true },
-                            "metadata.block_state": { "$eq": BlockState::Finalized.to_bson() },
+                            "transaction": { "$exists": true },
                         })
                         .build(),
                 )
@@ -121,7 +105,7 @@ impl MongoDbCollection for BlockCollection {
 
         self.create_index(
             IndexModel::builder()
-                .keys(doc! { "slot_index": -1, "metadata.block_state": 1 })
+                .keys(doc! { "slot_index": -1 })
                 .options(
                     IndexOptions::builder()
                         .name("block_slot_index_comp".to_string())
@@ -140,13 +124,6 @@ impl MongoDbCollection for BlockCollection {
 pub struct IncludedBlockResult {
     pub block_id: BlockId,
     pub block: Block,
-}
-
-#[derive(Deserialize, Debug, Clone)]
-pub struct IncludedBlockMetadataResult {
-    #[serde(rename = "_id")]
-    pub block_id: BlockId,
-    pub metadata: BlockMetadata,
 }
 
 #[derive(Deserialize)]
@@ -183,7 +160,10 @@ impl BlockCollection {
             .aggregate(
                 [
                     doc! { "$match": { "_id": block_id.to_bson() } },
-                    doc! { "$replaceWith": "$metadata" },
+                    doc! { "$project": {
+                        "block_id": "$_id",
+                        "block_state": 1,
+                    } },
                 ],
                 None,
             )
@@ -192,22 +172,21 @@ impl BlockCollection {
             .await?)
     }
 
-    /// Get the accepted blocks from a slot.
-    pub async fn get_accepted_blocks(
+    /// Get the blocks from a slot.
+    pub async fn get_blocks_by_slot(
         &self,
         SlotIndex(index): SlotIndex,
     ) -> Result<impl Stream<Item = Result<BlockWithMetadata, DbError>>, DbError> {
         Ok(self
             .aggregate(
                 [
-                    doc! { "$match": {
-                        "slot_index": index,
-                        "metadata.block_state": BlockState::Confirmed.to_bson()
-                    } },
-                    doc! { "$sort": { "_id": 1 } },
+                    doc! { "$match": { "slot_index": index } },
                     doc! { "$project": {
                         "block": 1,
-                        "metadata": 1
+                        "metadata": {
+                            "block_id": "$_id",
+                            "block_state": 1,
+                        }
                     } },
                 ],
                 None,
@@ -220,7 +199,7 @@ impl BlockCollection {
     #[instrument(skip_all, err, level = "trace")]
     pub async fn insert_blocks_with_metadata<I>(&self, blocks_with_metadata: I) -> Result<(), DbError>
     where
-        I: IntoIterator<Item = BlockWithMetadata>,
+        I: IntoIterator<Item = BlockWithTransactionMetadata>,
         I::IntoIter: Send + Sync,
     {
         let docs = blocks_with_metadata.into_iter().map(BlockDocument::from);
@@ -247,10 +226,13 @@ impl BlockCollection {
             .aggregate(
                 [
                     doc! { "$match": {
-                        "metadata.block_state": BlockState::Finalized.to_bson(),
+                        "transaction": { "$exists": true },
                         "transaction.transaction_id": transaction_id.to_bson(),
                     } },
-                    doc! { "$project": { "block_id": "$_id", "block": 1 } },
+                    doc! { "$project": {
+                        "_id": 1,
+                        "block": 1,
+                    } },
                 ],
                 None,
             )
@@ -272,7 +254,7 @@ impl BlockCollection {
             .aggregate(
                 [
                     doc! { "$match": {
-                        "metadata.block_state": BlockState::Finalized.to_bson(),
+                        "transaction": { "$exists": true },
                         "transaction.transaction_id": transaction_id.to_bson(),
                     } },
                     doc! { "$project": { "block": 1 } },
@@ -289,17 +271,17 @@ impl BlockCollection {
     pub async fn get_block_metadata_for_transaction(
         &self,
         transaction_id: &TransactionId,
-    ) -> Result<Option<IncludedBlockMetadataResult>, DbError> {
+    ) -> Result<Option<BlockMetadata>, DbError> {
         Ok(self
             .aggregate(
                 [
                     doc! { "$match": {
-                        "metadata.block_state": BlockState::Finalized.to_bson(),
+                        "transaction": { "$exists": true },
                         "transaction.transaction_id": transaction_id.to_bson(),
                     } },
                     doc! { "$project": {
-                        "_id": 1,
-                        "metadata": 1,
+                        "block_id": "$_id",
+                        "block_state": 1,
                     } },
                 ],
                 None,
@@ -309,21 +291,23 @@ impl BlockCollection {
             .await?)
     }
 
-    /// Gets the block containing the spending transaction of an output by [`OutputId`].
-    pub async fn get_spending_transaction(&self, output_id: &OutputId) -> Result<Option<Block>, DbError> {
+    /// Finds the [`TransactionMetadata`] by [`TransactionId`].
+    pub async fn get_transaction_metadata(
+        &self,
+        transaction_id: &TransactionId,
+    ) -> Result<Option<TransactionMetadata>, DbError> {
         Ok(self
             .aggregate(
                 [
                     doc! { "$match": {
-                        "metadata.block_state": BlockState::Finalized.to_bson(),
-                        "inputs.output_id": output_id.to_bson(),
+                        "transaction": { "$exists": true },
+                        "transaction.transaction_id": transaction_id.to_bson(),
                     } },
-                    doc! { "$project": { "block": 1 } },
+                    doc! { "$replaceWith": "$transaction" },
                 ],
                 None,
             )
             .await?
-            .map_ok(|RawResult { block }| block.into_inner())
             .try_next()
             .await?)
     }

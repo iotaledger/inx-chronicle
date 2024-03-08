@@ -11,7 +11,10 @@ use iota_sdk::types::block::{
 use crate::{
     analytics::{Analytics, AnalyticsContext, AnalyticsInterval, IntervalAnalytics},
     db::{mongodb::collections::OutputCollection, MongoDb},
-    model::ledger::{LedgerOutput, LedgerSpent},
+    model::{
+        block_metadata::TransactionMetadata,
+        ledger::{LedgerOutput, LedgerSpent},
+    },
 };
 
 #[derive(Debug, Default)]
@@ -65,6 +68,7 @@ impl Analytics for AddressActivityAnalytics {
     async fn handle_transaction(
         &mut self,
         _payload: &SignedTransactionPayload,
+        _metadata: &TransactionMetadata,
         consumed: &[LedgerSpent],
         created: &[LedgerOutput],
         ctx: &dyn AnalyticsContext,

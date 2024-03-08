@@ -5,7 +5,7 @@ use core::ops::RangeBounds;
 
 use async_trait::async_trait;
 use futures::{stream::BoxStream, StreamExt, TryStreamExt};
-use iota_sdk::types::block::slot::SlotIndex;
+use iota_sdk::types::block::{payload::signed_transaction::TransactionId, slot::SlotIndex};
 use thiserror::Error;
 
 use super::InputSource;
@@ -17,13 +17,19 @@ use crate::{
         },
         MongoDb,
     },
-    model::{block_metadata::BlockWithMetadata, ledger::LedgerUpdateStore, slot::Commitment},
+    model::{
+        block_metadata::{BlockWithMetadata, TransactionMetadata},
+        ledger::LedgerUpdateStore,
+        slot::Commitment,
+    },
 };
 
 #[derive(Debug, Error)]
 pub enum MongoDbInputSourceError {
     #[error("missing commitment for slot index {0}")]
     MissingCommitment(SlotIndex),
+    #[error("missing metadata for transaction {0}")]
+    MissingTransactionMetadata(TransactionId),
     #[error(transparent)]
     MongoDb(#[from] DbError),
 }
@@ -68,10 +74,17 @@ impl InputSource for MongoDb {
     ) -> Result<BoxStream<Result<BlockWithMetadata, Self::Error>>, Self::Error> {
         Ok(Box::pin(
             self.collection::<BlockCollection>()
-                .get_accepted_blocks(index)
+                .get_blocks_by_slot(index)
                 .await?
                 .map_err(Into::into),
         ))
+    }
+
+    async fn transaction_metadata(&self, transaction_id: TransactionId) -> Result<TransactionMetadata, Self::Error> {
+        self.collection::<BlockCollection>()
+            .get_transaction_metadata(&transaction_id)
+            .await?
+            .ok_or(MongoDbInputSourceError::MissingTransactionMetadata(transaction_id))
     }
 
     async fn ledger_updates(&self, index: SlotIndex) -> Result<LedgerUpdateStore, Self::Error> {

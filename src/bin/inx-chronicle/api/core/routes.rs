@@ -21,7 +21,7 @@ use chronicle::{
 use iota_sdk::types::{
     api::core::{
         BaseTokenResponse, BlockMetadataResponse, OutputResponse, OutputWithMetadataResponse,
-        ProtocolParametersResponse, TransactionMetadataResponse, UtxoChangesResponse,
+        ProtocolParametersResponse, UtxoChangesResponse,
     },
     block::{
         output::{
@@ -155,19 +155,11 @@ async fn block(
     Ok(IotaRawResponse::Json((&block).into()))
 }
 
-fn create_block_metadata_response(block_id: BlockId, metadata: BlockMetadata) -> BlockMetadataResponse {
-    BlockMetadataResponse {
-        block_id,
-        block_state: metadata.block_state.into(),
-        block_failure_reason: metadata.block_failure_reason.map(Into::into),
-        transaction_metadata: metadata
-            .transaction_metadata
-            .map(|metadata| TransactionMetadataResponse {
-                transaction_id: metadata.transaction_id,
-                transaction_state: metadata.transaction_state.into(),
-                transaction_failure_reason: metadata.transaction_failure_reason.map(Into::into),
-            }),
-    }
+fn create_block_metadata_response(metadata: BlockMetadata) -> ApiResult<BlockMetadataResponse> {
+    Ok(BlockMetadataResponse {
+        block_id: metadata.block_id,
+        block_state: metadata.block_state.ok_or(MissingError::NoResults)?.into(),
+    })
 }
 
 async fn block_metadata(
@@ -181,15 +173,15 @@ async fn block_metadata(
         .await?
         .ok_or(MissingError::NoResults)?;
 
-    Ok(create_block_metadata_response(block_id, metadata).into())
+    Ok(create_block_metadata_response(metadata)?.into())
 }
 
 fn create_output_metadata_response(
     output_id: OutputId,
     metadata: OutputMetadata,
     latest_commitment_id: SlotCommitmentId,
-) -> ApiResult<OutputMetadataResponse> {
-    Ok(OutputMetadataResponse::new(
+) -> OutputMetadataResponse {
+    OutputMetadataResponse::new(
         output_id,
         metadata.block_id,
         OutputInclusionMetadata::new(
@@ -205,7 +197,7 @@ fn create_output_metadata_response(
             )
         }),
         latest_commitment_id,
-    ))
+    )
 }
 
 async fn output(
@@ -257,7 +249,7 @@ async fn output_metadata(
         .await?
         .ok_or(MissingError::NoResults)?;
 
-    Ok(create_output_metadata_response(metadata.output_id, metadata.metadata, latest_slot.commitment_id)?.into())
+    Ok(create_output_metadata_response(metadata.output_id, metadata.metadata, latest_slot.commitment_id).into())
 }
 
 async fn output_full(
@@ -290,7 +282,7 @@ async fn output_full(
             .as_signed_transaction()
             .transaction()
             .output_id_proof(output_id.index())?,
-        metadata: create_output_metadata_response(output_id, output_with_metadata.metadata, latest_slot.commitment_id)?,
+        metadata: create_output_metadata_response(output_id, output_with_metadata.metadata, latest_slot.commitment_id),
     }
     .into())
 }
@@ -327,15 +319,13 @@ async fn included_block_metadata(
 ) -> ApiResult<IotaResponse<BlockMetadataResponse>> {
     let transaction_id = TransactionId::from_str(&transaction_id).map_err(RequestError::from)?;
 
-    let res = database
+    let metadata = database
         .collection::<BlockCollection>()
         .get_block_metadata_for_transaction(&transaction_id)
         .await?
         .ok_or(MissingError::NoResults)?;
-    let block_id = res.block_id;
-    let metadata = res.metadata;
 
-    Ok(create_block_metadata_response(block_id, metadata).into())
+    Ok(create_block_metadata_response(metadata)?.into())
 }
 
 async fn commitment(

@@ -5,13 +5,17 @@ use core::ops::RangeBounds;
 
 use async_trait::async_trait;
 use futures::{stream::BoxStream, StreamExt, TryStreamExt};
-use iota_sdk::types::block::slot::SlotIndex;
+use iota_sdk::types::block::{payload::signed_transaction::TransactionId, slot::SlotIndex};
 use thiserror::Error;
 
 use super::InputSource;
 use crate::{
     inx::{ledger::MarkerMessage, Inx, InxError, SlotRangeRequest},
-    model::{block_metadata::BlockWithMetadata, ledger::LedgerUpdateStore, slot::Commitment},
+    model::{
+        block_metadata::{BlockWithMetadata, TransactionMetadata},
+        ledger::LedgerUpdateStore,
+        slot::Commitment,
+    },
 };
 
 #[derive(Debug, Error)]
@@ -50,6 +54,11 @@ impl InputSource for Inx {
                 .await?
                 .map_err(Self::Error::from),
         ))
+    }
+
+    async fn transaction_metadata(&self, transaction_id: TransactionId) -> Result<TransactionMetadata, Self::Error> {
+        let mut inx = self.clone();
+        Ok(inx.get_transaction_metadata(transaction_id).await?)
     }
 
     async fn ledger_updates(&self, index: SlotIndex) -> Result<LedgerUpdateStore, Self::Error> {

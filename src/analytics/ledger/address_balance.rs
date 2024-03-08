@@ -15,6 +15,7 @@ use crate::{
     },
     model::{
         address::AddressDto,
+        block_metadata::TransactionMetadata,
         ledger::{LedgerOutput, LedgerSpent},
     },
 };
@@ -81,6 +82,7 @@ impl Analytics for AddressBalancesAnalytics {
     async fn handle_transaction(
         &mut self,
         _payload: &SignedTransactionPayload,
+        _metadata: &TransactionMetadata,
         consumed: &[LedgerSpent],
         created: &[LedgerOutput],
         ctx: &dyn AnalyticsContext,

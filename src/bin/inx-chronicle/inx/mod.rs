@@ -335,7 +335,9 @@ impl InxWorker {
             .try_fold(JoinSet::new(), |mut tasks, batch| async {
                 let db = self.db.clone();
                 tasks.spawn(async move {
-                    db.collection::<ParentsCollection>().insert_blocks(&batch).await?;
+                    db.collection::<ParentsCollection>()
+                        .insert_blocks(batch.iter().map(|data| &data.block))
+                        .await?;
                     db.collection::<BlockCollection>()
                         .insert_blocks_with_metadata(batch)
                         .await?;
