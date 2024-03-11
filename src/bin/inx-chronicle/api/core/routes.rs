@@ -158,7 +158,7 @@ async fn block(
 fn create_block_metadata_response(metadata: BlockMetadata) -> ApiResult<BlockMetadataResponse> {
     Ok(BlockMetadataResponse {
         block_id: metadata.block_id,
-        block_state: metadata.block_state.ok_or(MissingError::NoResults)?.into(),
+        block_state: metadata.block_state.ok_or(MissingError::NoResults)?,
     })
 }
 

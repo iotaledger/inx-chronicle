@@ -59,13 +59,12 @@ impl InputSource for BTreeMap<SlotIndex, InMemoryData> {
 
     async fn transaction_metadata(&self, transaction_id: TransactionId) -> Result<TransactionMetadata, Self::Error> {
         let index = transaction_id.slot_index();
-        Ok(self
+        Ok(*self
             .get(&index)
             .ok_or(InMemoryInputSourceError::MissingBlockData(index))?
             .transaction_metadata
             .get(&transaction_id)
-            .ok_or(InMemoryInputSourceError::MissingTransactionMetadata(transaction_id))?
-            .clone())
+            .ok_or(InMemoryInputSourceError::MissingTransactionMetadata(transaction_id))?)
     }
 
     async fn ledger_updates(&self, index: SlotIndex) -> Result<LedgerUpdateStore, Self::Error> {

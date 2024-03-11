@@ -74,6 +74,7 @@ impl ParentsCollection {
         I::IntoIter: Send + Sync,
     {
         let docs = blocks_with_metadata.into_iter().flat_map(|b| {
+            #[allow(clippy::into_iter_on_ref)]
             match b.block.inner().body() {
                 BlockBody::Basic(b) => b.strong_parents().into_iter(),
                 BlockBody::Validation(b) => b.strong_parents().into_iter(),
