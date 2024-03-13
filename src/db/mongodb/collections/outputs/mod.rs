@@ -71,6 +71,7 @@ pub struct OutputMetadata {
     /// Commitment ID that includes the output.
     pub commitment_id_included: SlotCommitmentId,
     /// Optional spent metadata.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub spent_metadata: Option<SpentMetadata>,
 }
 
@@ -662,7 +663,7 @@ impl OutputCollection {
                 [
                     doc! { "$match": {
                         "_id": output_id.to_bson(),
-                        "metadata.spent_metadata": { "$ne": null }
+                        "metadata.spent_metadata": { "$exists": true }
                     } },
                     doc! { "$replaceWith": "$metadata.spent_metadata" },
                 ],

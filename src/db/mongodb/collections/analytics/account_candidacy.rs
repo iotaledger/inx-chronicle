@@ -26,6 +26,7 @@ pub struct AccountCandidacyDocument {
     pub account_id: AccountId,
     pub staking_start_epoch: EpochIndex,
     pub staking_end_epoch: EpochIndex,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub candidacy_slots: Option<Vec<SlotIndex>>,
 }
 
@@ -55,7 +56,7 @@ impl MongoDbCollection for AccountCandidacyCollection {
                     IndexOptions::builder()
                         .name("candidate_index".to_string())
                         .partial_filter_expression(doc! {
-                            "candidacy_slot": { "$exists": true },
+                            "candidacy_slots": { "$exists": true },
                         })
                         .build(),
                 )

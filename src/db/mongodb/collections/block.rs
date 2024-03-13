@@ -35,12 +35,15 @@ pub struct BlockDocument {
     /// The block.
     block: Raw<Block>,
     /// The block's state.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     block_state: Option<BlockState>,
     /// The index of the slot to which this block commits.
     slot_index: SlotIndex,
     /// The block's payload type.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     payload_type: Option<u8>,
     /// Metadata about the possible transaction payload.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     transaction: Option<TransactionMetadata>,
 }
 

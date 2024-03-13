@@ -17,8 +17,11 @@ use crate::{
 /// The MongoDb document representation of singleton Application State.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct ApplicationStateDocument {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub starting_slot: Option<SlotIndex>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub last_migration: Option<MigrationVersion>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub node_config: Option<NodeConfiguration>,
 }
 
