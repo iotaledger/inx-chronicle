@@ -89,43 +89,14 @@ pub struct DistributionStat {
 }
 
 impl AddressBalanceCollection {
-    /// Add an amount of balance to the given address.
-    pub async fn add_balance(&self, address: &Address, amount: u64) -> Result<(), DbError> {
+    /// Insert a balance for an address.
+    pub async fn insert_balance(&self, address: &Address, balance: u64) -> Result<(), DbError> {
         self.update_one(
             doc! { "_id": AddressDto::from(address) },
-            vec![doc! { "$set": {
-                "balance": {
-                    "$toString": { "$add": [
-                        { "$toDecimal": { "$ifNull": [ "$balance", 0 ] } },
-                        { "$toDecimal": amount.to_string() }
-                    ] }
-                }
-            } }],
+            doc! { "$set": { "balance": balance.to_string() } },
             UpdateOptions::builder().upsert(true).build(),
         )
         .await?;
-        Ok(())
-    }
-
-    /// Remove an amount of balance from the given address.
-    pub async fn remove_balance(&self, address: &Address, amount: u64) -> Result<(), DbError> {
-        let address_dto = AddressDto::from(address);
-        self.update_one(
-            doc! { "_id": &address_dto },
-            vec![doc! { "$set": {
-                "balance": {
-                    "$toString": { "$subtract": [
-                        { "$toDecimal": { "$ifNull": [ "$balance", 0 ] } },
-                        { "$toDecimal": amount.to_string() }
-                    ] }
-                }
-            } }],
-            None,
-        )
-        .await?;
-        if self.get_balance(address).await? == 0 {
-            self.collection().delete_one(doc! { "_id": address_dto }, None).await?;
-        }
         Ok(())
     }
 

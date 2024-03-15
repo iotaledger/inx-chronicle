@@ -1,7 +1,7 @@
 // Copyright 2023 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-use std::collections::HashMap;
+use std::collections::{hash_map::Entry, HashMap};
 
 use futures::prelude::stream::TryStreamExt;
 use iota_sdk::types::block::{payload::SignedTransactionPayload, protocol::ProtocolParameters, slot::SlotIndex};
@@ -53,7 +53,7 @@ impl AddressBalancesAnalytics {
     /// Initialize the analytics by reading the current ledger state.
     pub(crate) async fn init<'a>(
         protocol_parameters: &ProtocolParameters,
-        slot: SlotIndex,
+        _slot: SlotIndex,
         unspent_outputs: impl IntoIterator<Item = &'a LedgerOutput>,
         db: &MongoDb,
     ) -> Result<Self, DbError> {
@@ -61,14 +61,13 @@ impl AddressBalancesAnalytics {
             .collection()
             .drop(None)
             .await?;
-        let mut map = HashMap::new();
+        let mut balances = HashMap::new();
         for output in unspent_outputs {
-            *map.entry(output.locked_address_at(slot, protocol_parameters))
-                .or_default() += output.amount();
+            *balances.entry(output.locked_address(protocol_parameters)).or_default() += output.amount();
         }
-        for (address, balance) in map {
+        for (address, balance) in balances {
             db.collection::<AddressBalanceCollection>()
-                .add_balance(&address, balance)
+                .insert_balance(&address, balance)
                 .await?;
         }
         Ok(AddressBalancesAnalytics)
@@ -87,22 +86,46 @@ impl Analytics for AddressBalancesAnalytics {
         created: &[LedgerOutput],
         ctx: &dyn AnalyticsContext,
     ) -> eyre::Result<()> {
+        let mut balances = HashMap::<_, u64>::new();
+        for output in created {
+            let address = output.locked_address(ctx.protocol_parameters());
+            let mut entry = balances.entry(address.clone());
+            let balance = match entry {
+                Entry::Occupied(ref mut o) => o.get_mut(),
+                Entry::Vacant(v) => {
+                    let balance = ctx
+                        .database()
+                        .collection::<AddressBalanceCollection>()
+                        .get_balance(&address)
+                        .await?;
+                    v.insert(balance)
+                }
+            };
+            *balance += output.amount();
+        }
         for output in consumed {
+            let address = output.output.locked_address(ctx.protocol_parameters());
+            let mut entry = balances.entry(address.clone());
+            let balance = match entry {
+                Entry::Occupied(ref mut o) => o.get_mut(),
+                Entry::Vacant(v) => {
+                    let balance = ctx
+                        .database()
+                        .collection::<AddressBalanceCollection>()
+                        .get_balance(&address)
+                        .await?;
+                    v.insert(balance)
+                }
+            };
+            *balance -= output.amount();
+        }
+        for (address, balance) in balances {
             ctx.database()
                 .collection::<AddressBalanceCollection>()
-                .remove_balance(
-                    &output.output.locked_address(ctx.protocol_parameters()),
-                    output.amount(),
-                )
+                .insert_balance(&address, balance)
                 .await?;
         }
 
-        for output in created {
-            ctx.database()
-                .collection::<AddressBalanceCollection>()
-                .add_balance(&output.locked_address(ctx.protocol_parameters()), output.amount())
-                .await?;
-        }
         Ok(())
     }
 
