@@ -86,9 +86,6 @@ impl IntoResponse for ApiError {
 #[derive(Error, Debug)]
 #[allow(missing_docs)]
 pub enum CorruptStateError {
-    // #[cfg(feature = "poi")]
-    // #[error(transparent)]
-    // PoI(#[from] crate::api::poi::CorruptStateError),
     #[error("no node configuration in the database")]
     NodeConfig,
     #[error("no protocol parameters in the database")]

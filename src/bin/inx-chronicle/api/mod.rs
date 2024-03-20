@@ -14,8 +14,6 @@ pub mod config;
 mod core;
 mod explorer;
 mod indexer;
-// #[cfg(feature = "poi")]
-// mod poi;
 mod router;
 mod routes;
 

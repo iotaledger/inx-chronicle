@@ -43,16 +43,10 @@ const ALWAYS_AVAILABLE_ROUTES: &[&str] = &["/health", "/login", "/routes"];
 const STALE_SLOT_DURATION: Duration = Duration::minutes(5);
 
 pub fn routes(config: Arc<ApiConfigData>) -> Router<ApiState> {
-    #[allow(unused_mut)]
-    let mut router = Router::<ApiState>::new()
+    let router = Router::<ApiState>::new()
         .nest("/core/v3", super::core::routes())
         .nest("/explorer/v3", super::explorer::routes())
         .nest("/indexer/v2", super::indexer::routes());
-
-    // #[cfg(feature = "poi")]
-    // {
-    //     router = router.nest("/poi/v1", super::poi::routes());
-    // }
 
     Router::<ApiState>::new()
         .route("/health", get(health))

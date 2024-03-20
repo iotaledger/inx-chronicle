@@ -89,7 +89,6 @@ default = [
     "api",
     "inx",
     "metrics",
-    "poi",
 ]
 analytics = [
     "influx",
@@ -118,9 +117,6 @@ inx = [
 metrics = [
     "influx",
     "dep:chrono",
-]
-poi = [
-    "api",
 ]
 
 [profile.production]
