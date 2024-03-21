@@ -1,37 +1,51 @@
-// Copyright 2022 IOTA Stiftung
+// Copyright 2023 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
 //! Module containing convenience wrappers around the low-level [`INX`](inx) bindings.
 
-mod block;
-mod client;
+/// The INX client.
+pub mod client;
+mod convert;
 mod error;
-mod id;
-mod ledger;
-mod milestone;
-mod node;
-mod protocol;
-mod raw;
+/// Types for the ledger.
+pub mod ledger;
 mod request;
+pub mod responses;
 
-pub use self::{
-    block::{BlockMessage, BlockMetadataMessage, BlockWithMetadataMessage},
-    client::Inx,
-    error::InxError,
-    ledger::{LedgerUpdateMessage, MarkerMessage, UnspentOutputMessage},
-    milestone::MilestoneAndProtocolParametersMessage,
-    node::{NodeConfigurationMessage, NodeStatusMessage},
-    protocol::RawProtocolParametersMessage,
-    raw::RawMessage,
-    request::MilestoneRangeRequest,
-};
+use inx::proto;
+use iota_sdk::types::block::{output::Output, payload::Payload, slot::SlotCommitment, Block};
 
-/// Tries to access the field of a protobug messages and returns an appropriate error if the field is not present.
-#[macro_export]
-macro_rules! maybe_missing {
-    ($object:ident.$field:ident) => {
-        $object
-            .$field
-            .ok_or($crate::inx::InxError::MissingField(stringify!($field)))?
-    };
+pub use self::{client::Inx, error::InxError, request::SlotRangeRequest};
+use crate::model::raw::{InvalidRawBytesError, Raw};
+
+impl TryFrom<proto::RawOutput> for Raw<Output> {
+    type Error = InvalidRawBytesError;
+
+    fn try_from(value: proto::RawOutput) -> Result<Self, Self::Error> {
+        Raw::from_bytes(value.data)
+    }
+}
+
+impl TryFrom<proto::RawBlock> for Raw<Block> {
+    type Error = InvalidRawBytesError;
+
+    fn try_from(value: proto::RawBlock) -> Result<Self, Self::Error> {
+        Raw::from_bytes(value.data)
+    }
+}
+
+impl TryFrom<proto::RawPayload> for Raw<Payload> {
+    type Error = InvalidRawBytesError;
+
+    fn try_from(value: proto::RawPayload) -> Result<Self, Self::Error> {
+        Raw::from_bytes(value.data)
+    }
+}
+
+impl TryFrom<proto::RawCommitment> for Raw<SlotCommitment> {
+    type Error = InvalidRawBytesError;
+
+    fn try_from(value: proto::RawCommitment) -> Result<Self, Self::Error> {
+        Raw::from_bytes(value.data)
+    }
 }

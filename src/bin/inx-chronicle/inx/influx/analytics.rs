@@ -11,18 +11,18 @@ use chronicle::{
         MongoDb,
     },
     inx::Inx,
-    model::tangle::MilestoneIndex,
-    tangle::Milestone,
+    tangle::Slot,
 };
 use futures::TryStreamExt;
+use iota_sdk::types::block::{protocol::ProtocolParameters, slot::SlotIndex};
 
 use super::InxWorkerError;
-use crate::{cli::analytics::AnalyticsState, inx::InxWorker};
+use crate::inx::InxWorker;
 
 pub struct AnalyticsInfo {
     analytics_choices: HashSet<AnalyticsChoice>,
-    state: Option<AnalyticsState>,
-    pub synced_index: MilestoneIndex,
+    state: Option<Vec<Analytic>>,
+    pub synced_index: SlotIndex,
 }
 
 impl AnalyticsInfo {
@@ -39,8 +39,7 @@ impl AnalyticsInfo {
                     .collection::<ApplicationStateCollection>()
                     .get_starting_index()
                     .await?
-                    .ok_or(InxWorkerError::MissingAppState)?
-                    .milestone_index,
+                    .ok_or(InxWorkerError::MissingAppState)?,
             })
         } else {
             None
@@ -51,7 +50,8 @@ impl AnalyticsInfo {
 impl InxWorker {
     pub async fn update_analytics<'a>(
         &self,
-        milestone: &Milestone<'a, Inx>,
+        slot: &Slot<'a, Inx>,
+        protocol_params: &ProtocolParameters,
         AnalyticsInfo {
             analytics_choices,
             state,
@@ -60,29 +60,26 @@ impl InxWorker {
     ) -> eyre::Result<()> {
         if let (Some(influx_db), analytics_choices) = (&self.influx_db, analytics_choices) {
             if influx_db.config().analytics_enabled {
-                // Check if the protocol params changed (or we just started)
-                if !matches!(&state, Some(state) if state.prev_protocol_params == milestone.protocol_params) {
+                // Check if we just started
+                if state.is_none() {
                     let ledger_state = self
                         .db
                         .collection::<OutputCollection>()
-                        .get_unspent_output_stream(milestone.at.milestone_index - 1)
+                        .get_unspent_output_stream(slot.index().0.saturating_sub(1).into())
                         .await?
                         .try_collect::<Vec<_>>()
                         .await?;
 
-                    let analytics = analytics_choices
-                        .iter()
-                        .map(|choice| Analytic::init(choice, &milestone.protocol_params, &ledger_state))
-                        .collect::<Vec<_>>();
-                    *state = Some(AnalyticsState {
-                        analytics,
-                        prev_protocol_params: milestone.protocol_params.clone(),
-                    });
+                    *state = Some(
+                        futures::future::try_join_all(analytics_choices.iter().map(|choice| {
+                            Analytic::init(choice, slot.index(), protocol_params, &ledger_state, &self.db)
+                        }))
+                        .await?,
+                    );
                 }
 
                 // Unwrap: safe because we guarantee it is initialized above
-                milestone
-                    .update_analytics(&mut state.as_mut().unwrap().analytics, influx_db)
+                slot.update_analytics(protocol_params, &mut state.as_mut().unwrap(), &self.db, influx_db)
                     .await?;
             }
         }

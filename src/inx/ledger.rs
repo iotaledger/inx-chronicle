@@ -1,45 +1,77 @@
-// Copyright 2022 IOTA Stiftung
+// Copyright 2023 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-use iota_sdk::types::block as iota;
-use packable::PackableExt;
-
-use super::InxError;
-use crate::{
-    maybe_missing,
-    model::{
-        ledger::{LedgerOutput, LedgerSpent},
-        metadata::{ConflictReason, LedgerInclusionState},
-        tangle::MilestoneIndex,
-        TryFromWithContext, TryIntoWithContext,
+use inx::proto;
+use iota_sdk::types::{
+    api::core::{BlockState, TransactionState},
+    block::{
+        payload::signed_transaction::TransactionId,
+        semantic::TransactionFailureReason,
+        slot::{SlotCommitmentId, SlotIndex},
     },
 };
 
+use super::{
+    convert::{ConvertFrom, TryConvertFrom, TryConvertTo},
+    InxError,
+};
+use crate::{
+    maybe_missing,
+    model::ledger::{LedgerOutput, LedgerSpent},
+};
+
+impl TryConvertFrom<proto::LedgerOutput> for LedgerOutput {
+    type Error = InxError;
+
+    fn try_convert_from(proto: proto::LedgerOutput) -> Result<Self, Self::Error> {
+        Ok(Self {
+            output_id: maybe_missing!(proto.output_id).try_convert()?,
+            block_id: maybe_missing!(proto.block_id).try_convert()?,
+            slot_booked: proto.slot_booked.into(),
+            commitment_id_included: maybe_missing!(proto.commitment_id_included).try_convert()?,
+            output: maybe_missing!(proto.output).try_into()?,
+        })
+    }
+}
+
+impl TryConvertFrom<proto::LedgerSpent> for LedgerSpent {
+    type Error = InxError;
+
+    fn try_convert_from(proto: proto::LedgerSpent) -> Result<Self, Self::Error> {
+        Ok(Self {
+            output: maybe_missing!(proto.output).try_convert()?,
+            commitment_id_spent: maybe_missing!(proto.commitment_id_spent).try_convert()?,
+            transaction_id_spent: maybe_missing!(proto.transaction_id_spent).try_convert()?,
+            slot_spent: proto.slot_spent.into(),
+        })
+    }
+}
+
 #[allow(missing_docs)]
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct UnspentOutputMessage {
-    pub ledger_index: MilestoneIndex,
+pub struct UnspentOutput {
+    pub latest_commitment_id: SlotCommitmentId,
     pub output: LedgerOutput,
 }
 
 #[allow(missing_docs)]
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct MarkerMessage {
-    pub milestone_index: MilestoneIndex,
+    pub slot_index: SlotIndex,
     pub consumed_count: usize,
     pub created_count: usize,
 }
 
 #[allow(missing_docs)]
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub enum LedgerUpdateMessage {
+pub enum LedgerUpdate {
     Consumed(LedgerSpent),
     Created(LedgerOutput),
     Begin(MarkerMessage),
     End(MarkerMessage),
 }
 
-impl LedgerUpdateMessage {
+impl LedgerUpdate {
     /// If present, returns the contained `LedgerSpent` while consuming `self`.
     pub fn consumed(self) -> Option<LedgerSpent> {
         match self {
@@ -56,7 +88,7 @@ impl LedgerUpdateMessage {
         }
     }
 
-    /// If present, returns the `Marker` that denotes the beginning of a milestone while consuming `self`.
+    /// If present, returns the `Marker` that denotes the beginning of a slot while consuming `self`.
     pub fn begin(self) -> Option<MarkerMessage> {
         match self {
             Self::Begin(marker) => Some(marker),
@@ -73,145 +105,230 @@ impl LedgerUpdateMessage {
     }
 }
 
-impl From<inx::proto::ledger_update::Marker> for MarkerMessage {
-    fn from(value: inx::proto::ledger_update::Marker) -> Self {
-        Self {
-            milestone_index: value.milestone_index.into(),
+impl TryConvertFrom<inx::proto::ledger_update::Marker> for MarkerMessage {
+    type Error = InxError;
+
+    fn try_convert_from(value: inx::proto::ledger_update::Marker) -> Result<Self, Self::Error> {
+        Ok(Self {
+            slot_index: SlotCommitmentId::try_convert_from(maybe_missing!(value.commitment_id))?.slot_index(),
             consumed_count: value.consumed_count as usize,
             created_count: value.created_count as usize,
-        }
+        })
     }
 }
 
-impl From<inx::proto::ledger_update::Marker> for LedgerUpdateMessage {
-    fn from(value: inx::proto::ledger_update::Marker) -> Self {
+impl TryConvertFrom<inx::proto::ledger_update::Marker> for LedgerUpdate {
+    type Error = InxError;
+
+    fn try_convert_from(value: inx::proto::ledger_update::Marker) -> Result<Self, Self::Error> {
         use inx::proto::ledger_update::marker::MarkerType as proto;
-        match value.marker_type() {
-            proto::Begin => Self::Begin(value.into()),
-            proto::End => Self::End(value.into()),
-        }
+        Ok(match value.marker_type() {
+            proto::Begin => Self::Begin(value.try_convert()?),
+            proto::End => Self::End(value.try_convert()?),
+        })
     }
 }
 
-impl TryFrom<inx::proto::LedgerUpdate> for LedgerUpdateMessage {
+#[allow(missing_docs)]
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct AcceptedTransaction {
+    pub transaction_id: TransactionId,
+    pub slot_index: SlotIndex,
+    pub consumed: Vec<LedgerSpent>,
+    pub created: Vec<LedgerOutput>,
+}
+
+impl TryConvertFrom<inx::proto::LedgerUpdate> for LedgerUpdate {
     type Error = InxError;
 
-    fn try_from(value: inx::proto::LedgerUpdate) -> Result<Self, Self::Error> {
+    fn try_convert_from(proto: inx::proto::LedgerUpdate) -> Result<Self, Self::Error> {
         use inx::proto::ledger_update::Op as proto;
-        Ok(match maybe_missing!(value.op) {
-            proto::BatchMarker(marker) => marker.into(),
-            proto::Consumed(consumed) => LedgerUpdateMessage::Consumed(consumed.try_into()?),
-            proto::Created(created) => LedgerUpdateMessage::Created(created.try_into()?),
+        Ok(match maybe_missing!(proto.op) {
+            proto::BatchMarker(marker) => marker.try_convert()?,
+            proto::Consumed(consumed) => LedgerUpdate::Consumed(consumed.try_convert()?),
+            proto::Created(created) => LedgerUpdate::Created(created.try_convert()?),
         })
     }
 }
 
-impl TryFrom<inx::proto::UnspentOutput> for UnspentOutputMessage {
+impl TryConvertFrom<inx::proto::UnspentOutput> for UnspentOutput {
     type Error = InxError;
 
-    fn try_from(value: inx::proto::UnspentOutput) -> Result<Self, Self::Error> {
+    fn try_convert_from(proto: inx::proto::UnspentOutput) -> Result<Self, Self::Error> {
         Ok(Self {
-            ledger_index: value.ledger_index.into(),
-            output: maybe_missing!(value.output).try_into()?,
+            latest_commitment_id: maybe_missing!(proto.latest_commitment_id).try_convert()?,
+            output: maybe_missing!(proto.output).try_convert()?,
         })
     }
 }
 
-impl TryFromWithContext<UnspentOutputMessage> for inx::proto::UnspentOutput {
-    type Error = iota::Error;
+impl TryConvertFrom<inx::proto::AcceptedTransaction> for AcceptedTransaction {
+    type Error = InxError;
 
-    fn try_from_with_context(
-        ctx: &iota::protocol::ProtocolParameters,
-        value: UnspentOutputMessage,
-    ) -> Result<Self, Self::Error> {
+    fn try_convert_from(proto: inx::proto::AcceptedTransaction) -> Result<Self, Self::Error> {
         Ok(Self {
-            ledger_index: value.ledger_index.0,
-            output: Some(value.output.try_into_with_context(ctx)?),
+            transaction_id: maybe_missing!(proto.transaction_id).try_convert()?,
+            slot_index: proto.slot.into(),
+            consumed: proto
+                .consumed
+                .into_iter()
+                .map(TryConvertTo::try_convert)
+                .collect::<Result<_, _>>()?,
+            created: proto
+                .created
+                .into_iter()
+                .map(TryConvertTo::try_convert)
+                .collect::<Result<_, _>>()?,
         })
     }
 }
 
-impl TryFromWithContext<LedgerOutput> for inx::proto::LedgerOutput {
-    type Error = iota::Error;
-
-    fn try_from_with_context(
-        ctx: &iota::protocol::ProtocolParameters,
-        value: LedgerOutput,
-    ) -> Result<Self, Self::Error> {
-        let bee_output = iota::output::Output::try_from_with_context(ctx, value.output)?;
-
-        Ok(Self {
-            block_id: Some(value.block_id.into()),
-            milestone_index_booked: value.booked.milestone_index.0,
-            milestone_timestamp_booked: value.booked.milestone_timestamp.0,
-            output: Some(inx::proto::RawOutput {
-                data: bee_output.pack_to_vec(),
-            }),
-            output_id: Some(value.output_id.into()),
+impl ConvertFrom<proto::block_metadata::BlockState> for Option<BlockState> {
+    fn convert_from(proto: proto::block_metadata::BlockState) -> Self {
+        use proto::block_metadata::BlockState as ProtoState;
+        Some(match proto {
+            ProtoState::Pending => BlockState::Pending,
+            ProtoState::Confirmed => BlockState::Confirmed,
+            ProtoState::Finalized => BlockState::Finalized,
+            ProtoState::Dropped => BlockState::Dropped,
+            ProtoState::Orphaned => BlockState::Orphaned,
+            ProtoState::Accepted => BlockState::Accepted,
+            ProtoState::Unknown => return None,
         })
     }
 }
 
-impl From<inx::proto::block_metadata::LedgerInclusionState> for LedgerInclusionState {
-    fn from(value: inx::proto::block_metadata::LedgerInclusionState) -> Self {
-        use inx::proto::block_metadata::LedgerInclusionState;
-        match value {
-            LedgerInclusionState::Included => Self::Included,
-            LedgerInclusionState::NoTransaction => Self::NoTransaction,
-            LedgerInclusionState::Conflicting => Self::Conflicting,
-        }
+impl ConvertFrom<proto::transaction_metadata::TransactionState> for Option<TransactionState> {
+    fn convert_from(proto: proto::transaction_metadata::TransactionState) -> Self {
+        use proto::transaction_metadata::TransactionState as ProtoState;
+        Some(match proto {
+            ProtoState::Pending => TransactionState::Pending,
+            ProtoState::Committed => TransactionState::Committed,
+            ProtoState::Finalized => TransactionState::Finalized,
+            ProtoState::Failed => TransactionState::Failed,
+            ProtoState::Accepted => TransactionState::Accepted,
+            ProtoState::Unknown => return None,
+        })
     }
 }
 
-impl From<LedgerInclusionState> for inx::proto::block_metadata::LedgerInclusionState {
-    fn from(value: LedgerInclusionState) -> Self {
-        match value {
-            LedgerInclusionState::Included => Self::Included,
-            LedgerInclusionState::NoTransaction => Self::NoTransaction,
-            LedgerInclusionState::Conflicting => Self::Conflicting,
-        }
-    }
-}
-
-impl From<inx::proto::block_metadata::ConflictReason> for ConflictReason {
-    fn from(value: inx::proto::block_metadata::ConflictReason) -> Self {
-        use ::inx::proto::block_metadata::ConflictReason;
-        match value {
-            ConflictReason::None => Self::None,
-            ConflictReason::InputAlreadySpent => Self::InputUtxoAlreadySpent,
-            ConflictReason::InputAlreadySpentInThisMilestone => Self::InputUtxoAlreadySpentInThisMilestone,
-            ConflictReason::InputNotFound => Self::InputUtxoNotFound,
-            ConflictReason::InputOutputSumMismatch => Self::CreatedConsumedAmountMismatch,
-            ConflictReason::InvalidSignature => Self::InvalidSignature,
-            ConflictReason::TimelockNotExpired => Self::TimelockNotExpired,
-            ConflictReason::InvalidNativeTokens => Self::InvalidNativeTokens,
-            ConflictReason::ReturnAmountNotFulfilled => Self::StorageDepositReturnUnfulfilled,
-            ConflictReason::InvalidInputUnlock => Self::InvalidUnlock,
-            ConflictReason::InvalidInputsCommitment => Self::InputsCommitmentsMismatch,
-            ConflictReason::InvalidSender => Self::UnverifiedSender,
-            ConflictReason::InvalidChainStateTransition => Self::InvalidChainStateTransition,
-            ConflictReason::SemanticValidationFailed => Self::SemanticValidationFailed,
-        }
-    }
-}
-
-impl From<ConflictReason> for inx::proto::block_metadata::ConflictReason {
-    fn from(value: ConflictReason) -> Self {
-        match value {
-            ConflictReason::None => Self::None,
-            ConflictReason::InputUtxoAlreadySpent => Self::InputAlreadySpent,
-            ConflictReason::InputUtxoAlreadySpentInThisMilestone => Self::InputAlreadySpentInThisMilestone,
-            ConflictReason::InputUtxoNotFound => Self::InputNotFound,
-            ConflictReason::CreatedConsumedAmountMismatch => Self::InputOutputSumMismatch,
-            ConflictReason::InvalidSignature => Self::InvalidSignature,
-            ConflictReason::TimelockNotExpired => Self::TimelockNotExpired,
-            ConflictReason::InvalidNativeTokens => Self::InvalidNativeTokens,
-            ConflictReason::StorageDepositReturnUnfulfilled => Self::ReturnAmountNotFulfilled,
-            ConflictReason::InvalidUnlock => Self::InvalidInputUnlock,
-            ConflictReason::InputsCommitmentsMismatch => Self::InvalidInputsCommitment,
-            ConflictReason::UnverifiedSender => Self::InvalidSender,
-            ConflictReason::InvalidChainStateTransition => Self::InvalidChainStateTransition,
-            ConflictReason::SemanticValidationFailed => Self::SemanticValidationFailed,
-        }
+impl ConvertFrom<proto::transaction_metadata::TransactionFailureReason> for Option<TransactionFailureReason> {
+    fn convert_from(proto: proto::transaction_metadata::TransactionFailureReason) -> Self {
+        use proto::transaction_metadata::TransactionFailureReason as ProtoState;
+        Some(match proto {
+            ProtoState::None => return None,
+            ProtoState::ConflictRejected => TransactionFailureReason::ConflictRejected,
+            ProtoState::Orphaned => TransactionFailureReason::Orphaned,
+            ProtoState::InputAlreadySpent => TransactionFailureReason::InputAlreadySpent,
+            ProtoState::InputCreationAfterTxCreation => TransactionFailureReason::InputCreationAfterTxCreation,
+            ProtoState::UnlockSignatureInvalid => TransactionFailureReason::UnlockSignatureInvalid,
+            ProtoState::ChainAddressUnlockInvalid => TransactionFailureReason::ChainAddressUnlockInvalid,
+            ProtoState::DirectUnlockableAddressUnlockInvalid => {
+                TransactionFailureReason::DirectUnlockableAddressUnlockInvalid
+            }
+            ProtoState::MultiAddressUnlockInvalid => TransactionFailureReason::MultiAddressUnlockInvalid,
+            ProtoState::CommitmentInputReferenceInvalid => TransactionFailureReason::CommitmentInputReferenceInvalid,
+            ProtoState::BicInputReferenceInvalid => TransactionFailureReason::BicInputReferenceInvalid,
+            ProtoState::RewardInputReferenceInvalid => TransactionFailureReason::RewardInputReferenceInvalid,
+            ProtoState::StakingRewardCalculationFailure => TransactionFailureReason::StakingRewardCalculationFailure,
+            ProtoState::DelegationRewardCalculationFailure => {
+                TransactionFailureReason::DelegationRewardCalculationFailure
+            }
+            ProtoState::InputOutputBaseTokenMismatch => TransactionFailureReason::InputOutputBaseTokenMismatch,
+            ProtoState::ManaOverflow => TransactionFailureReason::ManaOverflow,
+            ProtoState::InputOutputManaMismatch => TransactionFailureReason::InputOutputManaMismatch,
+            ProtoState::ManaDecayCreationIndexExceedsTargetIndex => {
+                TransactionFailureReason::ManaDecayCreationIndexExceedsTargetIndex
+            }
+            ProtoState::NativeTokenSumUnbalanced => TransactionFailureReason::NativeTokenSumUnbalanced,
+            ProtoState::SimpleTokenSchemeMintedMeltedTokenDecrease => {
+                TransactionFailureReason::SimpleTokenSchemeMintedMeltedTokenDecrease
+            }
+            ProtoState::SimpleTokenSchemeMintingInvalid => TransactionFailureReason::SimpleTokenSchemeMintingInvalid,
+            ProtoState::SimpleTokenSchemeMeltingInvalid => TransactionFailureReason::SimpleTokenSchemeMeltingInvalid,
+            ProtoState::SimpleTokenSchemeMaximumSupplyChanged => {
+                TransactionFailureReason::SimpleTokenSchemeMaximumSupplyChanged
+            }
+            ProtoState::SimpleTokenSchemeGenesisInvalid => TransactionFailureReason::SimpleTokenSchemeGenesisInvalid,
+            ProtoState::MultiAddressLengthUnlockLengthMismatch => {
+                TransactionFailureReason::MultiAddressLengthUnlockLengthMismatch
+            }
+            ProtoState::MultiAddressUnlockThresholdNotReached => {
+                TransactionFailureReason::MultiAddressUnlockThresholdNotReached
+            }
+            ProtoState::SenderFeatureNotUnlocked => TransactionFailureReason::SenderFeatureNotUnlocked,
+            ProtoState::IssuerFeatureNotUnlocked => TransactionFailureReason::IssuerFeatureNotUnlocked,
+            ProtoState::StakingRewardInputMissing => TransactionFailureReason::StakingRewardInputMissing,
+            ProtoState::StakingCommitmentInputMissing => TransactionFailureReason::StakingCommitmentInputMissing,
+            ProtoState::StakingRewardClaimingInvalid => TransactionFailureReason::StakingRewardClaimingInvalid,
+            ProtoState::StakingFeatureRemovedBeforeUnbonding => {
+                TransactionFailureReason::StakingFeatureRemovedBeforeUnbonding
+            }
+            ProtoState::StakingFeatureModifiedBeforeUnbonding => {
+                TransactionFailureReason::StakingFeatureModifiedBeforeUnbonding
+            }
+            ProtoState::StakingStartEpochInvalid => TransactionFailureReason::StakingStartEpochInvalid,
+            ProtoState::StakingEndEpochTooEarly => TransactionFailureReason::StakingEndEpochTooEarly,
+            ProtoState::BlockIssuerCommitmentInputMissing => {
+                TransactionFailureReason::BlockIssuerCommitmentInputMissing
+            }
+            ProtoState::BlockIssuanceCreditInputMissing => TransactionFailureReason::BlockIssuanceCreditInputMissing,
+            ProtoState::BlockIssuerNotExpired => TransactionFailureReason::BlockIssuerNotExpired,
+            ProtoState::BlockIssuerExpiryTooEarly => TransactionFailureReason::BlockIssuerExpiryTooEarly,
+            ProtoState::ManaMovedOffBlockIssuerAccount => TransactionFailureReason::ManaMovedOffBlockIssuerAccount,
+            ProtoState::AccountLocked => TransactionFailureReason::AccountLocked,
+            ProtoState::TimelockCommitmentInputMissing => TransactionFailureReason::TimelockCommitmentInputMissing,
+            ProtoState::TimelockNotExpired => TransactionFailureReason::TimelockNotExpired,
+            ProtoState::ExpirationCommitmentInputMissing => TransactionFailureReason::ExpirationCommitmentInputMissing,
+            ProtoState::ExpirationNotUnlockable => TransactionFailureReason::ExpirationNotUnlockable,
+            ProtoState::ReturnAmountNotFulFilled => TransactionFailureReason::ReturnAmountNotFulFilled,
+            ProtoState::NewChainOutputHasNonZeroedId => TransactionFailureReason::NewChainOutputHasNonZeroedId,
+            ProtoState::ChainOutputImmutableFeaturesChanged => {
+                TransactionFailureReason::ChainOutputImmutableFeaturesChanged
+            }
+            ProtoState::ImplicitAccountDestructionDisallowed => {
+                TransactionFailureReason::ImplicitAccountDestructionDisallowed
+            }
+            ProtoState::MultipleImplicitAccountCreationAddresses => {
+                TransactionFailureReason::MultipleImplicitAccountCreationAddresses
+            }
+            ProtoState::AccountInvalidFoundryCounter => TransactionFailureReason::AccountInvalidFoundryCounter,
+            ProtoState::AnchorInvalidStateTransition => TransactionFailureReason::AnchorInvalidStateTransition,
+            ProtoState::AnchorInvalidGovernanceTransition => {
+                TransactionFailureReason::AnchorInvalidGovernanceTransition
+            }
+            ProtoState::FoundryTransitionWithoutAccount => TransactionFailureReason::FoundryTransitionWithoutAccount,
+            ProtoState::FoundrySerialInvalid => TransactionFailureReason::FoundrySerialInvalid,
+            ProtoState::DelegationCommitmentInputMissing => TransactionFailureReason::DelegationCommitmentInputMissing,
+            ProtoState::DelegationRewardInputMissing => TransactionFailureReason::DelegationRewardInputMissing,
+            ProtoState::DelegationRewardsClaimingInvalid => TransactionFailureReason::DelegationRewardsClaimingInvalid,
+            ProtoState::DelegationOutputTransitionedTwice => {
+                TransactionFailureReason::DelegationOutputTransitionedTwice
+            }
+            ProtoState::DelegationModified => TransactionFailureReason::DelegationModified,
+            ProtoState::DelegationStartEpochInvalid => TransactionFailureReason::DelegationStartEpochInvalid,
+            ProtoState::DelegationAmountMismatch => TransactionFailureReason::DelegationAmountMismatch,
+            ProtoState::DelegationEndEpochNotZero => TransactionFailureReason::DelegationEndEpochNotZero,
+            ProtoState::DelegationEndEpochInvalid => TransactionFailureReason::DelegationEndEpochInvalid,
+            ProtoState::CapabilitiesNativeTokenBurningNotAllowed => {
+                TransactionFailureReason::CapabilitiesNativeTokenBurningNotAllowed
+            }
+            ProtoState::CapabilitiesManaBurningNotAllowed => {
+                TransactionFailureReason::CapabilitiesManaBurningNotAllowed
+            }
+            ProtoState::CapabilitiesAccountDestructionNotAllowed => {
+                TransactionFailureReason::CapabilitiesAccountDestructionNotAllowed
+            }
+            ProtoState::CapabilitiesAnchorDestructionNotAllowed => {
+                TransactionFailureReason::CapabilitiesAnchorDestructionNotAllowed
+            }
+            ProtoState::CapabilitiesFoundryDestructionNotAllowed => {
+                TransactionFailureReason::CapabilitiesFoundryDestructionNotAllowed
+            }
+            ProtoState::CapabilitiesNftDestructionNotAllowed => {
+                TransactionFailureReason::CapabilitiesNftDestructionNotAllowed
+            }
+            ProtoState::SemanticValidationFailed => TransactionFailureReason::SemanticValidationFailed,
+        })
     }
 }

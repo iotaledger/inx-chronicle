@@ -1,4 +1,4 @@
-// Copyright 2022 IOTA Stiftung
+// Copyright 2023 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
 //! Module containing the time-series metrics model.
@@ -8,14 +8,14 @@ use influxdb::InfluxDbWriteable;
 use mongodb::bson::doc;
 use serde::{Deserialize, Serialize};
 
-use crate::{db::influxdb::InfluxDbMeasurement, model::tangle::MilestoneIndex};
+use crate::db::influxdb::InfluxDbMeasurement;
 
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize, InfluxDbWriteable)]
 #[allow(missing_docs)]
 pub struct SyncMetrics {
     pub time: DateTime<Utc>,
-    pub milestone_index: MilestoneIndex,
-    pub milestone_time: u64,
+    pub slot_index: u32,
+    pub slot_time: u64,
     #[influxdb(tag)]
     pub chronicle_version: String,
 }
@@ -25,7 +25,7 @@ pub struct SyncMetrics {
 #[allow(missing_docs)]
 pub struct AnalyticsMetrics {
     pub time: DateTime<Utc>,
-    pub milestone_index: MilestoneIndex,
+    pub slot_index: u32,
     pub analytics_time: u64,
     #[influxdb(tag)]
     pub chronicle_version: String,

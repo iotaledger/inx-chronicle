@@ -5,60 +5,40 @@
 pub(crate) mod inx;
 pub(crate) mod memory;
 pub(crate) mod mongodb;
-use std::ops::RangeBounds;
+
+use core::ops::RangeBounds;
 
 use async_trait::async_trait;
 use futures::stream::BoxStream;
+use iota_sdk::types::block::{payload::signed_transaction::TransactionId, slot::SlotIndex};
 
-use super::ledger_updates::LedgerUpdateStore;
 use crate::model::{
-    metadata::BlockMetadata,
-    node::NodeConfiguration,
-    payload::{MilestoneId, MilestonePayload},
-    protocol::ProtocolParameters,
-    tangle::{MilestoneIndex, MilestoneIndexTimestamp},
-    Block, BlockId,
+    block_metadata::{BlockWithMetadata, TransactionMetadata},
+    ledger::LedgerUpdateStore,
+    slot::Commitment,
 };
 
-/// Logical grouping of data that belongs to a milestone.
-#[allow(missing_docs)]
-#[derive(Clone, Debug)]
-pub struct MilestoneData {
-    pub milestone_id: MilestoneId,
-    pub at: MilestoneIndexTimestamp,
-    pub payload: MilestonePayload,
-    pub protocol_params: ProtocolParameters,
-    pub node_config: NodeConfiguration,
-}
-
-/// Logical grouping of data that belongs to a block.
-#[allow(missing_docs)]
-#[derive(Clone, Debug)]
-pub struct BlockData {
-    pub block_id: BlockId,
-    pub block: Block,
-    pub raw: Vec<u8>,
-    pub metadata: BlockMetadata,
-}
-
-/// Defines a type as a source for milestone and cone stream data.
+/// Defines a type as a source for block and ledger update data.
 #[async_trait]
 pub trait InputSource: Send + Sync {
     /// The error type for this input source.
     type Error: 'static + std::error::Error + std::fmt::Debug + Send + Sync;
 
-    /// Retrieves a stream of milestones and their protocol parameters given a range of indexes.
-    async fn milestone_stream(
+    /// A stream of slots and their commitment data.
+    async fn commitment_stream(
         &self,
-        range: impl RangeBounds<MilestoneIndex> + Send,
-    ) -> Result<BoxStream<Result<MilestoneData, Self::Error>>, Self::Error>;
+        range: impl RangeBounds<SlotIndex> + Send,
+    ) -> Result<BoxStream<Result<Commitment, Self::Error>>, Self::Error>;
 
-    /// Retrieves a stream of blocks and their metadata in white-flag order given a milestone index.
-    async fn cone_stream(
+    /// A stream of accepted blocks for a given slot index.
+    async fn accepted_blocks(
         &self,
-        index: MilestoneIndex,
-    ) -> Result<BoxStream<Result<BlockData, Self::Error>>, Self::Error>;
+        index: SlotIndex,
+    ) -> Result<BoxStream<Result<BlockWithMetadata, Self::Error>>, Self::Error>;
 
-    /// Retrieves the updates to the ledger for a given milestone.
-    async fn ledger_updates(&self, index: MilestoneIndex) -> Result<LedgerUpdateStore, Self::Error>;
+    /// Retrieves metadata for a given transaction id.
+    async fn transaction_metadata(&self, transaction_id: TransactionId) -> Result<TransactionMetadata, Self::Error>;
+
+    /// Retrieves the updates to the ledger for a given range of slots.
+    async fn ledger_updates(&self, index: SlotIndex) -> Result<LedgerUpdateStore, Self::Error>;
 }

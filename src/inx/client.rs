@@ -1,16 +1,21 @@
-// Copyright 2022 IOTA Stiftung
+// Copyright 2023 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
 use futures::stream::{Stream, StreamExt};
 use inx::{client::InxClient, proto};
+use iota_sdk::types::block::{payload::signed_transaction::TransactionId, slot::SlotIndex};
+use packable::PackableExt;
 
 use super::{
-    block::BlockWithMetadataMessage,
-    ledger::UnspentOutputMessage,
-    milestone::{MilestoneAndProtocolParametersMessage, MilestoneMessage},
-    node::NodeConfigurationMessage,
-    request::MilestoneRequest,
-    InxError, LedgerUpdateMessage, MilestoneRangeRequest, NodeStatusMessage, RawProtocolParametersMessage,
+    convert::TryConvertTo,
+    ledger::{LedgerUpdate, UnspentOutput},
+    request::SlotRangeRequest,
+    InxError,
+};
+use crate::model::{
+    block_metadata::{BlockWithMetadata, TransactionMetadata},
+    node::{NodeConfiguration, NodeStatus},
+    slot::Commitment,
 };
 
 /// An INX client connection.
@@ -19,106 +24,89 @@ pub struct Inx {
     inx: InxClient<inx::tonic::transport::Channel>,
 }
 
-fn unpack_proto_msg<Proto, T>(msg: Result<Proto, tonic::Status>) -> Result<T, InxError>
-where
-    T: TryFrom<Proto, Error = InxError>,
-{
-    let inner = msg.map_err(InxError::StatusCode)?;
-    T::try_from(inner)
-}
-
 impl Inx {
     /// Connect to the INX interface of a node.
-    pub async fn connect(address: String) -> Result<Self, InxError> {
+    pub async fn connect(address: &str) -> Result<Self, InxError> {
         Ok(Self {
-            inx: InxClient::connect(address).await?,
+            inx: InxClient::connect(address.to_owned()).await?,
         })
     }
 
-    /// Convenience wrapper that listen to ledger updates as a stream of
-    /// [`MilestoneAndProtocolParametersMessages`](MilestoneAndProtocolParametersMessage).
-    pub async fn listen_to_confirmed_milestones(
+    /// Get the status of the node.
+    pub async fn get_node_status(&mut self) -> Result<NodeStatus, InxError> {
+        self.inx.read_node_status(proto::NoParams {}).await?.try_convert()
+    }
+
+    /// Get the configuration of the node.
+    pub async fn get_node_configuration(&mut self) -> Result<NodeConfiguration, InxError> {
+        self.inx
+            .read_node_configuration(proto::NoParams {})
+            .await?
+            .try_convert()
+    }
+
+    /// Get a stream of committed slots.
+    pub async fn get_committed_slots(
         &mut self,
-        request: MilestoneRangeRequest,
-    ) -> Result<impl Stream<Item = Result<MilestoneAndProtocolParametersMessage, InxError>>, InxError> {
+        request: SlotRangeRequest,
+    ) -> Result<impl Stream<Item = Result<Commitment, InxError>>, InxError> {
         Ok(self
             .inx
-            .listen_to_confirmed_milestones(proto::MilestoneRangeRequest::from(request))
+            .listen_to_commitments(proto::SlotRangeRequest::from(request))
             .await?
             .into_inner()
-            .map(unpack_proto_msg))
+            .map(|msg| msg?.try_convert()))
     }
 
-    /// Convenience wrapper that listen to ledger updates as a stream of [`NodeStatusMessages`](NodeStatusMessage).
-    pub async fn listen_to_ledger_updates(
+    /// Get accepted blocks for a given slot.
+    pub async fn get_accepted_blocks_for_slot(
         &mut self,
-        request: MilestoneRangeRequest,
-    ) -> Result<impl Stream<Item = Result<LedgerUpdateMessage, InxError>>, InxError> {
+        SlotIndex(slot): SlotIndex,
+    ) -> Result<impl Stream<Item = Result<BlockWithMetadata, InxError>>, InxError> {
         Ok(self
             .inx
-            .listen_to_ledger_updates(inx::proto::MilestoneRangeRequest::from(request))
+            .read_accepted_blocks(proto::SlotRequest { slot })
             .await?
             .into_inner()
-            .map(unpack_proto_msg))
+            .map(|msg| msg?.try_convert()))
     }
 
-    /// Convenience wrapper that reads the status of the node into a [`NodeStatusMessage`].
-    pub async fn read_node_status(&mut self) -> Result<NodeStatusMessage, InxError> {
-        NodeStatusMessage::try_from(self.inx.read_node_status(proto::NoParams {}).await?.into_inner())
-    }
-
-    /// Convenience wrapper that reads the configuration of the node into a [`NodeConfigurationMessage`].
-    pub async fn read_node_configuration(&mut self) -> Result<NodeConfigurationMessage, InxError> {
-        NodeConfigurationMessage::try_from(self.inx.read_node_configuration(proto::NoParams {}).await?.into_inner())
-    }
-
-    /// Convenience wrapper that reads the current unspent outputs into an [`UnspentOutputMessage`].
-    pub async fn read_unspent_outputs(
+    /// Get the associated metadata by transaction id.
+    pub async fn get_transaction_metadata(
         &mut self,
-    ) -> Result<impl Stream<Item = Result<UnspentOutputMessage, InxError>>, InxError> {
+        transaction_id: TransactionId,
+    ) -> Result<TransactionMetadata, InxError> {
+        self.inx
+            .read_transaction_metadata(proto::TransactionId {
+                id: transaction_id.pack_to_vec(),
+            })
+            .await?
+            .into_inner()
+            .try_convert()
+    }
+
+    /// Read the current unspent outputs.
+    pub async fn get_unspent_outputs(
+        &mut self,
+    ) -> Result<impl Stream<Item = Result<UnspentOutput, InxError>>, InxError> {
         Ok(self
             .inx
             .read_unspent_outputs(proto::NoParams {})
             .await?
             .into_inner()
-            .map(unpack_proto_msg))
+            .map(|msg| msg?.try_convert()))
     }
 
-    /// Convenience wrapper that reads the protocol parameters for a given milestone into a
-    /// [`RawProtocolParametersMessage`].
-    pub async fn read_protocol_parameters(
+    /// Listen to ledger updates.
+    pub async fn get_ledger_updates(
         &mut self,
-        request: MilestoneRequest,
-    ) -> Result<RawProtocolParametersMessage, InxError> {
+        request: SlotRangeRequest,
+    ) -> Result<impl Stream<Item = Result<LedgerUpdate, InxError>>, InxError> {
         Ok(self
             .inx
-            .read_protocol_parameters(proto::MilestoneRequest::from(request))
+            .listen_to_ledger_updates(proto::SlotRangeRequest::from(request))
             .await?
             .into_inner()
-            .into())
-    }
-
-    /// Convenience wrapper that reads the milestone cone for a given milestone into
-    /// [`BlockWithMetadataMessages`](BlockWithMetadataMessage).
-    pub async fn read_milestone_cone(
-        &mut self,
-        request: MilestoneRequest,
-    ) -> Result<impl Stream<Item = Result<BlockWithMetadataMessage, InxError>>, InxError> {
-        Ok(self
-            .inx
-            .read_milestone_cone(proto::MilestoneRequest::from(request))
-            .await?
-            .into_inner()
-            .map(unpack_proto_msg))
-    }
-
-    /// Convenience wrapper that reads the information for a given milestone.
-    pub async fn read_milestone(&mut self, request: MilestoneRequest) -> Result<MilestoneMessage, InxError> {
-        MilestoneMessage::try_from(
-            self.inx
-                .read_milestone(proto::MilestoneRequest::from(request))
-                .await?
-                .into_inner(),
-        )
+            .map(|msg| msg?.try_convert()))
     }
 }

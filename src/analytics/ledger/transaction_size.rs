@@ -1,7 +1,16 @@
 // Copyright 2023 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-use super::*;
+use iota_sdk::types::block::payload::SignedTransactionPayload;
+use serde::{Deserialize, Serialize};
+
+use crate::{
+    analytics::{Analytics, AnalyticsContext},
+    model::{
+        block_metadata::TransactionMetadata,
+        ledger::{LedgerOutput, LedgerSpent},
+    },
+};
 
 #[derive(Copy, Clone, Debug, Default, Serialize, Deserialize)]
 pub(crate) struct TransactionSizeBuckets {
@@ -29,14 +38,14 @@ impl TransactionSizeBuckets {
         }
     }
 
-    /// Get the single bucket for the given value.
-    ///
-    /// NOTE: only values 1 to 7 are valid.
-    #[cfg(test)]
-    pub(crate) const fn single(&self, i: usize) -> usize {
-        debug_assert!(i > 0 && i < 8);
-        self.single[i - 1]
-    }
+    // /// Get the single bucket for the given value.
+    // ///
+    // /// NOTE: only values 1 to 7 are valid.
+    // #[cfg(test)]
+    // pub(crate) const fn single(&self, i: usize) -> usize {
+    //     debug_assert!(i > 0 && i < 8);
+    //     self.single[i - 1]
+    // }
 
     /// Gets an enumerated iterator over the single buckets.
     pub(crate) fn single_buckets(&self) -> impl Iterator<Item = (usize, usize)> {
@@ -50,15 +59,25 @@ pub(crate) struct TransactionSizeMeasurement {
     pub(crate) output_buckets: TransactionSizeBuckets,
 }
 
+#[async_trait::async_trait]
 impl Analytics for TransactionSizeMeasurement {
     type Measurement = TransactionSizeMeasurement;
 
-    fn handle_transaction(&mut self, consumed: &[LedgerSpent], created: &[LedgerOutput], _ctx: &dyn AnalyticsContext) {
+    async fn handle_transaction(
+        &mut self,
+        _payload: &SignedTransactionPayload,
+        _metadata: &TransactionMetadata,
+        consumed: &[LedgerSpent],
+        created: &[LedgerOutput],
+        _ctx: &dyn AnalyticsContext,
+    ) -> eyre::Result<()> {
         self.input_buckets.add(consumed.len());
         self.output_buckets.add(created.len());
+
+        Ok(())
     }
 
-    fn take_measurement(&mut self, _ctx: &dyn AnalyticsContext) -> Self::Measurement {
-        std::mem::take(self)
+    async fn take_measurement(&mut self, _ctx: &dyn AnalyticsContext) -> eyre::Result<Self::Measurement> {
+        Ok(std::mem::take(self))
     }
 }

@@ -1,22 +1,28 @@
 // Copyright 2023 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-use mongodb::{bson::doc, error::Error, options::UpdateOptions};
+use futures::TryStreamExt;
+use iota_sdk::types::block::{protocol::ProtocolParameters, slot::SlotIndex};
+use mongodb::{bson::doc, options::UpdateOptions};
 use serde::{Deserialize, Serialize};
 
 use crate::{
     db::{
-        mongodb::{MongoDbCollection, MongoDbCollectionExt},
+        mongodb::{DbError, MongoDbCollection, MongoDbCollectionExt},
         MongoDb,
     },
-    model::tangle::MilestoneIndexTimestamp,
+    model::{node::NodeConfiguration, SerializeToBson},
 };
 
 /// The MongoDb document representation of singleton Application State.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct ApplicationStateDocument {
-    pub starting_index: Option<MilestoneIndexTimestamp>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub starting_slot: Option<SlotIndex>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub last_migration: Option<MigrationVersion>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub node_config: Option<NodeConfiguration>,
 }
 
 /// The migration version and associated metadata.
@@ -53,20 +59,20 @@ impl MongoDbCollection for ApplicationStateCollection {
 }
 
 impl ApplicationStateCollection {
-    /// Gets the application starting milestone index.
-    pub async fn get_starting_index(&self) -> Result<Option<MilestoneIndexTimestamp>, Error> {
+    /// Gets the application starting slot index.
+    pub async fn get_starting_index(&self) -> Result<Option<SlotIndex>, DbError> {
         Ok(self
             .find_one::<ApplicationStateDocument>(doc! {}, None)
             .await?
-            .and_then(|doc| doc.starting_index))
+            .and_then(|doc| doc.starting_slot))
     }
 
-    /// Set the starting milestone index in the singleton application state.
-    pub async fn set_starting_index(&self, starting_index: MilestoneIndexTimestamp) -> Result<(), Error> {
+    /// Set the starting slot index in the singleton application state.
+    pub async fn set_starting_index(&self, starting_slot: SlotIndex) -> Result<(), DbError> {
         self.update_one(
             doc! {},
             doc! {
-                "$set": { "starting_index": starting_index }
+                "$set": { "starting_slot": starting_slot.0 }
             },
             UpdateOptions::builder().upsert(true).build(),
         )
@@ -75,7 +81,7 @@ impl ApplicationStateCollection {
     }
 
     /// Gets the last migration version of the database.
-    pub async fn get_last_migration(&self) -> Result<Option<MigrationVersion>, Error> {
+    pub async fn get_last_migration(&self) -> Result<Option<MigrationVersion>, DbError> {
         Ok(self
             .find_one::<ApplicationStateDocument>(doc! {}, None)
             .await?
@@ -83,15 +89,49 @@ impl ApplicationStateCollection {
     }
 
     /// Set the current version in the singleton application state.
-    pub async fn set_last_migration(&self, last_migration: MigrationVersion) -> Result<(), Error> {
+    pub async fn set_last_migration(&self, last_migration: MigrationVersion) -> Result<(), DbError> {
         self.update_one(
             doc! {},
             doc! {
-                "$set": { "last_migration": mongodb::bson::to_bson(&last_migration)? }
+                "$set": { "last_migration": last_migration.to_bson() }
             },
             UpdateOptions::builder().upsert(true).build(),
         )
         .await?;
         Ok(())
+    }
+
+    /// Gets the node config.
+    pub async fn get_node_config(&self) -> Result<Option<NodeConfiguration>, DbError> {
+        Ok(self
+            .find_one::<ApplicationStateDocument>(doc! {}, None)
+            .await?
+            .and_then(|doc| doc.node_config))
+    }
+
+    /// Set the node_config in the singleton application state.
+    pub async fn set_node_config(&self, node_config: &NodeConfiguration) -> Result<(), DbError> {
+        self.update_one(
+            doc! {},
+            doc! {
+                "$set": { "node_config": node_config.to_bson() }
+            },
+            UpdateOptions::builder().upsert(true).build(),
+        )
+        .await?;
+        Ok(())
+    }
+
+    /// Gets the protocol parameters.
+    pub async fn get_protocol_parameters(&self) -> Result<Option<ProtocolParameters>, DbError> {
+        Ok(self
+            .aggregate::<crate::model::protocol::ProtocolParameters>(
+                [doc! { "$replaceWith": { "$last": "$node_config.protocol_parameters" } }],
+                None,
+            )
+            .await?
+            .try_next()
+            .await?
+            .map(|p| p.parameters))
     }
 }

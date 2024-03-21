@@ -1,4 +1,4 @@
-// Copyright 2022 IOTA Stiftung
+// Copyright 2023 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
 //! Module that holds the entry point of the Chronicle application.
@@ -10,7 +10,6 @@ mod cli;
 mod config;
 #[cfg(feature = "inx")]
 mod inx;
-mod migrations;
 mod process;
 
 use bytesize::ByteSize;
@@ -20,10 +19,7 @@ use tokio::task::JoinSet;
 use tracing::{debug, error, info};
 use tracing_subscriber::{fmt::format::FmtSpan, layer::SubscriberExt, util::SubscriberInitExt, EnvFilter};
 
-use self::{
-    cli::{ClArgs, PostCommand},
-    migrations::check_migration_version,
-};
+use self::cli::{ClArgs, PostCommand};
 
 #[tokio::main]
 async fn main() -> eyre::Result<()> {
@@ -47,7 +43,7 @@ async fn main() -> eyre::Result<()> {
         ByteSize::b(db.size().await?)
     );
 
-    check_migration_version(&db).await?;
+    // TODO: check migration here
 
     #[cfg(feature = "inx")]
     build_indexes(&db).await?;
@@ -104,11 +100,21 @@ async fn main() -> eyre::Result<()> {
 
     #[cfg(feature = "api")]
     if config.api.enabled {
-        use futures::FutureExt;
-        let worker = api::ApiWorker::new(db.clone(), config.api.clone())?;
-        let mut handle = shutdown_signal.subscribe();
+        async fn shutdown_handle(mut rx: tokio::sync::broadcast::Receiver<()>) {
+            let task = tokio::spawn(async move {
+                if let Err(e) = rx.recv().await {
+                    tracing::error!("{e}");
+                }
+            });
+            if let Err(e) = task.await {
+                tracing::error!("{e}");
+            }
+        }
+
+        let (db, config) = (db.clone(), config.api.clone());
+        let handle = shutdown_signal.subscribe();
         tasks.spawn(async move {
-            worker.run(handle.recv().then(|_| async {})).await?;
+            api::ApiWorker::run(db, config, shutdown_handle(handle)).await?;
             Ok(())
         });
     }
@@ -176,9 +182,15 @@ async fn build_indexes(db: &MongoDb) -> eyre::Result<()> {
     use chronicle::db::mongodb::collections;
     let start_indexes = db.get_index_names().await?;
     db.create_indexes::<collections::OutputCollection>().await?;
+    db.create_indexes::<collections::ParentsCollection>().await?;
     db.create_indexes::<collections::BlockCollection>().await?;
     db.create_indexes::<collections::LedgerUpdateCollection>().await?;
-    db.create_indexes::<collections::MilestoneCollection>().await?;
+    db.create_indexes::<collections::CommittedSlotCollection>().await?;
+    #[cfg(feature = "analytics")]
+    {
+        db.create_indexes::<collections::AddressBalanceCollection>().await?;
+        db.create_indexes::<collections::AccountCandidacyCollection>().await?;
+    }
     let end_indexes = db.get_index_names().await?;
     for (collection, indexes) in end_indexes {
         if let Some(old_indexes) = start_indexes.get(&collection) {

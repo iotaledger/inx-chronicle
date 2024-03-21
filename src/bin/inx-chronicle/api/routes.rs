@@ -1,18 +1,23 @@
-// Copyright 2022 IOTA Stiftung
+// Copyright 2023 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
+
+use std::sync::Arc;
 
 use auth_helper::jwt::{BuildValidation, Claims, JsonWebToken, Validation};
 use axum::{
-    handler::Handler,
-    headers::{authorization::Bearer, Authorization},
+    extract::State,
     http::HeaderValue,
-    middleware::from_extractor,
+    middleware::from_extractor_with_state,
     routing::{get, post},
-    Extension, Json, TypedHeader,
+    Json,
 };
-use chronicle::{
-    db::{mongodb::collections::MilestoneCollection, MongoDb},
-    model::tangle::MilestoneTimestamp,
+use axum_extra::{
+    headers::{authorization::Bearer, Authorization},
+    TypedHeader,
+};
+use chronicle::db::{
+    mongodb::collections::{ApplicationStateCollection, CommittedSlotCollection},
+    MongoDb,
 };
 use hyper::StatusCode;
 use regex::RegexSet;
@@ -26,35 +31,29 @@ use super::{
     extractors::ListRoutesQuery,
     responses::RoutesResponse,
     router::{RouteNode, Router},
-    ApiResult, AuthError,
+    ApiResult, ApiState, AuthError,
 };
 
 pub(crate) static BYTE_CONTENT_HEADER: HeaderValue = HeaderValue::from_static("application/vnd.iota.serializer-v1");
 
 const ALWAYS_AVAILABLE_ROUTES: &[&str] = &["/health", "/login", "/routes"];
 
-// Similar to Hornet, we enforce that the latest known milestone is newer than 5 minutes. This should give Chronicle
-// sufficient time to catch up with the node that it is connected too. The current milestone interval is 5 seconds.
-const STALE_MILESTONE_DURATION: Duration = Duration::minutes(5);
+// Similar to Hornet, we enforce that the latest known slot is newer than 5 minutes. This should give Chronicle
+// sufficient time to catch up with the node that it is connected too.
+const STALE_SLOT_DURATION: Duration = Duration::minutes(5);
 
-pub fn routes() -> Router {
-    #[allow(unused_mut)]
-    let mut router = Router::new()
-        .nest("/core/v2", super::core::routes())
-        .nest("/explorer/v2", super::explorer::routes())
-        .nest("/indexer/v1", super::indexer::routes());
+pub fn routes(config: Arc<ApiConfigData>) -> Router<ApiState> {
+    let router = Router::<ApiState>::new()
+        .nest("/core/v3", super::core::routes())
+        .nest("/explorer/v3", super::explorer::routes())
+        .nest("/indexer/v2", super::indexer::routes());
 
-    #[cfg(feature = "poi")]
-    {
-        router = router.nest("/poi/v1", super::poi::routes());
-    }
-
-    Router::new()
+    Router::<ApiState>::new()
         .route("/health", get(health))
         .route("/login", post(login))
         .route("/routes", get(list_routes))
-        .nest("/api", router.route_layer(from_extractor::<Auth>()))
-        .fallback(not_found.into_service())
+        .nest("/api", router.route_layer(from_extractor_with_state::<Auth, _>(config)))
+        .fallback(get(not_found))
 }
 
 #[derive(Deserialize)]
@@ -63,8 +62,8 @@ struct LoginInfo {
 }
 
 async fn login(
+    State(config): State<Arc<ApiConfigData>>,
     Json(LoginInfo { password }): Json<LoginInfo>,
-    Extension(config): Extension<ApiConfigData>,
 ) -> ApiResult<String> {
     if password_verify(
         password.as_bytes(),
@@ -98,16 +97,16 @@ pub fn password_verify(
     Ok(hash == argon2::hash_raw(password, salt, &config)?)
 }
 
-fn is_new_enough(timestamp: MilestoneTimestamp) -> bool {
-    // Panic: The milestone_timestamp is guaranteeed to be valid.
-    let timestamp = OffsetDateTime::from_unix_timestamp(timestamp.0 as i64).unwrap();
-    OffsetDateTime::now_utc() <= timestamp + STALE_MILESTONE_DURATION
+fn is_new_enough(slot_timestamp: u64) -> bool {
+    // Panic: The slot timestamp is guaranteeed to be valid.
+    let timestamp = OffsetDateTime::from_unix_timestamp(slot_timestamp as _).unwrap();
+    OffsetDateTime::now_utc() <= timestamp + STALE_SLOT_DURATION
 }
 
 async fn list_routes(
     ListRoutesQuery { depth }: ListRoutesQuery,
-    Extension(config): Extension<ApiConfigData>,
-    Extension(root): Extension<RouteNode>,
+    State(config): State<Arc<ApiConfigData>>,
+    State(root): State<Arc<RouteNode>>,
     bearer_header: Option<TypedHeader<Authorization<Bearer>>>,
 ) -> ApiResult<RoutesResponse> {
     let depth = depth.or(Some(3));
@@ -139,24 +138,30 @@ async fn list_routes(
 
 pub async fn is_healthy(database: &MongoDb) -> ApiResult<bool> {
     {
-        let newest = match database
-            .collection::<MilestoneCollection>()
-            .get_newest_milestone()
+        if let Some(newest_slot) = database
+            .collection::<CommittedSlotCollection>()
+            .get_latest_committed_slot()
             .await?
         {
-            Some(last) => last,
-            None => return Ok(false),
-        };
-
-        if !is_new_enough(newest.milestone_timestamp) {
-            return Ok(false);
+            if let Some(protocol_params) = database
+                .collection::<ApplicationStateCollection>()
+                .get_protocol_parameters()
+                .await?
+            {
+                if is_new_enough(newest_slot.slot_index.to_timestamp(
+                    protocol_params.genesis_unix_timestamp(),
+                    protocol_params.slot_duration_in_seconds(),
+                )) {
+                    return Ok(true);
+                }
+            }
         }
     }
 
-    Ok(true)
+    Ok(false)
 }
 
-pub async fn health(database: Extension<MongoDb>) -> StatusCode {
+pub async fn health(database: State<MongoDb>) -> StatusCode {
     let handle_error = |ApiError { error, .. }| {
         tracing::error!("An error occured during health check: {error}");
         false

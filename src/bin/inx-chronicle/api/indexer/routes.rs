@@ -1,19 +1,20 @@
-// Copyright 2022 IOTA Stiftung
+// Copyright 2023 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
 use std::str::FromStr;
 
-use axum::{extract::Path, routing::get, Extension};
-use chronicle::{
-    db::{
-        mongodb::collections::{
-            AliasOutputsQuery, BasicOutputsQuery, FoundryOutputsQuery, IndexedId, MilestoneCollection, NftOutputsQuery,
-            OutputCollection,
-        },
-        MongoDb,
-    },
-    model::utxo::{AliasId, FoundryId, NftId},
+use axum::{
+    extract::{Path, State},
+    routing::get,
 };
+use chronicle::db::{
+    mongodb::collections::{
+        AccountOutputsQuery, AnchorOutputsQuery, BasicOutputsQuery, CommittedSlotCollection, DelegationOutputsQuery,
+        FoundryOutputsQuery, IndexedId, NftOutputsQuery, OutputCollection,
+    },
+    MongoDb,
+};
+use iota_sdk::types::block::output::{AccountId, AnchorId, DelegationId, FoundryId, NftId};
 use mongodb::bson;
 
 use super::{extractors::IndexedOutputsPagination, responses::IndexerOutputsResponse};
@@ -21,19 +22,25 @@ use crate::api::{
     error::{MissingError, RequestError},
     indexer::extractors::IndexedOutputsCursor,
     router::Router,
-    ApiResult,
+    ApiResult, ApiState,
 };
 
-pub fn routes() -> Router {
+pub fn routes() -> Router<ApiState> {
     Router::new().nest(
         "/outputs",
         Router::new()
             .route("/basic", get(indexed_outputs::<BasicOutputsQuery>))
             .nest(
-                "/alias",
+                "/account",
                 Router::new()
-                    .route("/", get(indexed_outputs::<AliasOutputsQuery>))
-                    .route("/:alias_id", get(indexed_output_by_id::<AliasId>)),
+                    .route("/", get(indexed_outputs::<AccountOutputsQuery>))
+                    .route("/:account_id", get(indexed_output_by_id::<AccountId>)),
+            )
+            .nest(
+                "/anchor",
+                Router::new()
+                    .route("/", get(indexed_outputs::<AnchorOutputsQuery>))
+                    .route("/:anchor_id", get(indexed_output_by_id::<AnchorId>)),
             )
             .nest(
                 "/foundry",
@@ -46,23 +53,27 @@ pub fn routes() -> Router {
                 Router::new()
                     .route("/", get(indexed_outputs::<NftOutputsQuery>))
                     .route("/:nft_id", get(indexed_output_by_id::<NftId>)),
+            )
+            .nest(
+                "/delegation",
+                Router::new()
+                    .route("/", get(indexed_outputs::<DelegationOutputsQuery>))
+                    .route("/:delegation_id", get(indexed_output_by_id::<DelegationId>)),
             ),
     )
 }
 
-async fn indexed_output_by_id<ID>(
-    database: Extension<MongoDb>,
-    Path(id): Path<String>,
-) -> ApiResult<IndexerOutputsResponse>
+async fn indexed_output_by_id<ID>(database: State<MongoDb>, Path(id): Path<String>) -> ApiResult<IndexerOutputsResponse>
 where
     ID: Into<IndexedId> + FromStr,
     RequestError: From<ID::Err>,
 {
     let ledger_index = database
-        .collection::<MilestoneCollection>()
-        .get_ledger_index()
+        .collection::<CommittedSlotCollection>()
+        .get_latest_committed_slot()
         .await?
-        .ok_or(MissingError::NoResults)?;
+        .ok_or(MissingError::NoResults)?
+        .slot_index;
     let id = ID::from_str(&id).map_err(RequestError::from)?;
     let res = database
         .collection::<OutputCollection>()
@@ -71,13 +82,13 @@ where
         .ok_or(MissingError::NoResults)?;
     Ok(IndexerOutputsResponse {
         ledger_index,
-        items: vec![res.output_id.to_hex()],
+        items: vec![res.output_id],
         cursor: None,
     })
 }
 
 async fn indexed_outputs<Q>(
-    database: Extension<MongoDb>,
+    database: State<MongoDb>,
     IndexedOutputsPagination {
         query,
         page_size,
@@ -90,10 +101,11 @@ where
     bson::Document: From<Q>,
 {
     let ledger_index = database
-        .collection::<MilestoneCollection>()
-        .get_ledger_index()
+        .collection::<CommittedSlotCollection>()
+        .get_latest_committed_slot()
         .await?
-        .ok_or(MissingError::NoResults)?;
+        .ok_or(MissingError::NoResults)?
+        .slot_index;
     let res = database
         .collection::<OutputCollection>()
         .get_indexed_outputs(
@@ -110,12 +122,12 @@ where
     let mut iter = res.outputs.iter();
 
     // Take all of the requested records first
-    let items = iter.by_ref().take(page_size).map(|o| o.output_id.to_hex()).collect();
+    let items = iter.by_ref().take(page_size).map(|o| o.output_id).collect();
 
     // If any record is left, use it to make the cursor
     let cursor = iter.next().map(|rec| {
         IndexedOutputsCursor {
-            milestone_index: rec.booked_index,
+            slot_index: rec.booked_index,
             output_id: rec.output_id,
             page_size,
         }

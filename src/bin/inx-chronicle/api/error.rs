@@ -1,14 +1,13 @@
-// Copyright 2022 IOTA Stiftung
+// Copyright 2023 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
 use std::{num::ParseIntError, str::ParseBoolError};
 
-use axum::{
-    extract::rejection::{QueryRejection, TypedHeaderRejection},
-    response::IntoResponse,
-};
+use axum::{extract::rejection::QueryRejection, response::IntoResponse};
+use axum_extra::typed_header::TypedHeaderRejection;
 use chronicle::db::mongodb::collections::ParseSortError;
 use hyper::{header::InvalidHeaderValue, StatusCode};
+use iota_sdk::types::block::{output::ProofError, BlockError, IdentifierError};
 use serde::Serialize;
 use thiserror::Error;
 use tracing::error;
@@ -57,10 +56,13 @@ macro_rules! impl_internal_error {
 
 impl_internal_error!(
     mongodb::error::Error,
+    chronicle::db::mongodb::DbError,
+    chronicle::model::raw::InvalidRawBytesError,
     axum::extract::rejection::ExtensionRejection,
     auth_helper::jwt::Error,
     argon2::Error,
-    iota_sdk::types::block::Error
+    BlockError,
+    IdentifierError
 );
 
 impl IntoResponse for ApiError {
@@ -84,11 +86,6 @@ impl IntoResponse for ApiError {
 #[derive(Error, Debug)]
 #[allow(missing_docs)]
 pub enum CorruptStateError {
-    #[error("no milestone in the database")]
-    Milestone,
-    #[cfg(feature = "poi")]
-    #[error(transparent)]
-    PoI(#[from] crate::api::poi::CorruptStateError),
     #[error("no node configuration in the database")]
     NodeConfig,
     #[error("no protocol parameters in the database")]
@@ -160,9 +157,10 @@ pub enum RequestError {
     BadPagingState,
     #[error("invalid time range")]
     BadTimeRange,
-
-    #[error("invalid IOTA Stardust data: {0}")]
-    IotaStardust(#[from] iota_sdk::types::block::Error),
+    #[error("invalid block data: {0}")]
+    Block(#[from] BlockError),
+    #[error("invalid block data: {0}")]
+    Identifier(#[from] IdentifierError),
     #[error("invalid bool value provided: {0}")]
     Bool(#[from] ParseBoolError),
     #[error("invalid U256 value provided: {0}")]
@@ -175,9 +173,6 @@ pub enum RequestError {
     InvalidAuthHeader(#[from] TypedHeaderRejection),
     #[error("invalid query parameters provided: {0}")]
     InvalidQueryParams(#[from] QueryRejection),
-    #[cfg(feature = "poi")]
-    #[error(transparent)]
-    PoI(#[from] crate::api::poi::RequestError),
     #[error("invalid sort order provided: {0}")]
     SortOrder(#[from] ParseSortError),
 }
@@ -202,6 +197,12 @@ pub enum ConfigError {
     SecretKey(#[from] super::secret_key::SecretKeyError),
 }
 
+impl ErrorStatus for ProofError {
+    fn status(&self) -> StatusCode {
+        StatusCode::INTERNAL_SERVER_ERROR
+    }
+}
+
 #[derive(Clone, Debug, Serialize)]
 pub struct ErrorBody {
     #[serde(skip_serializing)]
@@ -217,7 +218,7 @@ impl IntoResponse for ErrorBody {
             Ok(json) => axum::response::Response::builder()
                 .status(self.status)
                 .header(hyper::header::CONTENT_TYPE, "application/json")
-                .body(axum::body::boxed(axum::body::Full::from(json)))
+                .body(axum::body::Body::new(json))
                 .unwrap(),
             Err(e) => {
                 error!("Unable to serialize error body: {}", e);

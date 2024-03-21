@@ -1,4 +1,4 @@
-// Copyright 2022 IOTA Stiftung
+// Copyright 2023 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
 pub mod config;
@@ -11,27 +11,22 @@ use std::time::Duration;
 use chronicle::{
     db::{
         mongodb::collections::{
-            ApplicationStateCollection, BlockCollection, ConfigurationUpdateCollection, LedgerUpdateCollection,
-            MilestoneCollection, OutputCollection, ProtocolUpdateCollection, TreasuryCollection,
+            ApplicationStateCollection, BlockCollection, CommittedSlotCollection, LedgerUpdateCollection,
+            OutputCollection, ParentsCollection,
         },
         MongoDb,
     },
     inx::{Inx, InxError},
-    model::{
-        ledger::{LedgerOutput, LedgerSpent},
-        metadata::LedgerInclusionState,
-        payload::Payload,
-        tangle::{MilestoneIndex, MilestoneIndexTimestamp},
-    },
-    tangle::{Milestone, Tangle},
+    model::ledger::{LedgerOutput, LedgerSpent},
+    tangle::{Slot, Tangle},
 };
 use eyre::{bail, Result};
 use futures::{StreamExt, TryStreamExt};
+use iota_sdk::types::block::{protocol::ProtocolParameters, slot::SlotIndex};
 use tokio::{task::JoinSet, try_join};
 use tracing::{debug, info, instrument, trace_span, Instrument};
 
 pub use self::{config::InxConfig, error::InxWorkerError};
-use crate::migrations::{LatestMigration, Migration};
 
 /// Batch size for insert operations.
 pub const INSERT_BATCH_SIZE: usize = 1000;
@@ -66,24 +61,25 @@ impl InxWorker {
             bail!(InxWorkerError::InvalidAddress(self.config.url.clone()));
         }
 
-        Ok(Inx::connect(self.config.url.clone()).await?)
+        Ok(Inx::connect(&self.config.url).await?)
     }
 
     pub async fn run(&mut self) -> Result<()> {
-        let (start_index, inx) = self.init().await?;
+        let (start_index, inx, protocol_params) = self.init().await?;
 
         let tangle = Tangle::from(inx);
 
-        let mut stream = tangle.milestone_stream(start_index..).await?;
+        let mut stream = tangle.slot_stream(start_index..).await?;
 
         #[cfg(feature = "analytics")]
         let mut analytics_info = influx::analytics::AnalyticsInfo::init(&self.db, self.influx_db.as_ref()).await?;
 
         debug!("Started listening to ledger updates via INX.");
 
-        while let Some(milestone) = stream.try_next().await? {
+        while let Some(slot) = stream.try_next().await? {
             self.handle_ledger_update(
-                milestone,
+                slot,
+                &protocol_params,
                 #[cfg(feature = "analytics")]
                 analytics_info.as_mut(),
             )
@@ -96,14 +92,14 @@ impl InxWorker {
     }
 
     #[instrument(skip_all, err, level = "trace")]
-    async fn init(&mut self) -> Result<(MilestoneIndex, Inx)> {
+    async fn init(&mut self) -> Result<(SlotIndex, Inx, ProtocolParameters)> {
         info!("Connecting to INX at bind address `{}`.", &self.config.url);
         let mut inx = self.connect().await?;
         info!("Connected to INX.");
 
-        // Request the node status so we can get the pruning index and latest confirmed milestone
+        // Request the node status so we can get the pruning index and latest confirmed slot
         let node_status = loop {
-            match inx.read_node_status().await {
+            match inx.get_node_status().await {
                 Ok(node_status) => break node_status,
                 Err(InxError::MissingField(_)) => {
                     tokio::time::sleep(Duration::from_secs(1)).await;
@@ -113,98 +109,94 @@ impl InxWorker {
         };
 
         debug!(
-            "The node has a pruning index of `{}` and a latest confirmed milestone index of `{}`.",
-            node_status.tangle_pruning_index, node_status.confirmed_milestone.milestone_info.milestone_index,
+            "The node has a pruning epoch index of `{}` and a latest confirmed slot index of `{}`.",
+            node_status.pruning_epoch,
+            node_status.latest_commitment.commitment_id.slot_index()
         );
 
-        // Check if there is an unfixable gap in our node data.
-        let start_index = if let Some(MilestoneIndexTimestamp {
-            milestone_index: latest_milestone,
-            ..
-        }) = self
-            .db
-            .collection::<MilestoneCollection>()
-            .get_newest_milestone()
-            .await?
-        {
-            if node_status.tangle_pruning_index.0 > latest_milestone.0 {
-                bail!(InxWorkerError::SyncMilestoneGap {
-                    start: latest_milestone + 1,
-                    end: node_status.tangle_pruning_index,
-                });
-            } else if node_status.confirmed_milestone.milestone_info.milestone_index.0 < latest_milestone.0 {
-                bail!(InxWorkerError::SyncMilestoneIndexMismatch {
-                    node: node_status.confirmed_milestone.milestone_info.milestone_index,
-                    db: latest_milestone,
-                });
-            } else {
-                latest_milestone + 1
-            }
-        } else {
-            self.config
-                .sync_start_milestone
-                .max(node_status.tangle_pruning_index + 1)
-        };
-
-        let protocol_parameters = inx
-            .read_protocol_parameters(start_index.0.into())
-            .await?
-            .params
-            .inner_unverified()?;
-
-        let node_configuration = inx.read_node_configuration().await?;
+        let mut node_configuration = inx.get_node_configuration().await?;
 
         debug!(
             "Connected to network `{}` with base token `{}[{}]`.",
-            protocol_parameters.network_name(),
+            node_configuration.latest_parameters().network_name(),
             node_configuration.base_token.name,
             node_configuration.base_token.ticker_symbol
         );
 
-        if let Some(latest) = self
+        let pruning_slot = node_configuration
+            .latest_parameters()
+            .first_slot_of(node_status.pruning_epoch);
+
+        // Check if there is an unfixable gap in our node data.
+        let mut start_index = if let Some(latest_committed_slot) = self
             .db
-            .collection::<ProtocolUpdateCollection>()
-            .get_latest_protocol_parameters()
+            .collection::<CommittedSlotCollection>()
+            .get_latest_committed_slot()
             .await?
         {
-            let protocol_parameters = chronicle::model::ProtocolParameters::from(protocol_parameters);
-            if latest.parameters.network_name != protocol_parameters.network_name {
-                bail!(InxWorkerError::NetworkChanged {
-                    old: latest.parameters.network_name,
-                    new: protocol_parameters.network_name,
+            if pruning_slot > latest_committed_slot.slot_index {
+                bail!(InxWorkerError::SyncSlotGap {
+                    start: latest_committed_slot.slot_index + 1,
+                    end: pruning_slot,
                 });
+            } else if node_status.last_accepted_block_slot < latest_committed_slot.slot_index {
+                bail!(InxWorkerError::SyncSlotIndexMismatch {
+                    node: node_status.last_accepted_block_slot,
+                    db: latest_committed_slot.slot_index,
+                });
+            } else {
+                latest_committed_slot.slot_index + 1
             }
-            debug!("Found matching network in the database.");
-            if latest.parameters != protocol_parameters {
-                debug!("Updating protocol parameters.");
-                self.db
-                    .collection::<ProtocolUpdateCollection>()
-                    .upsert_protocol_parameters(start_index, protocol_parameters)
-                    .await?;
+        } else {
+            self.config.sync_start_slot.max(pruning_slot)
+        };
+        // Skip the genesis slot
+        if start_index == node_configuration.latest_parameters().genesis_slot() {
+            start_index += 1;
+        }
+
+        if let Some(db_node_config) = self
+            .db
+            .collection::<ApplicationStateCollection>()
+            .get_node_config()
+            .await?
+        {
+            #[allow(clippy::collapsible_if)]
+            if db_node_config != node_configuration {
+                if db_node_config.latest_parameters().network_name()
+                    != node_configuration.latest_parameters().network_name()
+                {
+                    bail!(InxWorkerError::NetworkChanged {
+                        old: db_node_config.latest_parameters().network_name().to_owned(),
+                        new: node_configuration.latest_parameters().network_name().to_owned(),
+                    });
+                }
+                // TODO: Maybe we need to do some additional checking?
             }
         } else {
             self.db.clear().await?;
 
-            let latest_version = LatestMigration::version();
-            info!("Setting migration version to {}", latest_version);
-            self.db
-                .collection::<ApplicationStateCollection>()
-                .set_last_migration(latest_version)
-                .await?;
+            // let latest_version = LatestMigration::version();
+            // info!("Setting migration version to {}", latest_version);
+            // self.db
+            //     .collection::<ApplicationStateCollection>()
+            //     .set_last_migration(latest_version)
+            //     .await?;
             info!("Reading unspent outputs.");
             let unspent_output_stream = inx
-                .read_unspent_outputs()
+                .get_unspent_outputs()
                 .instrument(trace_span!("inx_read_unspent_outputs"))
                 .await?;
 
             let mut starting_index = None;
+            let protocol_parameters = node_configuration.latest_parameters();
 
             let mut count = 0;
             let mut tasks = unspent_output_stream
                 .inspect_ok(|_| count += 1)
                 .map(|msg| {
                     let msg = msg?;
-                    let ledger_index = &msg.ledger_index;
+                    let ledger_index = &msg.latest_commitment_id.slot_index();
                     if let Some(index) = starting_index.as_ref() {
                         if index != ledger_index {
                             bail!(InxWorkerError::InvalidUnspentOutputIndex {
@@ -224,7 +216,8 @@ impl InxWorker {
                 // Convert batches to tasks
                 .try_fold(JoinSet::new(), |mut tasks, batch| async {
                     let db = self.db.clone();
-                    tasks.spawn(async move { insert_unspent_outputs(&db, &batch).await });
+                    let protocol_parameters = protocol_parameters.clone();
+                    tasks.spawn(async move { insert_unspent_outputs(&db, &batch, &protocol_parameters).await });
                     Result::<_>::Ok(tasks)
                 })
                 .await?;
@@ -235,24 +228,20 @@ impl InxWorker {
 
             info!("Inserted {} unspent outputs.", count);
 
-            let starting_index = starting_index.unwrap_or_default();
+            let starting_index = starting_index.unwrap_or(SlotIndex(0));
 
             // Get the timestamp for the starting index
-            let milestone_timestamp = inx
-                .read_milestone(starting_index.into())
-                .await?
-                .milestone_info
-                .milestone_timestamp
-                .into();
+            let slot_timestamp = starting_index.to_timestamp(
+                protocol_parameters.genesis_unix_timestamp(),
+                protocol_parameters.slot_duration_in_seconds(),
+            );
 
             info!(
                 "Setting starting index to {} with timestamp {}",
                 starting_index,
-                time::OffsetDateTime::try_from(milestone_timestamp)?
+                time::OffsetDateTime::from_unix_timestamp(slot_timestamp as _)?
                     .format(&time::format_description::well_known::Rfc3339)?
             );
-
-            let starting_index = starting_index.with_timestamp(milestone_timestamp);
 
             self.db
                 .collection::<ApplicationStateCollection>()
@@ -264,20 +253,26 @@ impl InxWorker {
                 self.db.name(),
                 protocol_parameters.network_name()
             );
-
-            self.db
-                .collection::<ProtocolUpdateCollection>()
-                .upsert_protocol_parameters(start_index, protocol_parameters.into())
-                .await?;
         }
 
-        Ok((start_index, inx))
+        debug!("Updating node configuration.");
+        self.db
+            .collection::<ApplicationStateCollection>()
+            .set_node_config(&node_configuration)
+            .await?;
+
+        Ok((
+            start_index,
+            inx,
+            node_configuration.protocol_parameters.pop().unwrap().parameters,
+        ))
     }
 
-    #[instrument(skip_all, fields(milestone_index, created, consumed), err, level = "debug")]
+    #[instrument(skip_all, fields(slot_index, created, consumed), err, level = "debug")]
     async fn handle_ledger_update<'a>(
         &mut self,
-        milestone: Milestone<'a, Inx>,
+        slot: Slot<'a, Inx>,
+        protocol_parameters: &ProtocolParameters,
         #[cfg(feature = "analytics")] analytics_info: Option<&mut influx::analytics::AnalyticsInfo>,
     ) -> Result<()> {
         #[cfg(feature = "metrics")]
@@ -285,16 +280,18 @@ impl InxWorker {
 
         let mut tasks = JoinSet::new();
 
-        for batch in milestone.ledger_updates().created_outputs().chunks(INSERT_BATCH_SIZE) {
+        for batch in slot.ledger_updates().created_outputs().chunks(INSERT_BATCH_SIZE) {
             let db = self.db.clone();
             let batch = batch.to_vec();
-            tasks.spawn(async move { insert_unspent_outputs(&db, &batch).await });
+            let protocol_parameters = protocol_parameters.clone();
+            tasks.spawn(async move { insert_unspent_outputs(&db, &batch, &protocol_parameters).await });
         }
 
-        for batch in milestone.ledger_updates().consumed_outputs().chunks(INSERT_BATCH_SIZE) {
+        for batch in slot.ledger_updates().consumed_outputs().chunks(INSERT_BATCH_SIZE) {
             let db = self.db.clone();
             let batch = batch.to_vec();
-            tasks.spawn(async move { update_spent_outputs(&db, &batch).await });
+            let protocol_parameters = protocol_parameters.clone();
+            tasks.spawn(async move { update_spent_outputs(&db, &batch, &protocol_parameters).await });
         }
 
         while let Some(res) = tasks.join_next().await {
@@ -302,23 +299,16 @@ impl InxWorker {
         }
 
         // Record the result as part of the current span.
-        tracing::Span::current().record("milestone_index", milestone.at.milestone_index.0);
-        tracing::Span::current().record("created", milestone.ledger_updates().created_outputs().len());
-        tracing::Span::current().record("consumed", milestone.ledger_updates().consumed_outputs().len());
+        tracing::Span::current().record("slot_index", slot.index().0);
+        tracing::Span::current().record("created", slot.ledger_updates().created_outputs().len());
+        tracing::Span::current().record("consumed", slot.ledger_updates().consumed_outputs().len());
 
-        self.handle_cone_stream(&milestone).await?;
-        self.db
-            .collection::<ProtocolUpdateCollection>()
-            .upsert_protocol_parameters(milestone.at.milestone_index, milestone.protocol_params.clone())
-            .await?;
-        self.db
-            .collection::<ConfigurationUpdateCollection>()
-            .upsert_node_configuration(milestone.at.milestone_index, milestone.node_config.clone())
-            .await?;
+        self.handle_accepted_blocks(&slot).await?;
 
         #[cfg(feature = "influx")]
         self.update_influx(
-            &milestone,
+            &slot,
+            protocol_parameters,
             #[cfg(feature = "analytics")]
             analytics_info,
             #[cfg(feature = "metrics")]
@@ -328,48 +318,26 @@ impl InxWorker {
 
         // This acts as a checkpoint for the syncing and has to be done last, after everything else completed.
         self.db
-            .collection::<MilestoneCollection>()
-            .insert_milestone(
-                milestone.milestone_id,
-                milestone.at.milestone_index,
-                milestone.at.milestone_timestamp,
-                milestone.payload.clone(),
-            )
+            .collection::<CommittedSlotCollection>()
+            .upsert_committed_slot(slot.index(), slot.commitment_id(), slot.commitment().clone())
             .await?;
 
         Ok(())
     }
 
     #[instrument(skip_all, err, level = "trace")]
-    async fn handle_cone_stream<'a>(&mut self, milestone: &Milestone<'a, Inx>) -> Result<()> {
-        let cone_stream = milestone.cone_stream().await?;
+    async fn handle_accepted_blocks<'a>(&mut self, slot: &Slot<'a, Inx>) -> Result<()> {
+        let blocks_stream = slot.accepted_block_stream().await?;
 
-        let mut tasks = cone_stream
+        let mut tasks = blocks_stream
             .try_chunks(INSERT_BATCH_SIZE)
             .map_err(|e| e.1)
             .try_fold(JoinSet::new(), |mut tasks, batch| async {
                 let db = self.db.clone();
                 tasks.spawn(async move {
-                    let payloads = batch
-                        .iter()
-                        .filter_map(|data| {
-                            if data.metadata.inclusion_state == LedgerInclusionState::Included {
-                                if let Some(Payload::TreasuryTransaction(payload)) = &data.block.payload {
-                                    return Some((
-                                        data.metadata.referenced_by_milestone_index,
-                                        payload.input_milestone_id,
-                                        payload.output_amount,
-                                    ));
-                                }
-                            }
-                            None
-                        })
-                        .collect::<Vec<_>>();
-                    if !payloads.is_empty() {
-                        db.collection::<TreasuryCollection>()
-                            .insert_treasury_payloads(payloads)
-                            .await?;
-                    }
+                    db.collection::<ParentsCollection>()
+                        .insert_blocks(batch.iter().map(|data| &data.block))
+                        .await?;
                     db.collection::<BlockCollection>()
                         .insert_blocks_with_metadata(batch)
                         .await?;
@@ -388,16 +356,16 @@ impl InxWorker {
 }
 
 #[instrument(skip_all, err, fields(num = outputs.len()), level = "trace")]
-async fn insert_unspent_outputs(db: &MongoDb, outputs: &[LedgerOutput]) -> Result<()> {
+async fn insert_unspent_outputs(db: &MongoDb, outputs: &[LedgerOutput], params: &ProtocolParameters) -> Result<()> {
     let output_collection = db.collection::<OutputCollection>();
     let ledger_collection = db.collection::<LedgerUpdateCollection>();
     try_join! {
         async {
-            output_collection.insert_unspent_outputs(outputs).await?;
+            output_collection.insert_unspent_outputs(outputs, params).await?;
             Result::<_>::Ok(())
         },
         async {
-            ledger_collection.insert_unspent_ledger_updates(outputs).await?;
+            ledger_collection.insert_unspent_ledger_updates(outputs, params).await?;
             Ok(())
         }
     }?;
@@ -405,16 +373,16 @@ async fn insert_unspent_outputs(db: &MongoDb, outputs: &[LedgerOutput]) -> Resul
 }
 
 #[instrument(skip_all, err, fields(num = outputs.len()), level = "trace")]
-async fn update_spent_outputs(db: &MongoDb, outputs: &[LedgerSpent]) -> Result<()> {
+async fn update_spent_outputs(db: &MongoDb, outputs: &[LedgerSpent], params: &ProtocolParameters) -> Result<()> {
     let output_collection = db.collection::<OutputCollection>();
     let ledger_collection = db.collection::<LedgerUpdateCollection>();
     try_join! {
         async {
-            output_collection.update_spent_outputs(outputs).await?;
+            output_collection.update_spent_outputs(outputs, params).await?;
             Ok(())
         },
         async {
-            ledger_collection.insert_spent_ledger_updates(outputs).await?;
+            ledger_collection.insert_spent_ledger_updates(outputs, params).await?;
             Ok(())
         }
     }

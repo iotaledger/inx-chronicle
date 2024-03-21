@@ -1,12 +1,13 @@
-// Copyright 2022 IOTA Stiftung
+// Copyright 2023 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
+
+use std::sync::Arc;
 
 use async_trait::async_trait;
 use axum::{
-    extract::{FromRequest, Query},
-    Extension,
+    extract::{FromRef, FromRequestParts, Query},
+    http::request::Parts,
 };
-use chronicle::model::tangle::MilestoneTimestamp;
 use serde::Deserialize;
 
 use super::{
@@ -32,14 +33,17 @@ impl Default for Pagination {
 }
 
 #[async_trait]
-impl<B: Send> FromRequest<B> for Pagination {
+impl<S: Send + Sync> FromRequestParts<S> for Pagination
+where
+    Arc<ApiConfigData>: FromRef<S>,
+{
     type Rejection = ApiError;
 
-    async fn from_request(req: &mut axum::extract::RequestParts<B>) -> Result<Self, Self::Rejection> {
-        let Query(mut pagination) = Query::<Pagination>::from_request(req)
+    async fn from_request_parts(parts: &mut Parts, state: &S) -> Result<Self, Self::Rejection> {
+        let Query(mut pagination) = Query::<Pagination>::from_request_parts(parts, state)
             .await
             .map_err(RequestError::from)?;
-        let Extension(config) = Extension::<ApiConfigData>::from_request(req).await?;
+        let config = Arc::<ApiConfigData>::from_ref(state);
         pagination.page_size = pagination.page_size.min(config.max_page_size);
         Ok(pagination)
     }
@@ -52,11 +56,11 @@ pub struct ListRoutesQuery {
 }
 
 #[async_trait]
-impl<B: Send> FromRequest<B> for ListRoutesQuery {
+impl<S: Send + Sync> FromRequestParts<S> for ListRoutesQuery {
     type Rejection = ApiError;
 
-    async fn from_request(req: &mut axum::extract::RequestParts<B>) -> Result<Self, Self::Rejection> {
-        let Query(query) = Query::<ListRoutesQuery>::from_request(req)
+    async fn from_request_parts(parts: &mut Parts, state: &S) -> Result<Self, Self::Rejection> {
+        let Query(query) = Query::<ListRoutesQuery>::from_request_parts(parts, state)
             .await
             .map_err(RequestError::from)?;
         Ok(query)
@@ -66,25 +70,25 @@ impl<B: Send> FromRequest<B> for ListRoutesQuery {
 #[derive(Copy, Clone, Default, Deserialize)]
 #[serde(default, deny_unknown_fields, rename_all = "camelCase")]
 pub struct TimeRangeQuery {
-    start_timestamp: Option<u32>,
-    end_timestamp: Option<u32>,
+    start_timestamp: Option<u64>,
+    end_timestamp: Option<u64>,
 }
 
 #[derive(Copy, Clone)]
 pub struct TimeRange {
-    pub start_timestamp: Option<MilestoneTimestamp>,
-    pub end_timestamp: Option<MilestoneTimestamp>,
+    pub start_timestamp: Option<u64>,
+    pub end_timestamp: Option<u64>,
 }
 
 #[async_trait]
-impl<B: Send> FromRequest<B> for TimeRange {
+impl<S: Send + Sync> FromRequestParts<S> for TimeRange {
     type Rejection = ApiError;
 
-    async fn from_request(req: &mut axum::extract::RequestParts<B>) -> Result<Self, Self::Rejection> {
+    async fn from_request_parts(parts: &mut Parts, state: &S) -> Result<Self, Self::Rejection> {
         let Query(TimeRangeQuery {
             start_timestamp,
             end_timestamp,
-        }) = Query::<TimeRangeQuery>::from_request(req)
+        }) = Query::<TimeRangeQuery>::from_request_parts(parts, state)
             .await
             .map_err(RequestError::from)?;
         if matches!((start_timestamp, end_timestamp), (Some(start), Some(end)) if end < start) {
@@ -100,10 +104,7 @@ impl<B: Send> FromRequest<B> for TimeRange {
 
 #[cfg(test)]
 mod test {
-    use axum::{
-        extract::{FromRequest, RequestParts},
-        http::Request,
-    };
+    use axum::{body::Body, extract::FromRequest, http::Request};
     use pretty_assertions::assert_eq;
 
     use super::*;
@@ -111,16 +112,19 @@ mod test {
 
     #[tokio::test]
     async fn page_size_clamped() {
-        let mut req = RequestParts::new(
+        let state = Arc::new(ApiConfigData::try_from(ApiConfig::default()).unwrap());
+        let mut req = Parts::from_request(
             Request::builder()
                 .method("GET")
                 .uri("/?pageSize=9999999")
-                .extension(ApiConfigData::try_from(ApiConfig::default()).unwrap())
-                .body(())
+                .body(Body::empty())
                 .unwrap(),
-        );
+            &state,
+        )
+        .await
+        .unwrap();
         assert_eq!(
-            Pagination::from_request(&mut req).await.unwrap(),
+            Pagination::from_request_parts(&mut req, &state).await.unwrap(),
             Pagination {
                 page_size: 1000,
                 ..Default::default()

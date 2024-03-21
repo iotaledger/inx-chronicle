@@ -1,14 +1,14 @@
-// Copyright 2022 IOTA Stiftung
+// Copyright 2023 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-use mongodb::bson::{self, doc, Document};
-use primitive_types::U256;
-
-use crate::model::{
-    payload::transaction::output::Tag,
-    tangle::MilestoneTimestamp,
-    utxo::{Address, NativeTokenAmount},
+use iota_sdk::types::block::{
+    address::Address,
+    output::{AccountId, TokenId},
+    slot::SlotIndex,
 };
+use mongodb::bson::{doc, Document};
+
+use crate::model::{address::AddressDto, tag::Tag, SerializeToBson};
 
 /// Defines how a query is appended to a list of `$and` queries.
 pub(super) trait AppendToQuery {
@@ -32,12 +32,7 @@ impl AppendToQuery for IssuerQuery {
     fn append_to(self, queries: &mut Vec<Document>) {
         if let Some(address) = self.0 {
             queries.push(doc! {
-                "output.features": {
-                    "$elemMatch": {
-                        "kind": "issuer",
-                        "address": address
-                    }
-                }
+                "details.issuer": AddressDto::from(address)
             });
         }
     }
@@ -50,12 +45,7 @@ impl AppendToQuery for SenderQuery {
     fn append_to(self, queries: &mut Vec<Document>) {
         if let Some(address) = self.0 {
             queries.push(doc! {
-                "output.features": {
-                    "$elemMatch": {
-                        "kind": "sender",
-                        "address": address
-                    }
-                }
+                "details.sender": AddressDto::from(address)
             });
         }
     }
@@ -68,12 +58,7 @@ impl AppendToQuery for TagQuery {
     fn append_to(self, queries: &mut Vec<Document>) {
         if let Some(tag) = self.0 {
             queries.push(doc! {
-                "output.features": {
-                    "$elemMatch": {
-                        "kind": "tag",
-                        "data": tag,
-                    }
-                }
+                "details.tag": tag
             });
         }
     }
@@ -82,47 +67,26 @@ impl AppendToQuery for TagQuery {
 /// Queries for native tokens.
 pub(super) struct NativeTokensQuery {
     pub(super) has_native_tokens: Option<bool>,
-    pub(super) min_native_token_count: Option<U256>,
-    pub(super) max_native_token_count: Option<U256>,
+    pub(super) native_token: Option<TokenId>,
 }
 
 impl AppendToQuery for NativeTokensQuery {
     fn append_to(self, queries: &mut Vec<Document>) {
         if let Some(false) = self.has_native_tokens {
             queries.push(doc! {
-                "output.native_tokens": { "$eq": [] }
+                "details.native_tokens": { "$exists": false }
             });
         } else {
-            if matches!(self.has_native_tokens, Some(true))
-                || self.min_native_token_count.is_some()
-                || self.max_native_token_count.is_some()
-            {
+            if matches!(self.has_native_tokens, Some(true)) || self.native_token.is_some() {
                 queries.push(doc! {
-                    "output.native_tokens": { "$ne": [] }
+                    "details.native_tokens": { "$exists": true }
                 });
             }
-            if let Some(min_native_token_count) = self.min_native_token_count {
+            if let Some(native_token) = self.native_token {
                 queries.push(doc! {
-                    "output.native_tokens": {
-                        "$not": {
-                            "$elemMatch": {
-                                "amount": {
-                                    "$lt": bson::to_bson(&NativeTokenAmount::from(&min_native_token_count)).unwrap()
-                                }
-                            }
-                        }
-                    }
-                });
-            }
-            if let Some(max_native_token_count) = self.max_native_token_count {
-                queries.push(doc! {
-                    "output.native_tokens": {
-                        "$not": {
-                            "$elemMatch": {
-                                "amount": {
-                                    "$gt": bson::to_bson(&NativeTokenAmount::from(&max_native_token_count)).unwrap()
-                                }
-                            }
+                    "details.native_tokens": {
+                        "$elemMatch": {
+                            "token_id": native_token.to_bson()
                         }
                     }
                 });
@@ -138,7 +102,78 @@ impl AppendToQuery for AddressQuery {
     fn append_to(self, queries: &mut Vec<Document>) {
         if let Some(address) = self.0 {
             queries.push(doc! {
-                "details.address": address
+                "details.address": AddressDto::from(address)
+            });
+        }
+    }
+}
+
+/// Queries for an a unlocking address.
+pub(super) struct UnlockableByAddressQuery {
+    pub(super) address: Option<Address>,
+    pub(super) slot_index: Option<SlotIndex>,
+}
+
+impl AppendToQuery for UnlockableByAddressQuery {
+    fn append_to(self, queries: &mut Vec<Document>) {
+        match (self.address, self.slot_index) {
+            (Some(address), Some(SlotIndex(slot_index))) => {
+                let address = AddressDto::from(address);
+                queries.push(doc! {
+                    "$or": [
+                        // If this output is trivially unlocked by this address
+                        { "$and": [
+                            { "details.address": &address },
+                            // And the output has no expiration or is not expired
+                            { "$or": [
+                                { "$lte": [ "$details.expiration", null ] },
+                                { "$gt": [ "$details.expiration.slot_index", slot_index ] }
+                            ] },
+                            // and has no timelock or is past the lock period
+                            { "$or": [
+                                { "$lte": [ "$details.timelock", null ] },
+                                { "$lte": [ "$details.timelock", slot_index ] }
+                            ] }
+                        ] },
+                        // Otherwise, if this output has expiring funds that will be returned to this address
+                        { "$and": [
+                            { "details.expiration.return_address": &address },
+                            // And the output is expired
+                            { "$lte": [ "$details.expiration.slot_index", slot_index ] },
+                        ] },
+                    ]
+                });
+            }
+            (Some(address), None) => {
+                let address = AddressDto::from(address);
+                queries.push(doc! {
+                    "$or": [
+                        { "details.address": &address },
+                        { "details.expiration.return_address": &address },
+                    ]
+                });
+            }
+            (None, Some(SlotIndex(slot_index))) => {
+                queries.push(doc! {
+                    "$or": [
+                        { "$lte": [ "$details.timelock", null ] },
+                        { "$lte": [ "$details.timelock", slot_index ] }
+                    ]
+                });
+            }
+            _ => (),
+        }
+    }
+}
+
+/// Queries for an unlock condition of type `state_controller`.
+pub(super) struct StateControllerQuery(pub(super) Option<Address>);
+
+impl AppendToQuery for StateControllerQuery {
+    fn append_to(self, queries: &mut Vec<Document>) {
+        if let Some(address) = self.0 {
+            queries.push(doc! {
+                "details.state_controller_address": AddressDto::from(address)
             });
         }
     }
@@ -151,7 +186,33 @@ impl AppendToQuery for GovernorQuery {
     fn append_to(self, queries: &mut Vec<Document>) {
         if let Some(address) = self.0 {
             queries.push(doc! {
-                "output.governor_address_unlock_condition.address": address
+                "details.governor_address": AddressDto::from(address)
+            });
+        }
+    }
+}
+
+/// Queries for a validator account.
+pub(super) struct ValidatorQuery(pub(super) Option<AccountId>);
+
+impl AppendToQuery for ValidatorQuery {
+    fn append_to(self, queries: &mut Vec<Document>) {
+        if let Some(account_id) = self.0 {
+            queries.push(doc! {
+                "details.validator": account_id.to_bson()
+            });
+        }
+    }
+}
+
+/// Queries for an account address.
+pub(super) struct AccountAddressQuery(pub(super) Option<AccountId>);
+
+impl AppendToQuery for AccountAddressQuery {
+    fn append_to(self, queries: &mut Vec<Document>) {
+        if let Some(account_id) = self.0 {
+            queries.push(doc! {
+                "details.account_address": account_id.to_bson()
             });
         }
     }
@@ -167,12 +228,12 @@ impl AppendToQuery for StorageDepositReturnQuery {
     fn append_to(self, queries: &mut Vec<Document>) {
         if let Some(has_storage_return_condition) = self.has_storage_return_condition {
             queries.push(doc! {
-                "output.storage_deposit_return_unlock_condition": { "$exists": has_storage_return_condition }
+                "details.storage_deposit_return_address": { "$exists": has_storage_return_condition }
             });
         }
-        if let Some(storage_return_address) = self.storage_return_address {
+        if let Some(address) = self.storage_return_address {
             queries.push(doc! {
-                "output.storage_deposit_return_unlock_condition.return_address": storage_return_address
+                "details.storage_deposit_return_address": AddressDto::from(address)
             });
         }
     }
@@ -181,25 +242,25 @@ impl AppendToQuery for StorageDepositReturnQuery {
 /// Queries for an unlock condition of type `timelock`.
 pub(super) struct TimelockQuery {
     pub(super) has_timelock_condition: Option<bool>,
-    pub(super) timelocked_before: Option<MilestoneTimestamp>,
-    pub(super) timelocked_after: Option<MilestoneTimestamp>,
+    pub(super) timelocked_before: Option<SlotIndex>,
+    pub(super) timelocked_after: Option<SlotIndex>,
 }
 
 impl AppendToQuery for TimelockQuery {
     fn append_to(self, queries: &mut Vec<Document>) {
         if let Some(has_timelock_condition) = self.has_timelock_condition {
             queries.push(doc! {
-                "output.timelock_unlock_condition": { "$exists": has_timelock_condition }
+                "details.timelock": { "$exists": has_timelock_condition }
             });
         }
         if let Some(timelocked_before) = self.timelocked_before {
             queries.push(doc! {
-                "output.timelock_unlock_condition.timestamp": { "$lt": timelocked_before }
+                "details.timelock": { "$lt": timelocked_before.0 }
             });
         }
         if let Some(timelocked_after) = self.timelocked_after {
             queries.push(doc! {
-                "output.timelock_unlock_condition.timestamp": { "$gt": timelocked_after }
+                "details.timelock": { "$gt": timelocked_after.0 }
             });
         }
     }
@@ -208,8 +269,8 @@ impl AppendToQuery for TimelockQuery {
 /// Queries for an unlock condition of type `expiration`.
 pub(super) struct ExpirationQuery {
     pub(super) has_expiration_condition: Option<bool>,
-    pub(super) expires_before: Option<MilestoneTimestamp>,
-    pub(super) expires_after: Option<MilestoneTimestamp>,
+    pub(super) expires_before: Option<SlotIndex>,
+    pub(super) expires_after: Option<SlotIndex>,
     pub(super) expiration_return_address: Option<Address>,
 }
 
@@ -217,22 +278,22 @@ impl AppendToQuery for ExpirationQuery {
     fn append_to(self, queries: &mut Vec<Document>) {
         if let Some(has_expiration_condition) = self.has_expiration_condition {
             queries.push(doc! {
-                "output.expiration_unlock_condition": { "$exists": has_expiration_condition }
+                "details.expiration": { "$exists": has_expiration_condition }
             });
         }
         if let Some(expires_before) = self.expires_before {
             queries.push(doc! {
-                "output.expiration_unlock_condition.timestamp": { "$lt": expires_before }
+                "details.expiration": { "$lt": expires_before.0 }
             });
         }
         if let Some(expires_after) = self.expires_after {
             queries.push(doc! {
-                "output.expiration_unlock_condition.timestamp": { "$gt": expires_after }
+                "details.expiration": { "$gt": expires_after.0 }
             });
         }
-        if let Some(expiration_return_address) = self.expiration_return_address {
+        if let Some(address) = self.expiration_return_address {
             queries.push(doc! {
-                "output.expiration_unlock_condition.return_address": expiration_return_address
+                "details.expiration_return_address": AddressDto::from(address)
             });
         }
     }
@@ -240,20 +301,20 @@ impl AppendToQuery for ExpirationQuery {
 
 /// Queries for created (booked) time.
 pub(super) struct CreatedQuery {
-    pub(super) created_before: Option<MilestoneTimestamp>,
-    pub(super) created_after: Option<MilestoneTimestamp>,
+    pub(super) created_before: Option<SlotIndex>,
+    pub(super) created_after: Option<SlotIndex>,
 }
 
 impl AppendToQuery for CreatedQuery {
     fn append_to(self, queries: &mut Vec<Document>) {
         if let Some(created_before) = self.created_before {
             queries.push(doc! {
-                "metadata.booked.milestone_timestamp": { "$lt": created_before }
+                "metadata.slot_booked": { "$lt": created_before.0 }
             });
         }
         if let Some(created_after) = self.created_after {
             queries.push(doc! {
-                "metadata.booked.milestone_timestamp": { "$gt": created_after }
+                "metadata.slot_booked": { "$gt": created_after.0 }
             });
         }
     }

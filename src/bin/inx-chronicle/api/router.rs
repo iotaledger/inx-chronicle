@@ -1,4 +1,4 @@
-// Copyright 2022 IOTA Stiftung
+// Copyright 2023 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
 //! This `Router` wraps the functionality we use from [`axum::Router`] and tracks the string routes
@@ -9,17 +9,16 @@
 //! of unauthorized routes.
 
 use std::{
-    collections::{BTreeMap, BTreeSet},
+    collections::{btree_map::Entry, BTreeMap, BTreeSet},
     convert::Infallible,
 };
 
 use axum::{
-    body::{Bytes, HttpBody},
-    response::Response,
-    routing::{future::RouteFuture, IntoMakeService, Route},
-    BoxError, Extension,
+    extract::Request,
+    handler::Handler,
+    response::IntoResponse,
+    routing::{MethodRouter, Route},
 };
-use hyper::{Body, Request};
 use regex::RegexSet;
 use tower::{Layer, Service};
 
@@ -78,12 +77,12 @@ impl RouteNode {
 }
 
 #[derive(Debug)]
-pub struct Router<B = Body> {
-    inner: axum::Router<B>,
+pub struct Router<S = ()> {
+    inner: axum::Router<S>,
     root: RouteNode,
 }
 
-impl<B> Clone for Router<B> {
+impl<S> Clone for Router<S> {
     fn clone(&self) -> Self {
         Self {
             inner: self.inner.clone(),
@@ -92,18 +91,18 @@ impl<B> Clone for Router<B> {
     }
 }
 
-impl<B> Default for Router<B>
+impl<S> Default for Router<S>
 where
-    B: HttpBody + Send + 'static,
+    Router<S>: Default,
 {
     fn default() -> Self {
-        Self::new()
+        Self::default()
     }
 }
 
-impl<B> Router<B>
+impl<S> Router<S>
 where
-    B: HttpBody + Send + 'static,
+    S: Clone + Send + Sync + 'static,
 {
     pub fn new() -> Self {
         Self {
@@ -112,51 +111,49 @@ where
         }
     }
 
-    pub fn route<T>(mut self, path: &str, service: T) -> Self
-    where
-        T: Service<Request<B>, Response = Response, Error = Infallible> + Clone + Send + 'static,
-        T::Future: Send + 'static,
-    {
+    pub fn route(mut self, path: &str, method_router: MethodRouter<S>) -> Self {
         self.root.children.entry(path.to_string()).or_default();
         Self {
-            inner: self.inner.route(path, service),
+            inner: self.inner.route(path, method_router),
             root: self.root,
         }
     }
 
-    pub fn nest<T>(mut self, path: &str, service: T) -> Self
-    where
-        T: Service<Request<B>, Response = Response, Error = Infallible> + Clone + Send + 'static,
-        T::Future: Send + 'static,
-    {
-        match try_downcast::<Router<B>, _>(service) {
-            Ok(router) => {
-                match self.root.children.entry(path.to_string()) {
-                    std::collections::btree_map::Entry::Occupied(mut o) => o.get_mut().merge(router.root),
-                    std::collections::btree_map::Entry::Vacant(v) => {
-                        v.insert(router.root);
-                    }
-                }
-                Self {
-                    inner: self.inner.nest(path, router.inner),
-                    root: self.root,
-                }
+    pub fn nest(mut self, path: &str, router: Router<S>) -> Self {
+        match self.root.children.entry(path.to_string()) {
+            Entry::Occupied(mut o) => o.get_mut().merge(router.root),
+            Entry::Vacant(v) => {
+                v.insert(router.root);
             }
-            Err(service) => Self {
-                inner: self.inner.nest(path, service),
-                root: self.root,
-            },
+        }
+        Self {
+            inner: self.inner.nest(path, router.inner),
+            root: self.root,
         }
     }
 
-    pub fn layer<L, NewReqBody, NewResBody>(self, layer: L) -> Router<NewReqBody>
+    pub fn merge(mut self, other: Router<S>) -> Self {
+        for (path, node) in other.root.children {
+            match self.root.children.entry(path) {
+                Entry::Occupied(mut o) => o.get_mut().merge(node),
+                Entry::Vacant(v) => {
+                    v.insert(node);
+                }
+            }
+        }
+        Self {
+            inner: self.inner.merge(other.inner),
+            root: self.root,
+        }
+    }
+
+    pub fn layer<L>(self, layer: L) -> Router<S>
     where
-        L: Layer<Route<B>>,
-        L::Service:
-            Service<Request<NewReqBody>, Response = Response<NewResBody>, Error = Infallible> + Clone + Send + 'static,
-        <L::Service as Service<Request<NewReqBody>>>::Future: Send + 'static,
-        NewResBody: HttpBody<Data = Bytes> + Send + 'static,
-        NewResBody::Error: Into<BoxError>,
+        L: Layer<Route> + Clone + Send + 'static,
+        L::Service: Service<Request> + Clone + Send + 'static,
+        <L::Service as Service<Request>>::Response: IntoResponse + 'static,
+        <L::Service as Service<Request>>::Error: Into<Infallible> + 'static,
+        <L::Service as Service<Request>>::Future: Send + 'static,
     {
         Router {
             inner: self.inner.layer(layer),
@@ -164,13 +161,13 @@ where
         }
     }
 
-    pub fn route_layer<L, NewResBody>(self, layer: L) -> Self
+    pub fn route_layer<L>(self, layer: L) -> Self
     where
-        L: Layer<Route<B>>,
-        L::Service: Service<Request<B>, Response = Response<NewResBody>, Error = Infallible> + Clone + Send + 'static,
-        <L::Service as Service<Request<B>>>::Future: Send + 'static,
-        NewResBody: HttpBody<Data = Bytes> + Send + 'static,
-        NewResBody::Error: Into<BoxError>,
+        L: Layer<Route> + Clone + Send + 'static,
+        L::Service: Service<Request> + Clone + Send + 'static,
+        <L::Service as Service<Request>>::Response: IntoResponse + 'static,
+        <L::Service as Service<Request>>::Error: Into<Infallible> + 'static,
+        <L::Service as Service<Request>>::Future: Send + 'static,
     {
         Self {
             inner: self.inner.route_layer(layer),
@@ -178,48 +175,18 @@ where
         }
     }
 
-    pub fn fallback<T>(self, service: T) -> Self
+    pub fn fallback<H, T>(self, handler: H) -> Self
     where
-        T: Service<Request<B>, Response = Response, Error = Infallible> + Clone + Send + 'static,
-        T::Future: Send + 'static,
+        H: Handler<T, S>,
+        T: 'static,
     {
         Self {
-            inner: self.inner.fallback(service),
+            inner: self.inner.fallback(handler),
             root: self.root,
         }
     }
 
-    pub fn into_make_service(self) -> IntoMakeService<axum::Router<B>> {
-        self.inner.layer(Extension(self.root)).into_make_service()
-    }
-}
-
-impl<B> Service<Request<B>> for Router<B>
-where
-    B: HttpBody + Send + 'static,
-{
-    type Response = Response;
-    type Error = Infallible;
-    type Future = RouteFuture<B, Infallible>;
-
-    fn poll_ready(&mut self, cx: &mut std::task::Context<'_>) -> std::task::Poll<Result<(), Self::Error>> {
-        self.inner.poll_ready(cx)
-    }
-
-    fn call(&mut self, req: Request<B>) -> Self::Future {
-        self.inner.call(req)
-    }
-}
-
-fn try_downcast<T, K>(k: K) -> Result<T, K>
-where
-    T: 'static,
-    K: Send + 'static,
-{
-    let mut k = Some(k);
-    if let Some(k) = <dyn std::any::Any>::downcast_mut::<Option<T>>(&mut k) {
-        Ok(k.take().unwrap())
-    } else {
-        Err(k.unwrap())
+    pub fn finish(self) -> (RouteNode, axum::Router<S>) {
+        (self.root, self.inner)
     }
 }

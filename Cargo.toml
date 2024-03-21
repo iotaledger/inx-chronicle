@@ -1,6 +1,6 @@
 [package]
 name = "chronicle"
-version = "1.0.0-rc.4"
+version = "2.0.0"
 authors = ["IOTA Stiftung"]
 edition = "2021"
 description = "IOTA permanode implemented as an IOTA Node Extension (INX)."
@@ -25,17 +25,17 @@ path = "src/bin/inx-chronicle/main.rs"
 async-trait = { version = "0.1", default-features = false }
 bytesize = { version = "1.1", default-features = false }
 clap = { version = "4.1", default-features = false, features = ["env", "derive", "std", "help", "usage", "error-context", "wrap_help"] }
-decimal = { version = "2.1", default-features = false, features = [ "serde" ] }
 derive_more = { version = "0.99", default-features = false, features = [ "add", "add_assign", "deref", "deref_mut", "sum" ] }
 dotenvy = { version = "0.15", default-features = false }
 eyre = { version = "0.6", default-features = false, features = [ "track-caller", "auto-install" ] }
 futures = { version = "0.3", default-features = false }
-humantime = { version = "2.1.0", default-features = false }
+hex = { version = "0.4", default-features = false }
+humantime = { version = "2.1", default-features = false }
 humantime-serde = { version = "1.1", default-features = false }
-iota-crypto = { version = "0.23", default-features = false, features = [ "blake2b", "ed25519", "slip10", "bip39-en" ] }
-iota-sdk = { version = "1.1", default-features = false, features = [ "std", "serde" ] }
+iota-crypto = { version = "0.23", default-features = false, features = [ "blake2b", "ed25519", "slip10", "bip39-en", "random", "zeroize" ] }
+iota-sdk = { git = "https://github.com/iotaledger/iota-sdk", branch = "2.0", default-features = false, features = [ "std", "serde" ] }
 mongodb = { version = "2.4", default-features = false, features = [ "tokio-runtime" ] }
-packable = { version = "0.8", default-features = false }
+packable = { version = "0.11", default-features = false }
 pin-project = { version = "1.0", default-features = false }
 prefix-hex = { version = "0.7.0", default-features = false, features = [ "primitive-types", "std" ] }
 primitive-types = { version = "0.12", default-features = false }
@@ -58,30 +58,30 @@ influxdb = { version = "0.7", default-features = false, features = [ "use-serde"
 
 # API
 auth-helper = { version = "0.3", default-features = false, optional = true }
-axum = { version = "0.5", default-features = false, features = [ "http1", "json", "query", "original-uri", "headers" ], optional = true }
-ed25519 = { version = "2.2", default-features = false, features = [ "zeroize" ] } # This is here simply to force this feature
+axum = { version = "0.7", default-features = false, features = [ "http1", "json", "query", "original-uri", "tokio", "macros" ], optional = true }
+axum-extra = { version = "0.9", default-features = false, features = [ "typed-header" ] }
 ed25519-zebra = { version = "4.0", default-features = false, features = [ "std", "pkcs8", "pem" ], optional = true }
-hex = { version = "0.4", default-features = false, optional = true }
-hyper = { version = "0.14", default-features = false, features = [ "server", "tcp", "stream" ], optional = true }
+hyper = { version = "1.1.0", default-features = false, features = [ "server" ], optional = true }
+hyper-util = { version = "0.1", default-features = false }
 rand = { version = "0.8", default-features = false, features = [ "std" ], optional = true }
-regex = { version = "1.7", default-features = false, features = [ "std" ], optional = true }
-rust-argon2 = { version = "2.0.0", default-features = false, optional = true }
+regex = { version = "1.8.4", default-features = false, features = [ "std" ], optional = true }
+rust-argon2 = { version = "2.0", default-features = false, optional = true }
 serde_urlencoded = { version = "0.7", default-features = false, optional = true }
 tower = { version = "0.4", default-features = false, optional = true }
-tower-http = { version = "0.4", default-features = false, features = [ "cors", "catch-panic", "trace" ], optional = true }
+tower-http = { version = "0.5", default-features = false, features = [ "cors", "catch-panic", "trace" ], optional = true }
 zeroize = { version = "1.5", default-features = false, features = [ "std", "zeroize_derive" ], optional = true }
 
 # INX
-inx = { version = "1.0.0-beta.8", default-features = false, optional = true }
-tonic = { version = "0.8", default-features = false, optional = true }
+inx = { git = "https://github.com/iotaledger/inx", default-features = false, optional = true }
+tonic = { version = "0.10", default-features = false, optional = true }
 
 [dev-dependencies]
-bincode = { version = "1.3", default-features = false }
-iota-sdk = { version = "1.1", default-features = false, features = [ "std", "serde", "rand" ] }
+# bincode = { version = "1.3", default-features = false }
+iota-sdk = { git = "https://github.com/iotaledger/iota-sdk", branch = "2.0", default-features = false, features = [ "std", "serde", "rand" ] }
 pretty_assertions = { version = "1.4", default-features = false, features = [ "std" ] }
 rand = { version = "0.8", default-features = false, features = [ "std" ] }
-ron = { version = "0.8", default-features = false }
-yazi = { version = "0.1", default-features = false }
+# ron = { version = "0.8", default-features = false }
+# yazi = { version = "0.2", default-features = false }
 
 [features]
 default = [
@@ -89,7 +89,6 @@ default = [
     "api",
     "inx",
     "metrics",
-    "poi",
 ]
 analytics = [
     "influx",
@@ -98,7 +97,6 @@ api = [
     "dep:auth-helper",
     "dep:axum",
     "dep:ed25519-zebra",
-    "dep:hex",
     "derive_more/from",
     "dep:hyper",
     "dep:rand",
@@ -119,12 +117,6 @@ inx = [
 metrics = [
     "influx",
     "dep:chrono",
-]
-poi = [
-    "api",
-]
-rand = [
-    "iota-sdk/rand",
 ]
 
 [profile.production]

@@ -221,10 +221,7 @@ paths:
       tags:
         - ledger
       summary: Returns the top richest addresses.
-      description: >-
-        Returns the top richest addresses at the ledger state specified by the provided index.
       parameters:
-        - $ref: "#/components/parameters/ledgerIndex"
         - $ref: "#/components/parameters/top"
       responses:
         "200":
@@ -248,9 +245,7 @@ paths:
         - ledger
       summary: Returns the current token distribution.
       description: >-
-        Returns the distribution of IOTA tokens at the ledger state specified by the provided index.
-      parameters:
-        - $ref: "#/components/parameters/ledgerIndex"
+        Returns the latest distribution of IOTA tokens.
       responses:
         "200":
           description: Successful operation.
@@ -275,16 +270,30 @@ components:
         totalBalance:
           type: string
           description: >-
-            The total value held in unspent outputs that is unlockable by the given address or currently timelocked.
+            The total balance held in unspent outputs that is unlockable by the given address or currently timelocked.
             Does not include funds held in storage deposit.
         availableBalance:
           type: string
           description: >-
-            The total value held in unspent outputs that is immediately unlockable at ledgerIndex by the given address.
+            The total balance held in unspent outputs that is immediately unlockable at ledgerIndex by the given address.
             Does not include funds held in storage deposit.
         ledgerIndex:
           type: integer
-          description: The ledger index for which the balance calculation was performed.
+          description: The slot index for which the balance calculation was performed.
+    Balance:
+      description: Balance of IOTA tokens and mana.
+      properties:
+        amount:
+          type: string
+          description: The amount of IOTA tokens.
+        mana:
+          properties:
+            stored:
+              type: string
+              description: The amount of stored mana with decay.
+            potential:
+              type: string
+              description: The amount of potential mana with decay.
     BlockChildrenResponse:
       description: Returns the children of a given block.
       properties:
@@ -584,8 +593,16 @@ components:
   examples:
     balance-example:
       value:
-        totalBalance: 100000
-        availableBalance: 99900
+        totalBalance: 
+          amount: 100000
+          mana:
+            stored: 100
+            potential: 12345
+        availableBalance: 
+          amount: 99990
+          mana:
+            stored: 200
+            potential: 23455
         ledgerIndex: 500000
     ledger-updates-address-example:
       value:

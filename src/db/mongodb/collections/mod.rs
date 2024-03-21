@@ -1,41 +1,45 @@
-// Copyright 2022 IOTA Stiftung
+// Copyright 2023 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
+/// Module containing collections for analytics.
+#[cfg(feature = "analytics")]
+mod analytics;
 mod application_state;
-/// Module containing the Block document model.
+/// Module containing the block collection.
 mod block;
-/// Module containing the node configuration collection.
-mod configuration_update;
-/// Module containing the LedgerUpdate model.
+/// Module containing the committed slot collection.
+mod committed_slot;
+/// Module containing the ledger update collection.
 mod ledger_update;
-/// Module containing the Milestone document model.
-mod milestone;
-/// Module containing Block outputs.
+/// Module containing the outputs collection.
 mod outputs;
-/// Module containing the protocol parameters collection.
-mod protocol_update;
-/// Module containing the treasury model.
-mod treasury;
+/// Module containing the parents collection.
+mod parents;
 
 use std::str::FromStr;
 
+use iota_sdk::types::block::output::{
+    AccountOutput, AnchorOutput, BasicOutput, DelegationOutput, FoundryOutput, NftOutput, Output,
+};
 use thiserror::Error;
 
+#[cfg(feature = "analytics")]
+pub use self::analytics::{
+    account_candidacy::AccountCandidacyCollection,
+    address_balance::{AddressBalanceCollection, AddressStat, DistributionStat},
+};
 pub use self::{
     application_state::{ApplicationStateCollection, MigrationVersion},
     block::BlockCollection,
-    configuration_update::ConfigurationUpdateCollection,
-    ledger_update::{LedgerUpdateByAddressRecord, LedgerUpdateByMilestoneRecord, LedgerUpdateCollection},
-    milestone::{MilestoneCollection, MilestoneResult, SyncData},
+    committed_slot::CommittedSlotCollection,
+    ledger_update::{LedgerUpdateByAddressRecord, LedgerUpdateBySlotRecord, LedgerUpdateCollection},
     outputs::{
-        AddressStat, AliasOutputsQuery, BasicOutputsQuery, DistributionStat, FoundryOutputsQuery, IndexedId,
-        NftOutputsQuery, OutputCollection, OutputMetadataResult, OutputWithMetadataResult, OutputsResult,
-        UtxoChangesResult,
+        AccountOutputsQuery, AnchorOutputsQuery, BasicOutputsQuery, DelegationOutputsQuery, FoundryOutputsQuery,
+        IndexedId, NftOutputsQuery, OutputCollection, OutputMetadata, OutputMetadataResult, OutputWithMetadataResult,
+        OutputsResult, UtxoChangesResult,
     },
-    protocol_update::ProtocolUpdateCollection,
-    treasury::{TreasuryCollection, TreasuryResult},
+    parents::ParentsCollection,
 };
-use crate::model::utxo::{AliasOutput, BasicOutput, FoundryOutput, NftOutput, Output};
 
 /// Helper to specify a kind for an output type.
 pub trait OutputKindQuery {
@@ -50,18 +54,20 @@ impl OutputKindQuery for Output {
 }
 
 macro_rules! impl_output_kind_query {
-    ($t:ty) => {
+    ($t:ty, $kind:literal) => {
         impl OutputKindQuery for $t {
             fn kind() -> Option<&'static str> {
-                Some(<$t>::KIND)
+                Some($kind)
             }
         }
     };
 }
-impl_output_kind_query!(BasicOutput);
-impl_output_kind_query!(AliasOutput);
-impl_output_kind_query!(NftOutput);
-impl_output_kind_query!(FoundryOutput);
+impl_output_kind_query!(BasicOutput, "basic");
+impl_output_kind_query!(AccountOutput, "account");
+impl_output_kind_query!(AnchorOutput, "anchor");
+impl_output_kind_query!(FoundryOutput, "foundry");
+impl_output_kind_query!(NftOutput, "nft");
+impl_output_kind_query!(DelegationOutput, "delegation");
 
 #[allow(missing_docs)]
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]

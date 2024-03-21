@@ -1,17 +1,21 @@
 // Copyright 2023 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-use std::ops::RangeBounds;
+use core::ops::RangeBounds;
 
 use async_trait::async_trait;
 use futures::{stream::BoxStream, StreamExt, TryStreamExt};
+use iota_sdk::types::block::{payload::signed_transaction::TransactionId, slot::SlotIndex};
 use thiserror::Error;
 
-use super::{BlockData, InputSource, MilestoneData};
+use super::InputSource;
 use crate::{
-    inx::{Inx, InxError, MarkerMessage, MilestoneRangeRequest},
-    model::tangle::{MilestoneIndex, MilestoneIndexTimestamp},
-    tangle::ledger_updates::LedgerUpdateStore,
+    inx::{ledger::MarkerMessage, Inx, InxError, SlotRangeRequest},
+    model::{
+        block_metadata::{BlockWithMetadata, TransactionMetadata},
+        ledger::LedgerUpdateStore,
+        slot::Commitment,
+    },
 };
 
 #[derive(Debug, Error)]
@@ -20,8 +24,6 @@ pub enum InxInputSourceError {
     Inx(#[from] InxError),
     #[error("missing marker message in ledger update stream")]
     MissingMarkerMessage,
-    #[error("missing milestone id for milestone index `{0}`")]
-    MissingMilestoneInfo(MilestoneIndex),
     #[error("unexpected message in ledger update stream")]
     UnexpectedMessage,
 }
@@ -30,66 +32,38 @@ pub enum InxInputSourceError {
 impl InputSource for Inx {
     type Error = InxInputSourceError;
 
-    async fn milestone_stream(
+    async fn commitment_stream(
         &self,
-        range: impl RangeBounds<MilestoneIndex> + Send,
-    ) -> Result<BoxStream<Result<MilestoneData, Self::Error>>, Self::Error> {
+        range: impl RangeBounds<SlotIndex> + Send,
+    ) -> Result<BoxStream<Result<Commitment, Self::Error>>, Self::Error> {
         let mut inx = self.clone();
         Ok(Box::pin(
-            inx.listen_to_confirmed_milestones(MilestoneRangeRequest::from_range(range))
+            inx.get_committed_slots(SlotRangeRequest::from_range(range))
                 .await?
-                .map_err(Self::Error::from)
-                .and_then(move |msg| {
-                    let mut inx = inx.clone();
-                    async move {
-                        let node_config = inx.read_node_configuration().await?.into();
-                        let payload = if let iota_sdk::types::block::payload::Payload::Milestone(payload) =
-                            msg.milestone.milestone.inner_unverified()?
-                        {
-                            payload.into()
-                        } else {
-                            unreachable!("Raw milestone data has to contain a milestone payload");
-                        };
-                        Ok(MilestoneData {
-                            milestone_id: msg.milestone.milestone_info.milestone_id.ok_or(
-                                Self::Error::MissingMilestoneInfo(msg.milestone.milestone_info.milestone_index),
-                            )?,
-                            at: MilestoneIndexTimestamp {
-                                milestone_index: msg.milestone.milestone_info.milestone_index,
-                                milestone_timestamp: msg.milestone.milestone_info.milestone_timestamp.into(),
-                            },
-                            payload,
-                            protocol_params: msg.current_protocol_parameters.params.inner_unverified()?.into(),
-                            node_config,
-                        })
-                    }
-                }),
+                .map_err(Self::Error::from),
         ))
     }
 
-    async fn cone_stream(
+    async fn accepted_blocks(
         &self,
-        index: MilestoneIndex,
-    ) -> Result<BoxStream<Result<BlockData, Self::Error>>, Self::Error> {
+        index: SlotIndex,
+    ) -> Result<BoxStream<Result<BlockWithMetadata, Self::Error>>, Self::Error> {
         let mut inx = self.clone();
         Ok(Box::pin(
-            inx.read_milestone_cone(index.0.into())
+            inx.get_accepted_blocks_for_slot(index)
                 .await?
-                .map_err(Self::Error::from)
-                .and_then(|msg| async move {
-                    Ok(BlockData {
-                        block_id: msg.metadata.block_id,
-                        block: msg.block.clone().inner_unverified()?.into(),
-                        raw: msg.block.data(),
-                        metadata: msg.metadata.into(),
-                    })
-                }),
+                .map_err(Self::Error::from),
         ))
     }
 
-    async fn ledger_updates(&self, index: MilestoneIndex) -> Result<LedgerUpdateStore, Self::Error> {
+    async fn transaction_metadata(&self, transaction_id: TransactionId) -> Result<TransactionMetadata, Self::Error> {
         let mut inx = self.clone();
-        let mut stream = inx.listen_to_ledger_updates((index.0..=index.0).into()).await?;
+        Ok(inx.get_transaction_metadata(transaction_id).await?)
+    }
+
+    async fn ledger_updates(&self, index: SlotIndex) -> Result<LedgerUpdateStore, Self::Error> {
+        let mut inx = self.clone();
+        let mut stream = inx.get_ledger_updates((index.0..=index.0).into()).await?;
         let MarkerMessage {
             consumed_count,
             created_count,

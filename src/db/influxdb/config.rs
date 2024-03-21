@@ -1,4 +1,4 @@
-// Copyright 2022 IOTA Stiftung
+// Copyright 2023 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
 //! Holds the `InfluxDb` config and its defaults.
@@ -75,17 +75,20 @@ impl Default for InfluxDbConfig {
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, clap::ValueEnum)]
 pub enum AnalyticsChoice {
     // Please keep the alphabetic order.
+    ActiveAddresses,
     AddressBalance,
     BaseTokenActivity,
     BlockActivity,
-    ActiveAddresses,
+    BlockIssuerActivity,
+    Features,
     LedgerOutputs,
     LedgerSize,
-    MilestoneSize,
+    ManaActivity,
     OutputActivity,
     ProtocolParameters,
+    SlotCommitment,
+    SlotSize,
     TransactionSizeDistribution,
-    UnclaimedTokens,
     UnlockConditions,
 }
 
@@ -93,17 +96,20 @@ pub enum AnalyticsChoice {
 pub fn all_analytics() -> HashSet<AnalyticsChoice> {
     // Please keep the alphabetic order.
     [
+        AnalyticsChoice::ActiveAddresses,
         AnalyticsChoice::AddressBalance,
         AnalyticsChoice::BaseTokenActivity,
         AnalyticsChoice::BlockActivity,
-        AnalyticsChoice::ActiveAddresses,
+        AnalyticsChoice::BlockIssuerActivity,
+        AnalyticsChoice::Features,
         AnalyticsChoice::LedgerOutputs,
         AnalyticsChoice::LedgerSize,
-        AnalyticsChoice::MilestoneSize,
+        AnalyticsChoice::ManaActivity,
         AnalyticsChoice::OutputActivity,
         AnalyticsChoice::ProtocolParameters,
+        AnalyticsChoice::SlotCommitment,
+        AnalyticsChoice::SlotSize,
         AnalyticsChoice::TransactionSizeDistribution,
-        AnalyticsChoice::UnclaimedTokens,
         AnalyticsChoice::UnlockConditions,
     ]
     .into()

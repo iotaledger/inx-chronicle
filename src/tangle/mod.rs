@@ -3,19 +3,17 @@
 
 //! Defines types that allow for unified data processing.
 
-mod ledger_updates;
-mod milestone_stream;
+mod slot_stream;
 pub(crate) mod sources;
 use std::ops::RangeBounds;
 
 use futures::{StreamExt, TryStreamExt};
+use iota_sdk::types::block::slot::SlotIndex;
 
 pub use self::{
-    ledger_updates::LedgerUpdateStore,
-    milestone_stream::{Milestone, MilestoneStream},
-    sources::{BlockData, InputSource, MilestoneData},
+    slot_stream::{Slot, SlotStream},
+    sources::InputSource,
 };
-use crate::model::tangle::MilestoneIndex;
 
 /// Provides access to the tangle.
 pub struct Tangle<I: InputSource> {
@@ -38,26 +36,19 @@ impl<I: InputSource> From<I> for Tangle<I> {
 }
 
 impl<I: InputSource + Sync> Tangle<I> {
-    /// Returns a stream of milestones for a given range.
-    pub async fn milestone_stream(
-        &self,
-        range: impl RangeBounds<MilestoneIndex> + Send,
-    ) -> Result<MilestoneStream<'_, I>, I::Error> {
-        let stream = self.source.milestone_stream(range).await?;
-        Ok(MilestoneStream {
+    /// Returns a stream of slots in a given range.
+    pub async fn slot_stream(&self, range: impl RangeBounds<SlotIndex> + Send) -> Result<SlotStream<'_, I>, I::Error> {
+        let stream = self.source.commitment_stream(range).await?;
+        Ok(SlotStream {
             inner: stream
-                .and_then(|data| {
+                .and_then(|commitment| {
                     #[allow(clippy::borrow_deref_ref)]
                     let source = &self.source;
                     async move {
-                        Ok(Milestone {
-                            ledger_updates: source.ledger_updates(data.at.milestone_index).await?,
+                        Ok(Slot {
+                            ledger_updates: source.ledger_updates(commitment.commitment_id.slot_index()).await?,
                             source,
-                            milestone_id: data.milestone_id,
-                            at: data.at,
-                            payload: data.payload,
-                            protocol_params: data.protocol_params,
-                            node_config: data.node_config,
+                            commitment,
                         })
                     }
                 })

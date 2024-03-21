@@ -1,7 +1,17 @@
 // Copyright 2023 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-use super::*;
+use iota_sdk::types::block::{output::Output, payload::SignedTransactionPayload};
+use serde::{Deserialize, Serialize};
+
+use super::CountAndAmount;
+use crate::{
+    analytics::{Analytics, AnalyticsContext},
+    model::{
+        block_metadata::TransactionMetadata,
+        ledger::{LedgerOutput, LedgerSpent},
+    },
+};
 
 #[derive(Copy, Clone, Debug, Default, Serialize, Deserialize)]
 #[allow(missing_docs)]
@@ -35,52 +45,60 @@ impl UnlockConditionMeasurement {
     pub(crate) fn init<'a>(unspent_outputs: impl IntoIterator<Item = &'a LedgerOutput>) -> Self {
         let mut measurement = Self::default();
         for output in unspent_outputs {
-            match &output.output {
-                Output::Alias(_) => {}
+            match output.output() {
                 Output::Basic(basic) => {
-                    if basic.timelock_unlock_condition.is_some() {
+                    if basic.unlock_conditions().timelock().is_some() {
                         measurement.timelock.add_output(output);
                     }
-                    if basic.expiration_unlock_condition.is_some() {
+                    if basic.unlock_conditions().expiration().is_some() {
                         measurement.expiration.add_output(output);
                     }
-                    if let Some(storage) = basic.storage_deposit_return_unlock_condition {
+                    if let Some(storage) = basic.unlock_conditions().storage_deposit_return() {
                         measurement.storage_deposit_return.add_output(output);
-                        measurement.storage_deposit_return_inner_amount += storage.amount.0;
+                        measurement.storage_deposit_return_inner_amount += storage.amount();
                     }
                 }
                 Output::Nft(nft) => {
-                    if nft.timelock_unlock_condition.is_some() {
+                    if nft.unlock_conditions().timelock().is_some() {
                         measurement.timelock.add_output(output);
                     }
-                    if nft.expiration_unlock_condition.is_some() {
+                    if nft.unlock_conditions().expiration().is_some() {
                         measurement.expiration.add_output(output);
                     }
-                    if let Some(storage) = nft.storage_deposit_return_unlock_condition {
+                    if let Some(storage) = nft.unlock_conditions().storage_deposit_return() {
                         measurement.storage_deposit_return.add_output(output);
-                        measurement.storage_deposit_return_inner_amount += storage.amount.0;
+                        measurement.storage_deposit_return_inner_amount += storage.amount();
                     }
                 }
-                Output::Foundry(_) => {}
-                Output::Treasury(_) => {}
+                _ => {}
             }
         }
         measurement
     }
 }
 
+#[async_trait::async_trait]
 impl Analytics for UnlockConditionMeasurement {
     type Measurement = Self;
 
-    fn handle_transaction(&mut self, consumed: &[LedgerSpent], created: &[LedgerOutput], _ctx: &dyn AnalyticsContext) {
+    async fn handle_transaction(
+        &mut self,
+        _payload: &SignedTransactionPayload,
+        _metadata: &TransactionMetadata,
+        consumed: &[LedgerSpent],
+        created: &[LedgerOutput],
+        _ctx: &dyn AnalyticsContext,
+    ) -> eyre::Result<()> {
         let consumed = Self::init(consumed.iter().map(|input| &input.output));
         let created = Self::init(created);
 
         self.wrapping_add(created);
         self.wrapping_sub(consumed);
+
+        Ok(())
     }
 
-    fn take_measurement(&mut self, _ctx: &dyn AnalyticsContext) -> Self::Measurement {
-        *self
+    async fn take_measurement(&mut self, _ctx: &dyn AnalyticsContext) -> eyre::Result<Self::Measurement> {
+        Ok(*self)
     }
 }

@@ -1,16 +1,17 @@
-// Copyright 2022 IOTA Stiftung
+// Copyright 2023 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
 use std::ops::Range;
 
-use chronicle::{
-    db::mongodb::collections::{
-        DistributionStat, LedgerUpdateByAddressRecord, LedgerUpdateByMilestoneRecord, MilestoneResult,
+use chronicle::db::mongodb::collections::{DistributionStat, LedgerUpdateByAddressRecord};
+use iota_sdk::{
+    types::block::{
+        address::Bech32Address,
+        output::OutputId,
+        slot::{SlotCommitmentId, SlotIndex},
+        BlockId,
     },
-    model::{
-        tangle::{MilestoneIndex, MilestoneTimestamp},
-        utxo::Address,
-    },
+    utils::serde::string,
 };
 use serde::{Deserialize, Serialize};
 
@@ -19,7 +20,7 @@ use crate::api::responses::impl_success_response;
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct LedgerUpdatesByAddressResponse {
-    pub address: String,
+    pub address: Bech32Address,
     pub items: Vec<LedgerUpdateByAddressDto>,
     pub cursor: Option<String>,
 }
@@ -29,134 +30,134 @@ impl_success_response!(LedgerUpdatesByAddressResponse);
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct LedgerUpdateByAddressDto {
-    pub output_id: String,
+    pub output_id: OutputId,
     pub is_spent: bool,
-    pub milestone_index: MilestoneIndex,
-    pub milestone_timestamp: MilestoneTimestamp,
+    pub slot_index: SlotIndex,
 }
 
 impl From<LedgerUpdateByAddressRecord> for LedgerUpdateByAddressDto {
     fn from(value: LedgerUpdateByAddressRecord) -> Self {
         Self {
-            output_id: value.output_id.to_hex(),
+            output_id: value.output_id,
             is_spent: value.is_spent,
-            milestone_index: value.at.milestone_index,
-            milestone_timestamp: value.at.milestone_timestamp,
+            slot_index: value.slot_index,
         }
     }
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct LedgerUpdatesByMilestoneResponse {
-    pub milestone_index: MilestoneIndex,
-    pub items: Vec<LedgerUpdateByMilestoneDto>,
+pub struct LedgerUpdatesBySlotResponse {
+    pub slot_index: SlotIndex,
+    pub items: Vec<LedgerUpdateBySlotDto>,
     pub cursor: Option<String>,
 }
 
-impl_success_response!(LedgerUpdatesByMilestoneResponse);
+impl_success_response!(LedgerUpdatesBySlotResponse);
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct LedgerUpdateByMilestoneDto {
-    pub address: Address,
-    pub output_id: String,
+pub struct LedgerUpdateBySlotDto {
+    pub address: Bech32Address,
+    pub output_id: OutputId,
     pub is_spent: bool,
-}
-
-impl From<LedgerUpdateByMilestoneRecord> for LedgerUpdateByMilestoneDto {
-    fn from(value: LedgerUpdateByMilestoneRecord) -> Self {
-        Self {
-            address: value.address,
-            output_id: value.output_id.to_hex(),
-            is_spent: value.is_spent,
-        }
-    }
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct BalanceResponse {
-    pub total_balance: String,
-    pub available_balance: String,
-    pub ledger_index: MilestoneIndex,
+    pub total_balance: Balance,
+    pub available_balance: Balance,
+    pub ledger_index: SlotIndex,
 }
 
 impl_success_response!(BalanceResponse);
 
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Balance {
+    #[serde(with = "string")]
+    pub amount: u64,
+    #[serde(with = "string")]
+    pub stored_mana: u64,
+    pub decayed_mana: DecayedMana,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DecayedMana {
+    #[serde(with = "string")]
+    pub stored: u64,
+    #[serde(with = "string")]
+    pub potential: u64,
+}
+
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct BlockChildrenResponse {
-    pub block_id: String,
+    pub block_id: BlockId,
     pub max_results: usize,
     pub count: usize,
-    pub children: Vec<String>,
+    pub children: Vec<BlockId>,
 }
 
 impl_success_response!(BlockChildrenResponse);
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct MilestonesResponse {
-    pub items: Vec<MilestoneDto>,
+pub struct SlotsResponse {
+    pub items: Vec<SlotDto>,
     pub cursor: Option<String>,
 }
 
-impl_success_response!(MilestonesResponse);
+impl_success_response!(SlotsResponse);
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct BlockPayloadTypeDto {
-    pub block_id: String,
+    pub block_id: BlockId,
     #[serde(rename = "payloadType")]
-    pub payload_kind: Option<u32>,
+    pub payload_kind: Option<u8>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct BlocksByMilestoneResponse {
+pub struct BlocksBySlotResponse {
+    pub count: usize,
     pub blocks: Vec<BlockPayloadTypeDto>,
     pub cursor: Option<String>,
 }
 
-impl_success_response!(BlocksByMilestoneResponse);
+impl_success_response!(BlocksBySlotResponse);
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct MilestoneDto {
-    milestone_id: String,
-    index: MilestoneIndex,
-}
-
-impl From<MilestoneResult> for MilestoneDto {
-    fn from(res: MilestoneResult) -> Self {
-        Self {
-            milestone_id: res.milestone_id.to_hex(),
-            index: res.index,
-        }
-    }
+pub struct SlotDto {
+    pub commitment_id: SlotCommitmentId,
+    pub index: SlotIndex,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RichestAddressesResponse {
     pub top: Vec<AddressStatDto>,
-    pub ledger_index: MilestoneIndex,
+    pub ledger_index: SlotIndex,
 }
 
 impl_success_response!(RichestAddressesResponse);
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct AddressStatDto {
-    pub address: String,
-    pub balance: String,
+    pub address: Bech32Address,
+    #[serde(with = "string")]
+    pub balance: u64,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct TokenDistributionResponse {
     pub distribution: Vec<DistributionStatDto>,
-    pub ledger_index: MilestoneIndex,
+    pub ledger_index: SlotIndex,
 }
 
 impl_success_response!(TokenDistributionResponse);
@@ -166,7 +167,8 @@ impl_success_response!(TokenDistributionResponse);
 pub struct DistributionStatDto {
     pub range: Range<u64>,
     pub address_count: String,
-    pub total_balance: String,
+    #[serde(with = "string")]
+    pub total_balance: u64,
 }
 
 impl From<DistributionStat> for DistributionStatDto {
