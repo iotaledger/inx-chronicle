@@ -91,12 +91,24 @@ pub struct DistributionStat {
 impl AddressBalanceCollection {
     /// Insert a balance for an address.
     pub async fn insert_balance(&self, address: &Address, balance: u64) -> Result<(), DbError> {
-        self.update_one(
-            doc! { "_id": AddressDto::from(address) },
-            doc! { "$set": { "balance": balance.to_string() } },
-            UpdateOptions::builder().upsert(true).build(),
-        )
-        .await?;
+        if balance == 0 {
+            self.delete_balance(address).await?;
+        } else {
+            self.update_one(
+                doc! { "_id": AddressDto::from(address) },
+                doc! { "$set": { "balance": balance.to_string() } },
+                UpdateOptions::builder().upsert(true).build(),
+            )
+            .await?;
+        }
+        Ok(())
+    }
+
+    /// Delete a balance for an address.
+    pub async fn delete_balance(&self, address: &Address) -> Result<(), DbError> {
+        self.collection
+            .delete_one(doc! { "_id": AddressDto::from(address) }, None)
+            .await?;
         Ok(())
     }
 
