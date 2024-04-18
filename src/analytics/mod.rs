@@ -4,12 +4,15 @@
 //! Various analytics that give insight into the usage of the tangle.
 
 use futures::{prelude::stream::StreamExt, TryStreamExt};
-use iota_sdk::types::block::{
-    output::OutputId,
-    payload::SignedTransactionPayload,
-    protocol::ProtocolParameters,
-    slot::{EpochIndex, SlotCommitment, SlotIndex},
-    Block,
+use iota_sdk::types::{
+    api::core::TransactionState,
+    block::{
+        output::OutputId,
+        payload::SignedTransactionPayload,
+        protocol::ProtocolParameters,
+        slot::{EpochIndex, SlotCommitment, SlotIndex},
+        Block,
+    },
 };
 use thiserror::Error;
 
@@ -343,42 +346,44 @@ impl<'a, I: InputSource> Slot<'a, I> {
         metadata: &TransactionMetadata,
         ctx: &BasicContext<'_>,
     ) -> eyre::Result<()> {
-        let consumed = payload
-            .transaction()
-            .inputs()
-            .iter()
-            .map(|input| input.as_utxo().output_id())
-            .map(|output_id| {
-                Ok(self
-                    .ledger_updates()
-                    .get_consumed(output_id)
-                    .ok_or(AnalyticsError::MissingLedgerSpent {
-                        output_id: *output_id,
-                        slot_index: metadata.transaction_id.slot_index(),
-                    })?
-                    .clone())
-            })
-            .collect::<eyre::Result<Vec<_>>>()?;
-        let created = payload
-            .transaction()
-            .outputs()
-            .iter()
-            .enumerate()
-            .map(|(index, _)| {
-                let output_id = metadata.transaction_id.into_output_id(index as _);
-                Ok(self
-                    .ledger_updates()
-                    .get_created(&output_id)
-                    .ok_or(AnalyticsError::MissingLedgerOutput {
-                        output_id,
-                        slot_index: metadata.transaction_id.slot_index(),
-                    })?
-                    .clone())
-            })
-            .collect::<eyre::Result<Vec<_>>>()?;
-        analytics
-            .handle_transaction(payload, metadata, &consumed, &created, ctx)
-            .await?;
+        if let Some(TransactionState::Finalized) = metadata.transaction_state {
+            let consumed = payload
+                .transaction()
+                .inputs()
+                .iter()
+                .map(|input| input.as_utxo().output_id())
+                .map(|output_id| {
+                    Ok(self
+                        .ledger_updates()
+                        .get_consumed(output_id)
+                        .ok_or(AnalyticsError::MissingLedgerSpent {
+                            output_id: *output_id,
+                            slot_index: metadata.transaction_id.slot_index(),
+                        })?
+                        .clone())
+                })
+                .collect::<eyre::Result<Vec<_>>>()?;
+            let created = payload
+                .transaction()
+                .outputs()
+                .iter()
+                .enumerate()
+                .map(|(index, _)| {
+                    let output_id = metadata.transaction_id.into_output_id(index as _);
+                    Ok(self
+                        .ledger_updates()
+                        .get_created(&output_id)
+                        .ok_or(AnalyticsError::MissingLedgerOutput {
+                            output_id,
+                            slot_index: metadata.transaction_id.slot_index(),
+                        })?
+                        .clone())
+                })
+                .collect::<eyre::Result<Vec<_>>>()?;
+            analytics
+                .handle_transaction(payload, metadata, &consumed, &created, ctx)
+                .await?;
+        }
         Ok(())
     }
 
