@@ -327,7 +327,9 @@ impl<'a, I: InputSource> Slot<'a, I> {
                 .and_then(|p| p.as_signed_transaction_opt())
                 .zip(data.transaction)
             {
-                self.handle_transaction(analytics, payload, &metadata, &ctx).await?;
+                if metadata.transaction_state == Some(TransactionState::Finalized) {
+                    self.handle_transaction(analytics, payload, &metadata, &ctx).await?;
+                }
             }
             self.handle_block(analytics, &data.block, &ctx).await?;
         }
@@ -346,44 +348,42 @@ impl<'a, I: InputSource> Slot<'a, I> {
         metadata: &TransactionMetadata,
         ctx: &BasicContext<'_>,
     ) -> eyre::Result<()> {
-        if let Some(TransactionState::Finalized) = metadata.transaction_state {
-            let consumed = payload
-                .transaction()
-                .inputs()
-                .iter()
-                .map(|input| input.as_utxo().output_id())
-                .map(|output_id| {
-                    Ok(self
-                        .ledger_updates()
-                        .get_consumed(output_id)
-                        .ok_or(AnalyticsError::MissingLedgerSpent {
-                            output_id: *output_id,
-                            slot_index: metadata.transaction_id.slot_index(),
-                        })?
-                        .clone())
-                })
-                .collect::<eyre::Result<Vec<_>>>()?;
-            let created = payload
-                .transaction()
-                .outputs()
-                .iter()
-                .enumerate()
-                .map(|(index, _)| {
-                    let output_id = metadata.transaction_id.into_output_id(index as _);
-                    Ok(self
-                        .ledger_updates()
-                        .get_created(&output_id)
-                        .ok_or(AnalyticsError::MissingLedgerOutput {
-                            output_id,
-                            slot_index: metadata.transaction_id.slot_index(),
-                        })?
-                        .clone())
-                })
-                .collect::<eyre::Result<Vec<_>>>()?;
-            analytics
-                .handle_transaction(payload, metadata, &consumed, &created, ctx)
-                .await?;
-        }
+        let consumed = payload
+            .transaction()
+            .inputs()
+            .iter()
+            .map(|input| input.as_utxo().output_id())
+            .map(|output_id| {
+                Ok(self
+                    .ledger_updates()
+                    .get_consumed(output_id)
+                    .ok_or(AnalyticsError::MissingLedgerSpent {
+                        output_id: *output_id,
+                        slot_index: metadata.transaction_id.slot_index(),
+                    })?
+                    .clone())
+            })
+            .collect::<eyre::Result<Vec<_>>>()?;
+        let created = payload
+            .transaction()
+            .outputs()
+            .iter()
+            .enumerate()
+            .map(|(index, _)| {
+                let output_id = metadata.transaction_id.into_output_id(index as _);
+                Ok(self
+                    .ledger_updates()
+                    .get_created(&output_id)
+                    .ok_or(AnalyticsError::MissingLedgerOutput {
+                        output_id,
+                        slot_index: metadata.transaction_id.slot_index(),
+                    })?
+                    .clone())
+            })
+            .collect::<eyre::Result<Vec<_>>>()?;
+        analytics
+            .handle_transaction(payload, metadata, &consumed, &created, ctx)
+            .await?;
         Ok(())
     }
 
