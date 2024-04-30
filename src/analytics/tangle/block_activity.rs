@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use iota_sdk::types::{
-    api::core::{BlockState, TransactionState},
+    api::core::TransactionState,
     block::{
         payload::{Payload, SignedTransactionPayload},
         Block, BlockBody,
@@ -26,13 +26,7 @@ pub(crate) struct BlockActivityMeasurement {
     pub(crate) tagged_data_count: usize,
     pub(crate) transaction_count: usize,
     pub(crate) candidacy_announcement_count: usize,
-    pub(crate) block_pending_count: usize,
-    pub(crate) block_accepted_count: usize,
-    pub(crate) block_confirmed_count: usize,
     pub(crate) block_finalized_count: usize,
-    pub(crate) block_dropped_count: usize,
-    pub(crate) block_orphaned_count: usize,
-    pub(crate) block_unknown_count: usize,
     pub(crate) txn_pending_count: usize,
     pub(crate) txn_accepted_count: usize,
     pub(crate) txn_committed_count: usize,
@@ -47,7 +41,7 @@ impl Analytics for BlockActivityMeasurement {
     async fn handle_block(
         &mut self,
         block: &Block,
-        block_metadata: &BlockMetadata,
+        _block_metadata: &BlockMetadata,
         _ctx: &dyn AnalyticsContext,
     ) -> eyre::Result<()> {
         match block.body() {
@@ -62,17 +56,9 @@ impl Analytics for BlockActivityMeasurement {
             }
             BlockBody::Validation(_) => self.validation_count += 1,
         }
-        match &block_metadata.block_state {
-            Some(state) => match state {
-                BlockState::Pending => self.block_pending_count += 1,
-                BlockState::Accepted => self.block_accepted_count += 1,
-                BlockState::Confirmed => self.block_confirmed_count += 1,
-                BlockState::Finalized => self.block_finalized_count += 1,
-                BlockState::Dropped => self.block_dropped_count += 1,
-                BlockState::Orphaned => self.block_orphaned_count += 1,
-            },
-            None => self.block_unknown_count += 1,
-        }
+
+        // non-finalized blocks, or blocks without a block state have been filtered out.
+        self.block_finalized_count += 1;
 
         Ok(())
     }
