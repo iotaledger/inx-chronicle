@@ -283,48 +283,6 @@
               "select": [
                 [
                   {
-                    "params": ["block_pending_count"],
-                    "type": "field"
-                  },
-                  {
-                    "params": [],
-                    "type": "sum"
-                  },
-                  {
-                    "params": ["Pending"],
-                    "type": "alias"
-                  }
-                ],
-                [
-                  {
-                    "params": ["block_accepted_count"],
-                    "type": "field"
-                  },
-                  {
-                    "params": [],
-                    "type": "sum"
-                  },
-                  {
-                    "params": ["Accepted"],
-                    "type": "alias"
-                  }
-                ],
-                [
-                  {
-                    "params": ["block_confirmed_count"],
-                    "type": "field"
-                  },
-                  {
-                    "params": [],
-                    "type": "sum"
-                  },
-                  {
-                    "params": ["Confirmed"],
-                    "type": "alias"
-                  }
-                ],
-                [
-                  {
                     "params": ["block_finalized_count"],
                     "type": "field"
                   },
@@ -334,48 +292,6 @@
                   },
                   {
                     "params": ["Finalized"],
-                    "type": "alias"
-                  }
-                ],
-                [
-                  {
-                    "params": ["block_rejected_count"],
-                    "type": "field"
-                  },
-                  {
-                    "params": [],
-                    "type": "sum"
-                  },
-                  {
-                    "params": ["Rejected"],
-                    "type": "alias"
-                  }
-                ],
-                [
-                  {
-                    "params": ["block_failed_count"],
-                    "type": "field"
-                  },
-                  {
-                    "params": [],
-                    "type": "sum"
-                  },
-                  {
-                    "params": ["Failed"],
-                    "type": "alias"
-                  }
-                ],
-                [
-                  {
-                    "params": ["block_unknown_count"],
-                    "type": "field"
-                  },
-                  {
-                    "params": [],
-                    "type": "sum"
-                  },
-                  {
-                    "params": ["Unknown"],
                     "type": "alias"
                   }
                 ]
