@@ -62,7 +62,6 @@ impl LedgerOutput {
         let owning_address = self.owning_address();
         self.output()
             .unlock_conditions()
-            .unwrap()
             .locked_address(
                 &owning_address,
                 slot.into(),

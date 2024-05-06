@@ -9,7 +9,7 @@ repository = "https://github.com/iotaledger/inx-chronicle"
 license = "Apache-2.0"
 keywords = ["iota", "storage", "permanode", "chronicle", "inx"]
 homepage = "https://www.iota.org"
-rust-version = "1.67"
+rust-version = "1.70"
 
 [lib]
 name = "chronicle"

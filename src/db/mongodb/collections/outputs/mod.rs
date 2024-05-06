@@ -202,28 +202,20 @@ impl OutputDocument {
                 governor_address: rec
                     .output()
                     .unlock_conditions()
-                    .and_then(|uc| uc.governor_address())
+                    .governor_address()
                     .map(|uc| uc.address().into()),
                 state_controller_address: rec
                     .output()
                     .unlock_conditions()
-                    .and_then(|uc| uc.state_controller_address())
+                    .state_controller_address()
                     .map(|uc| uc.address().into()),
                 storage_deposit_return: rec
                     .output()
                     .unlock_conditions()
-                    .and_then(|uc| uc.storage_deposit_return())
+                    .storage_deposit_return()
                     .map(|uc| uc.into()),
-                timelock: rec
-                    .output()
-                    .unlock_conditions()
-                    .and_then(|uc| uc.timelock())
-                    .map(|uc| uc.slot_index()),
-                expiration: rec
-                    .output()
-                    .unlock_conditions()
-                    .and_then(|uc| uc.expiration())
-                    .map(|uc| uc.into()),
+                timelock: rec.output().unlock_conditions().timelock().map(|uc| uc.slot_index()),
+                expiration: rec.output().unlock_conditions().expiration().map(|uc| uc.into()),
                 issuer: rec
                     .output()
                     .features()
