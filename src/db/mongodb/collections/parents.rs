@@ -66,7 +66,8 @@ impl MongoDbCollection for ParentsCollection {
 }
 
 impl ParentsCollection {
-    /// Inserts [`Block`]s together with their associated [`BlockMetadata`].
+    /// Inserts [`Block`](iota_sdk::types::block::Block)s together with their associated
+    /// [`BlockMetadata`](crate::model::block_metadata::BlockMetadata).
     #[instrument(skip_all, err, level = "trace")]
     pub async fn insert_blocks<'a, I>(&self, blocks_with_metadata: I) -> Result<(), DbError>
     where

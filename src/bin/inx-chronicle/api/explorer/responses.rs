@@ -1,9 +1,9 @@
 // Copyright 2023 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-use std::ops::Range;
-
-use chronicle::db::mongodb::collections::{DistributionStat, LedgerUpdateByAddressRecord};
+#[cfg(feature = "analytics")]
+use chronicle::db::mongodb::collections::DistributionStat;
+use chronicle::db::mongodb::collections::LedgerUpdateByAddressRecord;
 use iota_sdk::{
     types::block::{
         address::Bech32Address,
@@ -153,6 +153,7 @@ pub struct AddressStatDto {
     pub balance: u64,
 }
 
+#[cfg(feature = "analytics")]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct TokenDistributionResponse {
@@ -160,17 +161,20 @@ pub struct TokenDistributionResponse {
     pub ledger_index: SlotIndex,
 }
 
+#[cfg(feature = "analytics")]
 impl_success_response!(TokenDistributionResponse);
 
+#[cfg(feature = "analytics")]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct DistributionStatDto {
-    pub range: Range<u64>,
+    pub range: core::ops::Range<u64>,
     pub address_count: String,
     #[serde(with = "string")]
     pub total_balance: u64,
 }
 
+#[cfg(feature = "analytics")]
 impl From<DistributionStat> for DistributionStatDto {
     fn from(s: DistributionStat) -> Self {
         Self {

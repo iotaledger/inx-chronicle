@@ -5,10 +5,12 @@ use axum::{
     extract::{Path, State},
     routing::get,
 };
+#[cfg(feature = "analytics")]
+use chronicle::db::mongodb::collections::AddressBalanceCollection;
 use chronicle::db::{
     mongodb::collections::{
-        AddressBalanceCollection, ApplicationStateCollection, BlockCollection, CommittedSlotCollection,
-        LedgerUpdateCollection, OutputCollection, ParentsCollection,
+        ApplicationStateCollection, BlockCollection, CommittedSlotCollection, LedgerUpdateCollection, OutputCollection,
+        ParentsCollection,
     },
     MongoDb,
 };
@@ -19,16 +21,20 @@ use iota_sdk::types::block::{
     BlockId,
 };
 
+#[cfg(feature = "analytics")]
+use super::{
+    extractors::RichestAddressesQuery,
+    responses::{AddressStatDto, RichestAddressesResponse, TokenDistributionResponse},
+};
 use super::{
     extractors::{
         BlocksBySlotCursor, BlocksBySlotIndexPagination, LedgerUpdatesByAddressCursor,
-        LedgerUpdatesByAddressPagination, LedgerUpdatesBySlotCursor, LedgerUpdatesBySlotPagination,
-        RichestAddressesQuery, SlotsCursor, SlotsPagination,
+        LedgerUpdatesByAddressPagination, LedgerUpdatesBySlotCursor, LedgerUpdatesBySlotPagination, SlotsCursor,
+        SlotsPagination,
     },
     responses::{
-        AddressStatDto, Balance, BalanceResponse, BlockChildrenResponse, BlockPayloadTypeDto, BlocksBySlotResponse,
-        DecayedMana, LedgerUpdateBySlotDto, LedgerUpdatesByAddressResponse, LedgerUpdatesBySlotResponse,
-        RichestAddressesResponse, SlotDto, SlotsResponse, TokenDistributionResponse,
+        Balance, BalanceResponse, BlockChildrenResponse, BlockPayloadTypeDto, BlocksBySlotResponse, DecayedMana,
+        LedgerUpdateBySlotDto, LedgerUpdatesByAddressResponse, LedgerUpdatesBySlotResponse, SlotDto, SlotsResponse,
     },
 };
 use crate::api::{
