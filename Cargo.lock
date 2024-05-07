@@ -508,8 +508,8 @@ dependencies = [
 ]
 
 [[package]]
-name = "chronicle"
-version = "2.0.0"
+name = "chronicle-nova"
+version = "1.0.0-beta.1"
 dependencies = [
  "async-trait",
  "auth-helper",
