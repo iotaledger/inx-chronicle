@@ -333,6 +333,13 @@ async fn commitment(
     Path(commitment_id): Path<SlotCommitmentId>,
     headers: HeaderMap,
 ) -> ApiResult<IotaRawResponse<SlotCommitment>> {
+    database
+        .collection::<CommittedSlotCollection>()
+        .get_id_for_slot_index(commitment_id.slot_index())
+        .await?
+        .and_then(|id| (id == commitment_id).then_some(id))
+        .ok_or(MissingError::NoResults)?;
+
     commitment_by_index(database, Path(commitment_id.slot_index()), headers).await
 }
 
