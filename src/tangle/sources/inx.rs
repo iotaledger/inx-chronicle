@@ -38,7 +38,7 @@ impl InputSource for Inx {
     ) -> Result<BoxStream<Result<Commitment, Self::Error>>, Self::Error> {
         let mut inx = self.clone();
         Ok(Box::pin(
-            inx.get_committed_slots(SlotRangeRequest::from_range(range))
+            inx.get_finalized_slots(SlotRangeRequest::from_range(range))
                 .await?
                 .map_err(Self::Error::from),
         ))
