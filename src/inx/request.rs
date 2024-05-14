@@ -47,6 +47,16 @@ impl SlotRangeRequest {
     {
         Self(to_slot_range_request(range))
     }
+
+    /// Get the start slot.
+    pub fn start_slot(&self) -> u32 {
+        self.0.start_slot
+    }
+
+    /// Get the end slot.
+    pub fn end_slot(&self) -> u32 {
+        self.0.end_slot
+    }
 }
 
 impl From<SlotRangeRequest> for proto::SlotRangeRequest {
