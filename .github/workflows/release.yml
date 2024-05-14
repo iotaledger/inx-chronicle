@@ -21,7 +21,7 @@ jobs:
         id: meta
         uses: docker/metadata-action@v3
         with:
-          images: ghcr.io/iotaledger/inx-chronicle-nova
+          images: ghcr.io/iotaledger/inx-chronicle
           tags: type=match,pattern=nova-v(.*),group=1
 
       - name: Login to GitHub container registry
