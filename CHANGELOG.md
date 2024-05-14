@@ -1,3 +1,10 @@
+## [1.0.0-beta.2](https://github.com/iotaledger/inx-chronicle/compare/nova-v1.0.0-beta.1...nova-v1.0.0-beta.2) (2024-05-14)
+
+
+### Bug Fixes
+
+* **inx:** wait for slots to be finalized in INX ([#1395](https://github.com/iotaledger/inx-chronicle/issues/1395)) ([98d2f37](https://github.com/iotaledger/inx-chronicle/commit/98d2f377b5c1702a0ff94eddb6a8f4575db3d938))
+
 ## [1.0.0-beta.1](https://github.com/iotaledger/inx-chronicle/compare/v1.0.0-rc.4...nova-v1.0.0-beta.1) (2024-05-07)
 
 
