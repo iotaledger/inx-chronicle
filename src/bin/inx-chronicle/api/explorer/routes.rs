@@ -26,9 +26,10 @@ use iota_sdk::types::block::address::{Hrp, ToBech32Ext};
 
 use super::{
     extractors::{
-        BlocksByMilestoneCursor, BlocksByMilestoneIdPagination, BlocksByMilestoneIndexPagination, TokenDistributionQuery,
+        BlocksByMilestoneCursor, BlocksByMilestoneIdPagination, BlocksByMilestoneIndexPagination,
         LedgerUpdatesByAddressCursor, LedgerUpdatesByAddressPagination, LedgerUpdatesByMilestoneCursor,
         LedgerUpdatesByMilestonePagination, MilestonesCursor, MilestonesPagination, RichestAddressesQuery,
+        TokenDistributionQuery,
     },
     responses::{
         AddressStatDto, BalanceResponse, BlockChildrenResponse, BlockPayloadTypeDto, BlocksByMilestoneResponse,
@@ -343,7 +344,10 @@ fn get_seconds_until_midnight() -> u64 {
 
 fn get_days_since_epoch() -> u64 {
     let now = SystemTime::now();
-    let secs_since_epoch = now.duration_since(SystemTime::UNIX_EPOCH).expect("Time went backwards").as_secs();
+    let secs_since_epoch = now
+        .duration_since(SystemTime::UNIX_EPOCH)
+        .expect("Time went backwards")
+        .as_secs();
     secs_since_epoch / 86400
 }
 
@@ -360,7 +364,11 @@ fn get_cache_bool(cache: Option<bool>) -> bool {
 
 async fn richest_addresses_ledger_analytics(
     database: Extension<MongoDb>,
-    RichestAddressesQuery { top, ledger_index , cached}: RichestAddressesQuery,
+    RichestAddressesQuery {
+        top,
+        ledger_index,
+        cached,
+    }: RichestAddressesQuery,
 ) -> ApiResult<RichestAddressesResponse> {
     let ledger_index = resolve_ledger_index(&database, ledger_index).await?;
     let mut cache = RICHEST_ADDRESSES_CACHE.write().await;
@@ -407,7 +415,10 @@ async fn richest_addresses_ledger_analytics(
 
     if cached {
         // Store the response in the cache
-        *cache = Some(RichestCacheData { last_updated: days_since_epoch, data: response.clone() });
+        *cache = Some(RichestCacheData {
+            last_updated: days_since_epoch,
+            data: response.clone(),
+        });
 
         let refresh_elapsed = refresh_start.elapsed().unwrap();
         info!("refreshing richest-addresses cache done. Took {:?}", refresh_elapsed);
@@ -419,7 +430,7 @@ async fn richest_addresses_ledger_analytics(
 
 async fn token_distribution_ledger_analytics(
     database: Extension<MongoDb>,
-    TokenDistributionQuery { ledger_index, cached}: TokenDistributionQuery,
+    TokenDistributionQuery { ledger_index, cached }: TokenDistributionQuery,
 ) -> ApiResult<TokenDistributionResponse> {
     let ledger_index = resolve_ledger_index(&database, ledger_index).await?;
     let mut cache = TOKEN_DISTRIBUTION_CACHE.write().await;
@@ -449,7 +460,10 @@ async fn token_distribution_ledger_analytics(
 
     if cached {
         // Store the response in the cache
-        *cache = Some(TokenCacheData { last_updated: days_since_epoch, data: response.clone() });
+        *cache = Some(TokenCacheData {
+            last_updated: days_since_epoch,
+            data: response.clone(),
+        });
 
         let refresh_elapsed = refresh_start.elapsed().unwrap();
         info!("refreshing token-distribution cache done. Took {:?}", refresh_elapsed);

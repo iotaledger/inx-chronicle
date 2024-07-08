@@ -19,13 +19,11 @@ mod test_rand {
         let node_configuration = setup_collection::<ConfigurationUpdateCollection>(&db).await.unwrap();
 
         // empty collection
-        assert!(
-            node_configuration
-                .get_latest_node_configuration()
-                .await
-                .unwrap()
-                .is_none()
-        );
+        assert!(node_configuration
+            .get_latest_node_configuration()
+            .await
+            .unwrap()
+            .is_none());
 
         let mut config = NodeConfiguration {
             milestone_public_key_count: 3,

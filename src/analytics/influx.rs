@@ -61,12 +61,10 @@ where
     M: Measurement,
 {
     fn prepare_query(&self) -> Vec<WriteQuery> {
-        vec![
-            influxdb::Timestamp::from(self.at.milestone_timestamp)
-                .into_query(M::NAME)
-                .add_field("milestone_index", self.at.milestone_index)
-                .add_fields(&self.inner),
-        ]
+        vec![influxdb::Timestamp::from(self.at.milestone_timestamp)
+            .into_query(M::NAME)
+            .add_field("milestone_index", self.at.milestone_index)
+            .add_fields(&self.inner)]
     }
 }
 
