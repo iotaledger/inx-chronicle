@@ -26,7 +26,7 @@ use iota_sdk::types::block::address::{Hrp, ToBech32Ext};
 
 use super::{
     extractors::{
-        BlocksByMilestoneCursor, BlocksByMilestoneIdPagination, BlocksByMilestoneIndexPagination, LedgerIndex,
+        BlocksByMilestoneCursor, BlocksByMilestoneIdPagination, BlocksByMilestoneIndexPagination, TokenDistributionQuery,
         LedgerUpdatesByAddressCursor, LedgerUpdatesByAddressPagination, LedgerUpdatesByMilestoneCursor,
         LedgerUpdatesByMilestonePagination, MilestonesCursor, MilestonesPagination, RichestAddressesQuery,
     },
@@ -44,7 +44,6 @@ use crate::api::{
 };
 
 use once_cell::sync::Lazy;
-use std::time::{Duration, Instant};
 use tokio::sync::RwLock;
 
 pub fn routes() -> Router {
@@ -327,42 +326,57 @@ async fn blocks_by_milestone_id(
 }
 
 struct RichestCacheData {
-    last_updated: Instant,
+    last_updated: u64,
     data: RichestAddressesResponse,
 }
 
 struct TokenCacheData {
-    last_updated: Instant,
+    last_updated: u64,
     data: TokenDistributionResponse,
 }
 
-fn calculate_seconds_until_midnight() -> u64 {
+fn get_seconds_until_midnight() -> u64 {
     let now = SystemTime::now();
     let since_epoch = now.duration_since(SystemTime::UNIX_EPOCH).expect("Time went backwards");
-    let seconds_today = since_epoch.as_secs() % 86400;
-    86400 - seconds_today
+    86400 - (since_epoch.as_secs() % 86400)
+}
+
+fn get_days_since_epoch() -> u64 {
+    let now = SystemTime::now();
+    let secs_since_epoch = now.duration_since(SystemTime::UNIX_EPOCH).expect("Time went backwards").as_secs();
+    secs_since_epoch / 86400
 }
 
 static RICHEST_ADDRESSES_CACHE: Lazy<RwLock<Option<RichestCacheData>>> = Lazy::new(|| RwLock::new(None));
 static TOKEN_DISTRIBUTION_CACHE: Lazy<RwLock<Option<TokenCacheData>>> = Lazy::new(|| RwLock::new(None));
 
+fn get_cache_bool(cache: Option<bool>) -> bool {
+    // default case is use the cache
+    match cache {
+        Some(b) => b,
+        None => true,
+    }
+}
+
 async fn richest_addresses_ledger_analytics(
     database: Extension<MongoDb>,
-    RichestAddressesQuery { top, ledger_index }: RichestAddressesQuery,
+    RichestAddressesQuery { top, ledger_index , cached}: RichestAddressesQuery,
 ) -> ApiResult<RichestAddressesResponse> {
     let ledger_index = resolve_ledger_index(&database, ledger_index).await?;
     let mut cache = RICHEST_ADDRESSES_CACHE.write().await;
-    let seconds_until_midnight = calculate_seconds_until_midnight();
+    let cached = get_cache_bool(cached);
+    let days_since_epoch = get_days_since_epoch();
 
-    if let Some(cached_data) = &*cache {
-        if cached_data.last_updated.elapsed() < Duration::from_secs(86400) {
-            return Ok(cached_data.data.clone());
+    if cached {
+        if let Some(cached_data) = &*cache {
+            if cached_data.last_updated == days_since_epoch {
+                return Ok(cached_data.data.clone());
+            }
         }
+        info!("refreshing richest-addresses cache ...");
     }
 
-    info!("refreshing richest-addresses cache ...");
     let refresh_start = SystemTime::now();
-
     let res = database
         .collection::<OutputCollection>()
         .get_richest_addresses(ledger_index, top)
@@ -391,33 +405,38 @@ async fn richest_addresses_ledger_analytics(
         ledger_index,
     };
 
-    // Store the response in the cache
-    *cache = Some(RichestCacheData { last_updated: Instant::now(), data: response.clone() });
+    if cached {
+        // Store the response in the cache
+        *cache = Some(RichestCacheData { last_updated: days_since_epoch, data: response.clone() });
 
-    let refresh_elapsed = refresh_start.elapsed().unwrap();
-    info!("refreshing richest-addresses cache done. Took {:?}", refresh_elapsed);
-    info!("next refresh in {} seconds", seconds_until_midnight);
+        let refresh_elapsed = refresh_start.elapsed().unwrap();
+        info!("refreshing richest-addresses cache done. Took {:?}", refresh_elapsed);
+        info!("next refresh in {} seconds", get_seconds_until_midnight());
+    }
 
     Ok(response)
 }
 
 async fn token_distribution_ledger_analytics(
     database: Extension<MongoDb>,
-    LedgerIndex { ledger_index }: LedgerIndex,
+    TokenDistributionQuery { ledger_index, cached}: TokenDistributionQuery,
 ) -> ApiResult<TokenDistributionResponse> {
     let ledger_index = resolve_ledger_index(&database, ledger_index).await?;
     let mut cache = TOKEN_DISTRIBUTION_CACHE.write().await;
+    let cached = get_cache_bool(cached);
+    let days_since_epoch = get_days_since_epoch();
 
-    let seconds_until_midnight = calculate_seconds_until_midnight();
-    if let Some(cached_data) = &*cache {
-        if cached_data.last_updated.elapsed() < Duration::from_secs(86400) {
-            return Ok(cached_data.data.clone());
+    if cached {
+        if let Some(cached_data) = &*cache {
+            if cached_data.last_updated == days_since_epoch {
+                return Ok(cached_data.data.clone());
+            }
         }
+
+        info!("refreshing token-distribution cache ...");
     }
 
-    info!("refreshing token-distribution cache ...");
     let refresh_start = SystemTime::now();
-
     let res = database
         .collection::<OutputCollection>()
         .get_token_distribution(ledger_index)
@@ -428,12 +447,14 @@ async fn token_distribution_ledger_analytics(
         ledger_index,
     };
 
-    // Store the response in the cache
-    *cache = Some(TokenCacheData { last_updated: Instant::now(), data: response.clone() });
+    if cached {
+        // Store the response in the cache
+        *cache = Some(TokenCacheData { last_updated: days_since_epoch, data: response.clone() });
 
-    let refresh_elapsed = refresh_start.elapsed().unwrap();
-    info!("refreshing token-distribution cache done. Took {:?}", refresh_elapsed);
-    info!("next refresh in {} seconds", seconds_until_midnight);
+        let refresh_elapsed = refresh_start.elapsed().unwrap();
+        info!("refreshing token-distribution cache done. Took {:?}", refresh_elapsed);
+        info!("next refresh in {} seconds", get_seconds_until_midnight());
+    }
 
     Ok(response)
 }
