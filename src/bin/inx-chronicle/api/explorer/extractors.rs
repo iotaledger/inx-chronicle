@@ -265,6 +265,7 @@ const DEFAULT_TOP_RICHLIST: usize = 100;
 pub struct RichestAddressesQuery {
     pub top: usize,
     pub ledger_index: Option<MilestoneIndex>,
+    pub cached: Option<bool>,
 }
 
 impl Default for RichestAddressesQuery {
@@ -272,6 +273,7 @@ impl Default for RichestAddressesQuery {
         Self {
             top: DEFAULT_TOP_RICHLIST,
             ledger_index: None,
+            cached: None,
         }
     }
 }
@@ -292,16 +294,17 @@ impl<B: Send> FromRequest<B> for RichestAddressesQuery {
 
 #[derive(Copy, Clone, Deserialize, Default)]
 #[serde(default, deny_unknown_fields, rename_all = "camelCase")]
-pub struct LedgerIndex {
+pub struct TokenDistributionQuery {
     pub ledger_index: Option<MilestoneIndex>,
+    pub cached: Option<bool>,
 }
 
 #[async_trait]
-impl<B: Send> FromRequest<B> for LedgerIndex {
+impl<B: Send> FromRequest<B> for TokenDistributionQuery {
     type Rejection = ApiError;
 
     async fn from_request(req: &mut axum::extract::RequestParts<B>) -> Result<Self, Self::Rejection> {
-        let Query(query) = Query::<LedgerIndex>::from_request(req)
+        let Query(query) = Query::<TokenDistributionQuery>::from_request(req)
             .await
             .map_err(RequestError::from)?;
         Ok(query)
